@@ -45,6 +45,11 @@ export default defineConfig({
       testMatch: /tests\/api\/.*\.spec\.ts/,
     },
     {
+      name: "accessibility",
+      testMatch: /tests\/accessibility\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "chromium",
       testMatch: [/tests\/ui\/.*\.spec\.ts/, /tests\/smoke\/.*\.spec\.ts/],
       use: { ...devices["Desktop Chrome"] },
