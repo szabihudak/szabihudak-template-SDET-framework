@@ -1,5 +1,6 @@
 import { test as base, expect, type Page } from "@playwright/test";
 
+import { AccessibilityScanner } from "../accessibility/utils/AccessibilityScanner";
 import { TaskApiClient } from "../api/clients/TaskApiClient";
 import { UserApiClient } from "../api/clients/UserApiClient";
 import type { AuthenticatedUser, TestUser } from "../api/models/User";
@@ -23,6 +24,7 @@ type AppFixtures = {
   loginPage: LoginPage;
   registerPage: RegisterPage;
   navigation: NavigationBar;
+  accessibility: AccessibilityScanner;
   userApi: UserApiClient;
   taskApi: TaskApiClient;
   testUserData: TestUser;
@@ -30,6 +32,7 @@ type AppFixtures = {
   authenticatedTestUser: AuthenticatedUser;
   createdTask: CreatedTask;
   authenticatedPage: Page;
+  authenticatedAccessibility: AccessibilityScanner;
   tasksDashboardPage: TasksDashboardPage;
 };
 
@@ -48,6 +51,10 @@ export const test = base.extend<AppFixtures>({
 
   navigation: async ({ page }, use) => {
     await use(new NavigationBar(page));
+  },
+
+  accessibility: async ({ page }, use) => {
+    await use(new AccessibilityScanner(page));
   },
 
   userApi: async ({ request }, use) => {
@@ -132,6 +139,10 @@ export const test = base.extend<AppFixtures>({
     await use(page);
 
     await context.close();
+  },
+
+  authenticatedAccessibility: async ({ authenticatedPage }, use) => {
+    await use(new AccessibilityScanner(authenticatedPage));
   },
 
   tasksDashboardPage: async ({ authenticatedPage }, use) => {
