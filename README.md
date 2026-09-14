@@ -5,24 +5,25 @@
 [![CI](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml)
 [![Docker](https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API and browser testing.
+A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, and automated accessibility testing.
 
-The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, and failure diagnostics**.
+The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, and failure diagnostics**.
 
 ## Engineering Capabilities
 
-| Area                  | Implementation                                                        |
-| --------------------- | --------------------------------------------------------------------- |
-| API Testing           | Browser-independent Playwright API tests with domain-specific clients |
-| Contract Testing      | TypeBox schemas with AJV runtime validation                           |
-| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking        |
-| Authentication        | Programmatic API and browser authentication                           |
-| Test Data             | Deterministic factories with scenario-specific overrides              |
-| Cross-Browser         | Chromium, Firefox, and WebKit execution                               |
-| Containerization      | Reproducible Playwright execution with Docker                         |
-| CI/CD                 | GitHub Actions with quality gates and browser matrix execution        |
-| Diagnostics           | HTML reports, traces, screenshots, video, and CI artifacts            |
-| Engineering Standards | Architecture documentation, testing standards, and ADRs               |
+| Area                  | Implementation                                                              |
+| --------------------- | --------------------------------------------------------------------------- |
+| API Testing           | Browser-independent Playwright API tests with domain-specific clients       |
+| Contract Testing      | TypeBox schemas with AJV runtime validation                                 |
+| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking              |
+| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution  |
+| Authentication        | Programmatic API and browser authentication                                 |
+| Test Data             | Deterministic factories with scenario-specific overrides                    |
+| Cross-Browser         | Chromium, Firefox, and WebKit execution                                     |
+| Containerization      | Reproducible Playwright execution with Docker                               |
+| CI/CD                 | GitHub Actions with quality gates, accessibility checks, and browser matrix |
+| Diagnostics           | HTML reports, traces, screenshots, video, and CI artifacts                  |
+| Engineering Standards | Architecture documentation, testing standards, and ADRs                     |
 
 ## Architecture at a Glance
 
@@ -32,35 +33,42 @@ flowchart TD
 
     A --> B[API Testing]
     A --> C[UI Testing]
+    A --> D[Accessibility Testing]
 
-    B --> D[Domain API Clients]
-    D --> E[TypeBox Schemas]
-    E --> F[AJV Runtime Validation]
+    B --> E[Domain API Clients]
+    E --> F[TypeBox Schemas]
+    F --> G[AJV Runtime Validation]
 
-    C --> G[Page Objects / Component Objects]
-    G --> H[Playwright Fixtures]
-    H --> I[Programmatic Authentication]
+    C --> H[Page Objects / Component Objects]
+    H --> I[Playwright Fixtures]
+    I --> J[Programmatic Authentication]
 
-    F --> J[Test Infrastructure]
-    I --> J
+    D --> K[AccessibilityScanner]
+    K --> L[Central WCAG Policy]
+    L --> M[Axe Analysis]
 
-    J --> K[Docker]
-    J --> L[GitHub Actions]
+    G --> N[Test Infrastructure]
+    J --> N
+    M --> N
 
-    K --> M[Reproducible Runtime]
-    K --> N[Runtime TEST_ENV]
-    K --> O[Ephemeral Containers]
+    N --> O[Docker]
+    N --> P[GitHub Actions]
 
-    L --> P[Quality Gates]
-    L --> Q[Single Image Build]
-    Q --> R[API Project]
-    Q --> S[UI Browser Matrix]
+    O --> Q[Reproducible Runtime]
+    O --> R[Runtime TEST_ENV]
+    O --> S[Ephemeral Containers]
 
-    S --> T[Chromium]
-    S --> U[Firefox]
-    S --> V[WebKit]
+    P --> T[Quality Gates]
+    P --> U[Single Image Build]
+    U --> V[API Project]
+    U --> W[Accessibility Project]
+    U --> X[UI Browser Matrix]
 
-    L --> W[Test Reports & Failure Diagnostics]
+    X --> Y[Chromium]
+    X --> Z[Firefox]
+    X --> AA[WebKit]
+
+    P --> AB[Test Reports & Failure Diagnostics]
 ```
 
 ## Engineering Approach
@@ -76,13 +84,13 @@ The framework favors:
 - deterministic and isolated test data;
 - reproducible execution across local and CI environments;
 - build-once, configure-at-runtime container execution;
-- efficient CI ownership between API and browser tests;
+- efficient CI ownership between API, accessibility, and browser tests;
 - actionable diagnostics when execution fails;
 - documented architectural decisions and trade-offs.
 
 New capabilities are introduced only when they demonstrate a real testing or architectural requirement.
 
-> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
+> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
 
 ## Quick Navigation
 
@@ -103,6 +111,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | API Testing               | Playwright APIRequestContext  |
 | Runtime Schema Validation | TypeBox + AJV                 |
 | UI Automation             | Playwright Browser Automation |
+| Accessibility Testing     | @axe-core/playwright          |
 | Containerization          | Docker                        |
 | CI/CD                     | GitHub Actions                |
 | Formatting                | Prettier                      |
@@ -151,6 +160,28 @@ Application UI
 ```
 
 API and programmatic setup are used where appropriate to keep UI tests focused on the browser behavior being verified.
+
+### Accessibility flow
+
+```text
+Spec
+  ↓
+Fixture
+  ↓
+AccessibilityScanner
+  ↓
+central WCAG policy
+  ↓
+axe analysis
+  ↓
+formatted diagnostics
+  ↓
+accessibility assertion
+```
+
+Automated accessibility checks use the framework's central WCAG 2.2 Level AA policy and intentionally fail when configured axe rules report violations.
+
+Automated axe coverage provides a quality signal for supported automated rules; it does not replace manual accessibility testing or prove complete WCAG conformance.
 
 For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -235,6 +266,32 @@ Page Objects represent page-level behavior, while Component Objects encapsulate 
 Authentication setup is separated from the behavior under test. Protected UI scenarios use a programmatically authenticated browser context rather than repeating UI login unless login itself is the scenario being tested.
 
 Locator scope follows the actual application DOM, including support for portal-rendered UI elements.
+
+## Accessibility Testing
+
+Automated accessibility testing uses `@axe-core/playwright` through a reusable `AccessibilityScanner`.
+
+The current framework policy targets automated WCAG 2.2 Level AA coverage through a centralized set of axe rule tags.
+
+Accessibility assertions remain in specs, while diagnostic formatting is separated from pass/fail logic.
+
+Representative golden coverage includes both:
+
+```text
+public page
+→ standard page context
+→ accessibility fixture
+
+authenticated page
+→ authenticatedPage context
+→ authenticatedAccessibility fixture
+```
+
+The dedicated accessibility Playwright project currently executes through Chromium once rather than duplicating the same accessibility suite across the full browser matrix.
+
+Real accessibility violations remain failing quality signals. The framework does not suppress violations or use `continue-on-error` merely to keep CI green.
+
+Automated axe analysis does not replace manual accessibility testing for requirements that cannot be reliably automated.
 
 ## Authentication
 
@@ -326,7 +383,7 @@ docker run --rm \
   npx playwright test --project=api
 ```
 
-This keeps the container image reusable rather than creating separate images for API and browser projects.
+This keeps the container image reusable rather than creating separate images for API, accessibility, and browser projects.
 
 ### Container Lifecycle
 
@@ -395,6 +452,9 @@ build-image
         ├── api
         │   └── same image → --project=api
         │
+        ├── accessibility
+        │   └── same image → --project=accessibility
+        │
         └── ui matrix
             ├── same image → chromium
             ├── same image → firefox
@@ -410,13 +470,15 @@ Prettier
 
 After quality validation succeeds, CI builds the reusable Playwright test image once.
 
-The image is tagged with the current commit SHA, saved as a temporary GitHub Actions artifact, and reused by the API and UI jobs.
+The image is tagged with the current commit SHA, saved as a temporary GitHub Actions artifact, and reused by the API, accessibility, and UI jobs.
 
 API tests execute once because they are browser-independent.
 
+Accessibility tests execute once through the dedicated Chromium-based accessibility project.
+
 UI and smoke tests execute through browser-specific Playwright projects using a GitHub Actions matrix.
 
-The API and UI jobs load and execute the same previously built Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
+The API, accessibility, and UI jobs load and execute the same previously built Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
 
 Test containers are ephemeral and execute with `--rm`.
 
@@ -430,6 +492,10 @@ The current project ownership is:
 api
 → tests/api/**
 
+accessibility
+→ tests/accessibility/**
+→ Chromium
+
 chromium
 firefox
 webkit
@@ -437,7 +503,7 @@ webkit
 → tests/smoke/**
 ```
 
-This prevents HTTP-only API tests from being redundantly executed once per browser while preserving cross-browser coverage where browser behavior matters.
+This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
 
 ## Reports and Diagnostics
 
@@ -452,6 +518,13 @@ Failure diagnostics
 ```
 
 Artifacts are separated by execution responsibility and browser so failures remain attributable to the correct job.
+
+Accessibility CI evidence is preserved separately through:
+
+```text
+playwright-report-accessibility
+test-results-accessibility
+```
 
 Playwright is configured to retain additional diagnostics for failed or retried execution, including screenshots, video, and traces according to the configured policy.
 
@@ -521,6 +594,12 @@ Run API tests only:
 npx playwright test --project=api
 ```
 
+Run accessibility tests only:
+
+```bash
+npx playwright test --project=accessibility
+```
+
 Run a browser project:
 
 ```bash
@@ -562,6 +641,15 @@ docker run --rm \
   -e TEST_ENV=hosted \
   playwright-enterprise-tests \
   npx playwright test --project=api
+```
+
+Run only the accessibility project:
+
+```bash
+docker run --rm \
+  -e TEST_ENV=hosted \
+  playwright-enterprise-tests \
+  npx playwright test --project=accessibility
 ```
 
 Run the complete suite while preserving reports and test results on the host:
@@ -608,6 +696,7 @@ AI coding agents are instructed to:
 - preserve schema-first API contracts;
 - preserve authentication and fixture boundaries;
 - select the correct Playwright execution project;
+- reuse the established accessibility scanner, WCAG policy, fixtures, formatter, and assertion pattern for accessibility coverage;
 - validate formatting, types, and affected tests before completion.
 
 Repository-level agent behavior is defined in [`AGENTS.md`](AGENTS.md), with GitHub Copilot-specific instructions in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
@@ -625,6 +714,7 @@ The target provides realistic scenarios for:
 - task management;
 - API contract testing;
 - API/UI integration;
+- automated accessibility testing;
 - negative testing;
 - controlled network failure scenarios.
 
@@ -635,25 +725,28 @@ The framework treats the target application as an external provider and models o
 Current implemented foundation:
 
 ```text
-Framework architecture        ✅
-Reusable fixtures             ✅
-Test-data factories           ✅
-API automation                ✅
-API authentication            ✅
-Runtime contract validation   ✅
-API/UI integration            ✅
-Network mocking               ✅
-Page/Component architecture   ✅
-Programmatic browser auth     ✅
-Cross-browser execution       ✅
-Docker test execution         ✅
-Runtime container config      ✅
+Framework architecture         ✅
+Reusable fixtures              ✅
+Test-data factories            ✅
+API automation                 ✅
+API authentication             ✅
+Runtime contract validation    ✅
+API/UI integration             ✅
+Network mocking                ✅
+Page/Component architecture    ✅
+Programmatic browser auth      ✅
+Cross-browser execution        ✅
+Automated accessibility        ✅
+WCAG policy                    ✅
+Accessibility CI gate          ✅
+Docker test execution          ✅
+Runtime container config       ✅
 Container artifact persistence ✅
-GitHub Actions CI             ✅
-CI quality gates              ✅
-CI artifacts                  ✅
-Browser matrix execution      ✅
-Agent engineering standards   ✅
+GitHub Actions CI              ✅
+CI quality gates               ✅
+CI artifacts                   ✅
+Browser matrix execution       ✅
+Agent engineering standards    ✅
 ```
 
 Additional Quality Engineering capabilities will be introduced as the framework evolves.

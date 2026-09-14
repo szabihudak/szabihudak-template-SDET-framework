@@ -19,7 +19,7 @@ reuse
 → create
 ```
 
-Do not create a new client, schema, constant collection, factory, fixture, Page Object, Component Object, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
+Do not create a new client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
 
 Do not treat "add a test" as a request to modify only the spec file.
 
@@ -33,6 +33,7 @@ Preserve:
 - fixture dependency boundaries;
 - API vs browser authentication separation;
 - Page Object and Component Object responsibility boundaries;
+- accessibility scanner and WCAG policy ownership;
 - semantic test structure;
 - existing formatting and naming conventions.
 
@@ -72,6 +73,38 @@ For UI work:
 - keep portal-rendered elements page-scoped when they exist outside the component subtree;
 - use the correct Playwright `Page` instance for the context being tested.
 
+For accessibility work:
+
+- place accessibility tests under `tests/accessibility/**`;
+- execute them through the dedicated `accessibility` Playwright project;
+- reuse the existing `AccessibilityScanner`;
+- reuse the central WCAG policy rather than duplicating axe rule tags in specs;
+- keep accessibility assertions in specs;
+- use `AccessibilityFormatter` only for human-readable diagnostics;
+- preserve the correct `Page` ownership for public and authenticated scans;
+- use the established full-page scan pattern unless a concrete requirement justifies a new scoped abstraction;
+- do not add selectors, test IDs, Page Object properties, or helper abstractions solely for hypothetical accessibility reuse;
+- do not suppress real accessibility violations merely to make CI pass;
+- do not use `continue-on-error` to hide accessibility failures;
+- do not describe automated axe coverage as complete WCAG conformance or as a replacement for manual accessibility testing;
+- do not duplicate accessibility execution across Chromium, Firefox, and WebKit unless a concrete browser-specific requirement or observed issue justifies it.
+
+Preserve the established accessibility flow:
+
+```text
+establish meaningful page state
+        ↓
+AccessibilityScanner
+        ↓
+central WCAG policy
+        ↓
+axe result
+        ↓
+AccessibilityFormatter
+        ↓
+spec assertion
+```
+
 Preserve authentication boundaries:
 
 ```text
@@ -86,7 +119,7 @@ Do not treat API authentication and browser authentication as interchangeable.
 
 Use UI login only when login behavior itself is under test.
 
-Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, or fixture unless demonstrated reuse or complexity justifies them.
+Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, or accessibility abstraction unless demonstrated reuse or complexity justifies them.
 
 Prefer the smallest architecturally complete change.
 
@@ -104,6 +137,15 @@ schema
 → mock
 → spec
 ```
+
+An accessibility change may require:
+
+```text
+fixture
+→ accessibility spec
+```
+
+or may reuse the existing scanner, policy, formatter, and fixtures without introducing any new abstraction.
 
 Only modify the layers genuinely required by the behavior.
 
@@ -124,6 +166,16 @@ npm run typecheck
 ```
 
 Run the affected Playwright tests.
+
+For accessibility work, run:
+
+```bash
+npx playwright test --project=accessibility
+```
+
+A failing accessibility project may represent a real application accessibility violation rather than a framework defect.
+
+Do not hide or reinterpret that failure merely to claim validation passed.
 
 Run broader regression scope when shared framework infrastructure changes.
 

@@ -116,11 +116,29 @@ Playwright Page
 Application UI
 ```
 
+A typical accessibility flow is:
+
+```text
+Spec
+  ↓
+Fixture
+  ↓
+AccessibilityScanner
+  ↓
+central WCAG policy
+  ↓
+axe analysis
+  ↓
+formatted diagnostics
+  ↓
+accessibility assertion
+```
+
 API and UI flows may be composed when API setup provides faster or more reliable prerequisites for UI behavior.
 
 ## Test Execution Architecture
 
-The framework separates browser-independent API execution from browser-dependent UI execution.
+The framework separates browser-independent API execution, browser-dependent UI execution, and automated accessibility execution.
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
@@ -130,6 +148,12 @@ Current project boundaries:
 api
 → tests/api/**
 → browser-independent
+→ executed once
+
+accessibility
+→ tests/accessibility/**
+→ automated WCAG accessibility coverage
+→ Chromium execution
 → executed once
 
 chromium
@@ -150,9 +174,11 @@ webkit
 
 API tests use Playwright's HTTP capabilities and do not validate browser-engine behavior. They must therefore not be multiplied across Chromium, Firefox, and WebKit projects.
 
+Accessibility tests use browser-rendered application state but have a dedicated execution responsibility. The current automated accessibility gate executes through Chromium rather than being multiplied across the full UI browser matrix.
+
 UI and smoke tests validate browser-visible behavior and may run across multiple browser projects because rendering, interaction, and browser behavior can differ.
 
-This separation avoids redundant API execution while preserving cross-browser UI coverage.
+This separation avoids redundant API and accessibility execution while preserving cross-browser UI coverage.
 
 ## Docker Execution Architecture
 
@@ -182,6 +208,7 @@ one test image
 runtime command
     ├── complete suite
     ├── api
+    ├── accessibility
     ├── chromium
     ├── firefox
     └── webkit
@@ -334,6 +361,9 @@ build-image
         ├── api
         │   └── API tests once
         │
+        ├── accessibility
+        │   └── automated accessibility tests once
+        │
         └── ui matrix
             ├── chromium
             ├── firefox
@@ -342,9 +372,9 @@ build-image
 
 The `build-image` job depends on the successful completion of the `quality` job.
 
-The `api` and `ui` jobs depend on `build-image` but do not depend on one another.
+The `api`, `accessibility`, and `ui` jobs depend on `build-image` but do not depend on one another.
 
-This allows API and UI execution to proceed independently and in parallel after the reusable test image has been built.
+This allows API, accessibility, and UI execution to proceed independently and in parallel after the reusable test image has been built.
 
 The Docker image is built once per workflow execution and tagged with the current commit SHA.
 
@@ -359,13 +389,16 @@ docker build
 → docker run
 ```
 
-Both API and browser execution use the same image.
+API, accessibility, and browser execution use the same image.
 
 Playwright project selection remains responsible for execution scope:
 
 ```text
 api
 → --project=api
+
+accessibility
+→ --project=accessibility
 
 ui matrix
 → --project=chromium
@@ -379,7 +412,7 @@ Test containers are ephemeral and return the Playwright process exit code to Git
 
 Generated Playwright output is bind-mounted to the runner before GitHub Actions uploads the required reports and diagnostics as workflow artifacts.
 
-This preserves a single reusable execution environment while retaining explicit API and browser execution ownership.
+This preserves a single reusable execution environment while retaining explicit API, accessibility, and browser execution ownership.
 
 ### CI Execution Hardening
 
@@ -421,6 +454,9 @@ build-image
 → 15 minutes
 
 api
+→ 10 minutes
+
+accessibility
 → 10 minutes
 
 ui matrix job
@@ -498,12 +534,14 @@ Examples:
 
 ```text
 playwright-report-api
+playwright-report-accessibility
 
 playwright-report-chromium
 playwright-report-firefox
 playwright-report-webkit
 
 test-results-api
+test-results-accessibility
 
 test-results-chromium
 test-results-firefox
@@ -741,6 +779,73 @@ Objects must be constructed from the `Page` belonging to the context they operat
 
 A Page Object or Component Object created from the default `page` fixture must not be reused against `authenticatedPage`.
 
+## Accessibility Architecture
+
+Automated accessibility testing uses `@axe-core/playwright` through a reusable framework scanner rather than constructing axe configuration directly inside specs.
+
+The current automated accessibility policy targets WCAG 2.2 Level AA through the framework's central axe tag configuration.
+
+The policy includes applicable Level A and Level AA rule tags from WCAG 2.0 and WCAG 2.1 together with WCAG 2.2 Level AA additions.
+
+```text
+WCAG_AA_TAGS
+        ↓
+AccessibilityScanner
+        ↓
+axe analysis
+        ↓
+AxeResults
+```
+
+The scanner is responsible for executing the configured accessibility analysis against the `Page` provided to it.
+
+It does not:
+
+- decide whether a test passes or fails;
+- suppress violations;
+- contain page-specific assertions;
+- own presentation of failure diagnostics.
+
+Accessibility assertions remain in specs.
+
+Human-readable diagnostic formatting is separated from scan execution:
+
+```text
+AxeResults
+    ↓
+formatter
+    ↓
+readable failure message
+
+AxeResults
+    ↓
+spec assertion
+    ↓
+pass / fail
+```
+
+The formatter must not change which violations are reported or determine the quality outcome.
+
+Accessibility fixtures preserve browser-context ownership.
+
+```text
+page
+→ accessibility
+
+authenticatedPage
+→ authenticatedAccessibility
+```
+
+This ensures that public and authenticated accessibility checks execute against the same `Page` instance used to establish the tested application state.
+
+The current golden accessibility pattern uses full-page scans after the test has established a meaningful page state.
+
+Scoped component scanning should not be introduced merely for structural completeness. A scoped abstraction should be added only when a concrete use case demonstrates a clean ownership model and architectural value.
+
+Automated axe analysis is a quality gate for the rules included in the configured policy. It does not prove complete WCAG conformance and does not replace manual accessibility testing for requirements that cannot be reliably automated.
+
+Known or provider-owned violations are not automatically suppressed merely to produce a passing pipeline. A real violation remains a failing accessibility signal unless an explicit future policy defines and justifies different handling.
+
 ## Execution Boundary Rules
 
 Test placement and Playwright project ownership must remain aligned.
@@ -750,6 +855,9 @@ Use:
 ```text
 tests/api/**
 → API project
+
+tests/accessibility/**
+→ accessibility project
 
 tests/ui/**
 → browser projects
@@ -761,6 +869,8 @@ tests/smoke/**
 Do not place browser-dependent behavior under the API suite.
 
 Do not place browser-independent API contract tests under UI or smoke suites merely to force execution through browser projects.
+
+Accessibility tests should remain under the dedicated accessibility project rather than being added to the standard UI browser matrix solely for structural symmetry.
 
 If a new test type requires a materially different execution model, introduce the smallest explicit project boundary required by the behavior rather than extending unrelated projects.
 

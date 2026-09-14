@@ -71,6 +71,7 @@ Depending on the task, inspect the applicable:
 - fixture;
 - Page Object;
 - Component Object;
+- accessibility utility;
 - mock;
 - utility;
 - configuration.
@@ -107,6 +108,14 @@ Authenticated UI behavior
 → authenticatedPage
 → relevant Page Object / Component Object
 → existing authenticated UI specs
+
+Accessibility behavior
+→ existing accessibility specs
+→ AccessibilityScanner
+→ central WCAG policy
+→ accessibility / authenticatedAccessibility fixtures
+→ AccessibilityFormatter
+→ accessibility Playwright project
 ```
 
 References demonstrate structural grammar and responsibility boundaries.
@@ -137,6 +146,12 @@ Page Object
 
 Component Object
 → reusable UI-region interaction
+
+AccessibilityScanner
+→ automated accessibility analysis using the central WCAG policy
+
+AccessibilityFormatter
+→ human-readable accessibility diagnostics
 
 Mock
 → controlled network behavior
@@ -189,6 +204,76 @@ Objects used with `authenticatedPage` must operate on that authenticated `Page` 
 
 Do not reuse an object constructed from the default Playwright `page` against `authenticatedPage`.
 
+## Accessibility Rules
+
+Accessibility tests belong under:
+
+```text
+tests/accessibility/**
+```
+
+and execute through:
+
+```text
+--project=accessibility
+```
+
+Use the existing `AccessibilityScanner` rather than constructing `AxeBuilder` directly inside specs.
+
+Use the framework's central WCAG policy rather than duplicating axe tags in individual tests.
+
+Preserve the golden flow:
+
+```text
+establish meaningful page state
+        ↓
+AccessibilityScanner
+        ↓
+central WCAG policy
+        ↓
+axe result
+        ↓
+AccessibilityFormatter
+        ↓
+spec assertion
+```
+
+Accessibility assertions must remain in specs.
+
+The formatter may improve failure readability but must not:
+
+- remove violations;
+- suppress violations;
+- alter severity;
+- determine pass/fail;
+- convert a failing accessibility result into a passing one.
+
+Preserve Page ownership:
+
+```text
+page
+→ accessibility
+
+authenticatedPage
+→ authenticatedAccessibility
+```
+
+Do not use an accessibility scanner constructed from one `Page` instance to validate state owned by another `Page`.
+
+Do not suppress real accessibility violations or use `continue-on-error` merely to keep CI green.
+
+Do not introduce accessibility-specific selectors, test IDs, Page Object properties, or scoped-scan abstractions solely for hypothetical future use.
+
+The current golden pattern uses representative full-page scans.
+
+If a future requirement genuinely needs scoped accessibility analysis, inspect the ownership model first and introduce the smallest clean abstraction only when demonstrated by a real use case.
+
+Automated axe analysis is not equivalent to complete WCAG conformance and must not be described as a replacement for manual accessibility testing.
+
+The current accessibility project runs through Chromium once.
+
+Do not duplicate accessibility coverage across Chromium, Firefox, and WebKit unless a concrete browser-specific requirement or observed issue demonstrates value.
+
 ## Authentication Rules
 
 API and browser authentication are separate concerns:
@@ -234,6 +319,7 @@ Do not introduce a new:
 - fixture;
 - Page Object;
 - Component Object;
+- accessibility abstraction;
 
 for hypothetical future reuse or structural symmetry.
 
@@ -270,6 +356,15 @@ schema
 ```
 
 if the behavior genuinely crosses those layers.
+
+An accessibility addition may require:
+
+```text
+fixture
++ accessibility spec
+```
+
+or reuse only existing accessibility infrastructure if the required state is already available.
 
 Conversely, do not touch those layers when the existing implementation already supports the behavior.
 
@@ -308,6 +403,16 @@ npm run typecheck
 
 Run the affected Playwright tests.
 
+For accessibility changes, run:
+
+```bash
+npx playwright test --project=accessibility
+```
+
+A failing accessibility project may represent a real application accessibility violation rather than a framework defect.
+
+Do not hide or reinterpret such a failure merely to report a passing validation result.
+
 Run broader regression scope when the change affects shared framework infrastructure.
 
 Do not claim a test or validation command passed unless it was actually executed successfully.
@@ -340,17 +445,23 @@ existing architecture preserved
         ↓
 correct layers modified
         ↓
+correct Playwright project selected
+        ↓
 no unnecessary abstraction introduced
         ↓
-provider contracts validated correctly
+provider contracts validated correctly where applicable
         ↓
 authentication boundaries preserved
+        ↓
+accessibility policy preserved where applicable
         ↓
 formatting passes
         ↓
 typecheck passes
         ↓
-affected tests pass
+affected tests executed
+        ↓
+real application failures not suppressed
         ↓
 documentation updated if required
 ```

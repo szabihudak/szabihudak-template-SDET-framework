@@ -52,7 +52,7 @@ The framework should minimize flaky tests and provide useful diagnostic informat
 
 ### Fast
 
-Tests should support parallel execution, efficient authentication, and appropriate separation between UI and API coverage.
+Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, and dedicated accessibility coverage.
 
 ### Reusable
 
@@ -64,7 +64,7 @@ The framework must run consistently in local environments, CI pipelines, and con
 
 ### Observable
 
-Failures should provide sufficient logs, screenshots, traces, videos, and reports for efficient troubleshooting.
+Failures should provide sufficient logs, screenshots, traces, videos, reports, and accessibility diagnostics for efficient troubleshooting.
 
 ### Secure
 
@@ -95,14 +95,15 @@ The application provides realistic workflows including:
 - token-based API authentication;
 - browser session authentication;
 - API and UI workflow composition;
-- network interception and mocking.
+- network interception and mocking;
+- browser-rendered states suitable for automated accessibility validation.
 
 The application intentionally supports two authentication contexts used by the framework:
 
 - REST API authentication through Bearer JWT tokens;
 - browser authentication through an Auth.js session.
 
-This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, and API/UI composition without relying on slow UI-based setup.
+This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, and accessibility validation of both public and authenticated browser states without relying on slow UI-based setup.
 
 ## Out of Scope for Initial Version
 
@@ -127,5 +128,7 @@ The framework will be considered successful when:
 - tests can execute in parallel;
 - environments and secrets are handled cleanly;
 - Docker execution is supported;
-- accessibility and visual checks are integrated;
+- automated accessibility checks are integrated through a dedicated Playwright project and CI quality gate;
+- accessibility failures remain visible as real quality signals rather than being suppressed for pipeline success;
+- visual checks are integrated;
 - the repository can be confidently presented during a Senior QA / SDET interview.

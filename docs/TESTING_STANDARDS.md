@@ -61,7 +61,7 @@ Review architecture impact
 Before implementation, answer:
 
 1. What behavior is being verified?
-2. Is this primarily API, UI, or composed API/UI behavior?
+2. Is this primarily API, UI, accessibility, or composed behavior?
 3. Is the behavior browser-independent or browser-dependent?
 4. Which Playwright project should own the test?
 5. Is there an existing test demonstrating a similar pattern?
@@ -79,6 +79,10 @@ Current ownership:
 tests/api/**
 → api project
 
+tests/accessibility/**
+→ accessibility project
+→ Chromium
+
 tests/ui/**
 → chromium
 → firefox
@@ -92,9 +96,13 @@ tests/smoke/**
 
 API tests are browser-independent and must execute through the dedicated `api` project.
 
+Accessibility tests use browser-rendered application state but execute through the dedicated `accessibility` project. The current automated accessibility gate runs once through Chromium rather than being multiplied across the full UI browser matrix.
+
 UI and smoke tests are browser-dependent and execute through browser projects.
 
 Do not allow API tests to run once per browser simply because browser projects exist.
+
+Do not multiply automated accessibility tests across the UI browser matrix unless a concrete browser-specific accessibility requirement demonstrates a need.
 
 Do not use browser projects for HTTP-only contract validation.
 
@@ -103,6 +111,13 @@ When adding a new API test:
 ```text
 place under tests/api
 → execute with --project=api
+```
+
+When adding a new accessibility test:
+
+```text
+place under tests/accessibility
+→ execute with --project=accessibility
 ```
 
 When adding a new UI or smoke test:
@@ -139,6 +154,9 @@ Need page-level UI interaction?
 
 Need reusable UI-region interaction?
 → Component Object
+
+Need automated accessibility analysis?
+→ AccessibilityScanner
 
 Need controlled network behavior?
 → Mock
@@ -183,6 +201,18 @@ New task UI behavior
 → inspect authenticated fixtures
 → inspect existing task UI specs
 → keep execution in browser projects
+```
+
+or:
+
+```text
+New accessibility coverage
+→ inspect existing accessibility specs
+→ inspect relevant Page Object and fixtures
+→ reuse AccessibilityScanner
+→ reuse the central WCAG policy
+→ keep assertions in the spec
+→ keep execution in the accessibility project
 ```
 
 Existing implementations are reference patterns, not templates to copy blindly.
@@ -484,6 +514,109 @@ UI and smoke tests must remain compatible with the browser projects that own the
 
 Do not introduce browser-specific behavior into a shared test unless the difference is intentional and documented.
 
+## Accessibility Test Standard
+
+Automated accessibility tests use the dedicated `accessibility` Playwright project and belong under:
+
+```text
+tests/accessibility/**
+```
+
+The current golden pattern is a full-page accessibility scan after the required application state has been established.
+
+Typical flow:
+
+```text
+establish meaningful page state
+        ↓
+AccessibilityScanner
+        ↓
+central WCAG policy
+        ↓
+axe analysis
+        ↓
+formatted diagnostics
+        ↓
+spec assertion
+```
+
+Use the existing `AccessibilityScanner` rather than constructing `AxeBuilder` directly inside specs.
+
+The scanner owns technical scan execution and application of the framework's central WCAG policy.
+
+Specs own the quality decision.
+
+Preferred assertion pattern:
+
+```ts
+const result = await accessibility.scanPage();
+
+expect(
+  result.violations,
+  formatAccessibilityViolations(result.violations),
+).toEqual([]);
+```
+
+The formatter exists only to make failures understandable. It must not:
+
+- remove violations;
+- suppress violations;
+- change severity;
+- decide whether the test passes;
+- convert a real violation into a passing result.
+
+The framework's automated accessibility policy targets WCAG 2.2 Level AA through the central axe tag configuration.
+
+Do not duplicate WCAG tags inside individual specs.
+
+Do not silently broaden or narrow the policy for an individual test merely to change its result.
+
+Automated axe results are not equivalent to complete WCAG conformance.
+
+```text
+automated axe coverage
+≠
+complete accessibility certification
+```
+
+Manual accessibility testing remains necessary for requirements that cannot be reliably validated through automated rules.
+
+Public-page accessibility tests should use the scanner associated with the standard Playwright `page`.
+
+Authenticated accessibility tests should use the scanner associated with `authenticatedPage`.
+
+```text
+page
+→ accessibility
+
+authenticatedPage
+→ authenticatedAccessibility
+```
+
+Do not use a scanner created from one Page context to validate state owned by another Page context.
+
+Accessibility failures are quality signals.
+
+Do not use:
+
+```text
+continue-on-error
+```
+
+or violation suppression merely to keep the pipeline green.
+
+A real accessibility violation should fail the accessibility test unless an explicit, reviewed policy defines a justified exception.
+
+The current golden template intentionally uses representative full-page coverage rather than manufacturing component-level or selector-based abstractions without a demonstrated need.
+
+Do not add accessibility-specific selectors, test IDs, Page Object properties, or helper abstractions solely to support hypothetical scoped scanning.
+
+If a concrete future requirement needs component-scoped accessibility analysis, design the smallest clean abstraction after the ownership model is understood.
+
+Accessibility tests currently execute through Chromium once rather than through the full UI browser matrix.
+
+Do not duplicate them across Chromium, Firefox, and WebKit merely because accessibility behavior can theoretically vary between browser environments. Add browser-specific accessibility execution only when a concrete requirement or observed behavior demonstrates that additional coverage is valuable.
+
 ## API/UI Composition
 
 Prefer API or programmatic setup when UI setup would make a test slower, more brittle, or unrelated to the behavior under test.
@@ -594,7 +727,16 @@ docker run --rm \
   npx playwright test --project=api
 ```
 
-Do not create separate Docker images for API, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
+The same pattern applies to accessibility execution:
+
+```bash
+docker run --rm \
+  -e TEST_ENV=hosted \
+  playwright-enterprise-tests \
+  npx playwright test --project=accessibility
+```
+
+Do not create separate Docker images for API, accessibility, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
 
 Project selection remains a Playwright execution concern.
 
@@ -706,7 +848,7 @@ one reusable image
 → durable external artifacts
 ```
 
-The test image must be built once per workflow execution and reused across API and browser jobs.
+The test image must be built once per workflow execution and reused across API, accessibility, and browser jobs.
 
 Do not independently rebuild an equivalent image in every test job unless a demonstrated isolation or performance requirement justifies it.
 
@@ -723,13 +865,16 @@ quality
 → docker run
 ```
 
-API and UI jobs must use the same built image.
+API, accessibility, and UI jobs must use the same built image.
 
 Playwright remains responsible for selecting the execution project:
 
 ```text
 API job
 → --project=api
+
+Accessibility job
+→ --project=accessibility
 
 UI matrix
 → --project=chromium
@@ -765,6 +910,7 @@ quality
 build-image
     ↓
     ├── api
+    ├── accessibility
     └── ui matrix
         ├── chromium
         ├── firefox
@@ -773,9 +919,9 @@ build-image
 
 The `build-image` job should depend on successful quality validation.
 
-The `api` and `ui` jobs should depend on the successfully built image rather than directly on the quality job.
+The `api`, `accessibility`, and `ui` jobs should depend on the successfully built image rather than directly on the quality job.
 
-API and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
+API, accessibility, and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
 
 Do not serialize independent jobs merely because they belong to the same workflow.
 
@@ -830,6 +976,9 @@ build-image
 api
 → 10 minutes
 
+accessibility
+→ 10 minutes
+
 ui
 → 10 minutes per browser matrix job
 ```
@@ -872,6 +1021,14 @@ load reusable test image
 → execute --project=api
 ```
 
+Accessibility job:
+
+```text
+load same reusable test image
+→ Chromium runtime provided by shared image
+→ execute --project=accessibility
+```
+
 UI matrix job:
 
 ```text
@@ -880,7 +1037,7 @@ load same reusable test image
 → execute matching project
 ```
 
-Do not reinstall Playwright browsers independently in API or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
+Do not reinstall Playwright browsers independently in API, accessibility, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
 
 Do not create browser-specific Docker images merely to match the browser matrix.
 
@@ -945,11 +1102,13 @@ Examples:
 
 ```text
 playwright-report-api
+playwright-report-accessibility
 playwright-report-chromium
 playwright-report-firefox
 playwright-report-webkit
 
 test-results-api
+test-results-accessibility
 test-results-chromium
 test-results-firefox
 test-results-webkit
@@ -1003,6 +1162,8 @@ GitHub Actions matrix
 ```
 
 Do not introduce a matrix when a single execution would provide equivalent coverage.
+
+The accessibility project intentionally uses a single Chromium execution and therefore does not require a CI matrix.
 
 ## Sharding Standard
 
@@ -1186,11 +1347,21 @@ api project
 or:
 
 ```text
+accessibility project
+```
+
+or:
+
+```text
 browser projects
 ```
 
 before implementation.
 
 Agents must not cause browser-independent API tests to execute redundantly across browser projects.
+
+Agents must not cause accessibility tests to execute redundantly across the browser matrix without a demonstrated browser-specific requirement.
+
+Agents generating accessibility coverage should reuse the existing scanner, central WCAG policy, fixtures, formatter, and assertion pattern instead of recreating axe configuration or introducing speculative abstractions.
 
 Architecture must drive generated code, not the other way around.
