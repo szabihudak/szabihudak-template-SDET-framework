@@ -8,13 +8,12 @@ test.describe("Visual regression", () => {
     authenticatedTestUser,
     tasksDashboardPage,
   }) => {
-    const task = createVisualTask("Visual Regression Task - Page"); createTask({
+    const task = createTask({
       title: "Visual Regression Task - Page",
       description: "Stable visual regression fixture",
       priority: "high",
       status: "done",
     });
-
     await taskApi.createTaskForUser(task, authenticatedTestUser.accessToken);
     await tasksDashboardPage.goto();
     await expect(tasksDashboardPage.taskCardByTitle(task.title)).toBeVisible();
@@ -36,7 +35,6 @@ test.describe("Visual regression", () => {
       priority: "low",
       status: "in_progress",
     });
-
     await taskApi.createTaskForUser(task, authenticatedTestUser.accessToken);
     await tasksDashboardPage.goto();
     const taskCard = tasksDashboardPage.taskCardByTitle(task.title);
