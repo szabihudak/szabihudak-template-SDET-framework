@@ -198,3 +198,45 @@ jobs:
           name: test-results-accessibility
           path: test-results/
           retention-days: 7
+
+  visual:
+    needs: build-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Playwright test image
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-test-image
+
+      - name: Load Playwright test image
+        run: docker load -i playwright-test-image.tar
+
+      - name: Run Visual tests
+        run: |
+          docker run --rm \
+            -e TEST_ENV="$TEST_ENV" \
+            -v "$PWD/playwright-report:/app/playwright-report" \
+            -v "$PWD/test-results:/app/test-results" \
+            "$TEST_IMAGE" \
+            npx playwright test --project=visual
+
+      - name: Upload Visual report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-visual
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload Visual failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-visual
+          path: test-results/
+          retention-days: 7
