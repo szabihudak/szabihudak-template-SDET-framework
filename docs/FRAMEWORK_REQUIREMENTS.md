@@ -28,6 +28,10 @@ The framework must support:
 - Docker-based execution
 - Accessibility testing
 - Visual regression testing
+- Version-controlled visual regression baselines
+- Deterministic page-level and component-level visual comparison
+- Reproducible visual baseline generation and comparison through a canonical Docker/Linux runtime
+- Dedicated compare-only visual regression execution in CI
 - Performance testing
 - API and UI test composition
 - Mocking and network interception
@@ -50,21 +54,29 @@ The architecture should remain manageable as the test suite grows to hundreds or
 
 The framework should minimize flaky tests and provide useful diagnostic information when failures occur.
 
+Visual regression tests should establish deterministic rendered state before comparison and must not rely on automatic baseline updates to hide unstable or unexpected differences.
+
 ### Fast
 
-Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, and dedicated accessibility coverage.
+Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, dedicated accessibility coverage, and dedicated visual regression coverage.
 
 ### Reusable
 
 Common functionality should be implemented once and reused through fixtures, helpers, domain abstractions, and shared utilities.
 
+New abstractions should only be introduced where they provide demonstrated reuse or architectural value.
+
 ### CI-Friendly
 
 The framework must run consistently in local environments, CI pipelines, and containers.
 
+Visual regression comparison must use committed approved baselines and a reproducible rendering environment. CI must compare against those baselines rather than generating or automatically approving replacements.
+
 ### Observable
 
-Failures should provide sufficient logs, screenshots, traces, videos, reports, and accessibility diagnostics for efficient troubleshooting.
+Failures should provide sufficient logs, screenshots, traces, videos, reports, accessibility diagnostics, and visual comparison evidence for efficient troubleshooting.
+
+Visual regression failures should provide expected, actual, and diff evidence where available.
 
 ### Secure
 
@@ -96,14 +108,15 @@ The application provides realistic workflows including:
 - browser session authentication;
 - API and UI workflow composition;
 - network interception and mocking;
-- browser-rendered states suitable for automated accessibility validation.
+- browser-rendered states suitable for automated accessibility validation;
+- deterministic browser-rendered states suitable for visual regression testing.
 
 The application intentionally supports two authentication contexts used by the framework:
 
 - REST API authentication through Bearer JWT tokens;
 - browser authentication through an Auth.js session.
 
-This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, and accessibility validation of both public and authenticated browser states without relying on slow UI-based setup.
+This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, accessibility validation of both public and authenticated browser states, and deterministic authenticated visual regression scenarios without relying on slow UI-based setup.
 
 ## Out of Scope for Initial Version
 
@@ -130,5 +143,8 @@ The framework will be considered successful when:
 - Docker execution is supported;
 - automated accessibility checks are integrated through a dedicated Playwright project and CI quality gate;
 - accessibility failures remain visible as real quality signals rather than being suppressed for pipeline success;
-- visual checks are integrated;
+- visual regression checks are integrated through a dedicated Playwright project and CI quality gate;
+- approved visual baselines are version-controlled and generated through the canonical Docker/Linux rendering environment;
+- visual baseline changes require explicit review rather than automatic CI approval;
+- visual failures provide actionable comparison evidence;
 - the repository can be confidently presented during a Senior QA / SDET interview.

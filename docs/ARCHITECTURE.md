@@ -24,9 +24,12 @@ The framework follows these principles:
 - test execution scope should reflect the responsibility being tested;
 - browser-independent API tests should not be multiplied across browser projects;
 - browser-dependent UI tests should execute against the intended browser projects;
+- visual regression tests should use deterministic rendered state and controlled baseline ownership;
+- canonical visual baselines should be generated in the same reproducible runtime used by CI;
 - execution environments should remain reproducible and independently configurable from test targets;
 - runtime configuration should not be baked into reusable test images;
 - test artifacts that must outlive ephemeral execution should be persisted outside that execution lifecycle;
+- approved visual baselines are version-controlled test assets rather than transient execution artifacts;
 - abstractions are introduced only when there is demonstrated reuse or architectural value;
 - existing patterns should be extended before parallel patterns are created.
 
@@ -58,6 +61,7 @@ src/
   mocks/
   security/
   accessibility/
+  visual/
   ai/
   utils/
   reporting/
@@ -134,11 +138,31 @@ formatted diagnostics
 accessibility assertion
 ```
 
+A typical visual regression flow is:
+
+```text
+Spec
+  ↓
+deterministic test state
+  ↓
+existing API / fixture / Page Object boundaries
+  ↓
+stable rendered page or component
+  ↓
+native Playwright screenshot assertion
+  ↓
+version-controlled approved baseline
+  ↓
+visual comparison
+```
+
 API and UI flows may be composed when API setup provides faster or more reliable prerequisites for UI behavior.
+
+Visual regression tests may use the same API-driven or programmatic setup boundaries when those boundaries provide the most deterministic way to establish the rendered state under test.
 
 ## Test Execution Architecture
 
-The framework separates browser-independent API execution, browser-dependent UI execution, and automated accessibility execution.
+The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, and visual regression execution.
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
@@ -154,6 +178,13 @@ accessibility
 → tests/accessibility/**
 → automated WCAG accessibility coverage
 → Chromium execution
+→ executed once
+
+visual
+→ tests/visual/**
+→ native visual regression coverage
+→ Chromium execution
+→ canonical Docker/Linux runtime
 → executed once
 
 chromium
@@ -176,9 +207,13 @@ API tests use Playwright's HTTP capabilities and do not validate browser-engine 
 
 Accessibility tests use browser-rendered application state but have a dedicated execution responsibility. The current automated accessibility gate executes through Chromium rather than being multiplied across the full UI browser matrix.
 
+Visual regression tests also use browser-rendered application state but have a dedicated execution responsibility. The current visual gate executes through Chromium in the canonical Docker/Linux runtime so the framework compares against one controlled baseline environment rather than maintaining equivalent baselines across every browser engine.
+
 UI and smoke tests validate browser-visible behavior and may run across multiple browser projects because rendering, interaction, and browser behavior can differ.
 
-This separation avoids redundant API and accessibility execution while preserving cross-browser UI coverage.
+This separation avoids redundant API, accessibility, and visual execution while preserving cross-browser UI coverage.
+
+Additional browser-specific visual execution should be introduced only when a concrete browser-specific visual requirement demonstrates value.
 
 ## Docker Execution Architecture
 
@@ -209,6 +244,7 @@ runtime command
     ├── complete suite
     ├── api
     ├── accessibility
+    ├── visual
     ├── chromium
     ├── firefox
     └── webkit
@@ -217,6 +253,8 @@ runtime command
 Separate Docker images should not be introduced merely because the framework contains separate Playwright projects.
 
 The execution project remains a Playwright responsibility. Docker provides the execution environment.
+
+For visual regression, Docker additionally provides the canonical rendering boundary used for approved baseline generation and CI comparison.
 
 ### Docker Image and Container Boundary
 
@@ -319,6 +357,33 @@ GitHub Actions
 
 The architecture requires durable diagnostic outputs where needed; it does not require every execution environment to use the same persistence mechanism.
 
+Visual baseline generation has an additional persistence requirement because approved snapshot candidates must survive the ephemeral container and become version-controlled repository assets.
+
+For canonical baseline generation:
+
+```text
+container
+/app/tests/visual
+        ↓
+bind mount
+        ↓
+host repository
+tests/visual/
+```
+
+This allows Playwright-generated snapshot files to be written back to the working tree for review and later Git versioning.
+
+Approved visual baselines are not execution artifacts.
+
+```text
+playwright-report/
+test-results/
+→ transient execution outputs
+
+tests/visual/**-snapshots/
+→ version-controlled expected visual state
+```
+
 ### Docker Build Boundary
 
 The Docker build context is the repository root.
@@ -364,6 +429,9 @@ build-image
         ├── accessibility
         │   └── automated accessibility tests once
         │
+        ├── visual
+        │   └── visual regression tests once
+        │
         └── ui matrix
             ├── chromium
             ├── firefox
@@ -372,9 +440,9 @@ build-image
 
 The `build-image` job depends on the successful completion of the `quality` job.
 
-The `api`, `accessibility`, and `ui` jobs depend on `build-image` but do not depend on one another.
+The `api`, `accessibility`, `visual`, and `ui` jobs depend on `build-image` but do not depend on one another.
 
-This allows API, accessibility, and UI execution to proceed independently and in parallel after the reusable test image has been built.
+This allows API, accessibility, visual, and UI execution to proceed independently and in parallel after the reusable test image has been built.
 
 The Docker image is built once per workflow execution and tagged with the current commit SHA.
 
@@ -389,7 +457,7 @@ docker build
 → docker run
 ```
 
-API, accessibility, and browser execution use the same image.
+API, accessibility, visual, and browser execution use the same image.
 
 Playwright project selection remains responsible for execution scope:
 
@@ -400,10 +468,33 @@ api
 accessibility
 → --project=accessibility
 
+visual
+→ --project=visual
+
 ui matrix
 → --project=chromium
 → --project=firefox
 → --project=webkit
+```
+
+The visual CI boundary is compare-only.
+
+CI must compare current rendering against committed baselines and must not approve or regenerate expected images automatically.
+
+```text
+CI
+→ verify committed visual contract
+
+not
+
+CI
+→ update expected visual contract
+```
+
+CI therefore does not run:
+
+```text
+--update-snapshots
 ```
 
 CI does not create separate images for individual Playwright projects.
@@ -412,7 +503,7 @@ Test containers are ephemeral and return the Playwright process exit code to Git
 
 Generated Playwright output is bind-mounted to the runner before GitHub Actions uploads the required reports and diagnostics as workflow artifacts.
 
-This preserves a single reusable execution environment while retaining explicit API, accessibility, and browser execution ownership.
+This preserves a single reusable execution environment while retaining explicit API, accessibility, visual, and browser execution ownership.
 
 ### CI Execution Hardening
 
@@ -457,6 +548,9 @@ api
 → 10 minutes
 
 accessibility
+→ 10 minutes
+
+visual
 → 10 minutes
 
 ui matrix job
@@ -535,6 +629,7 @@ Examples:
 ```text
 playwright-report-api
 playwright-report-accessibility
+playwright-report-visual
 
 playwright-report-chromium
 playwright-report-firefox
@@ -542,6 +637,7 @@ playwright-report-webkit
 
 test-results-api
 test-results-accessibility
+test-results-visual
 
 test-results-chromium
 test-results-firefox
@@ -551,6 +647,8 @@ test-results-webkit
 Matrix jobs execute on independent runners, so identical local output paths are acceptable. Artifact upload names must remain unique when outputs originate from separate jobs.
 
 Artifact retention should be intentional and should balance diagnostic value with storage cost.
+
+Committed visual baselines are deliberately excluded from this artifact model because they belong to repository version control rather than temporary CI storage.
 
 ## Layer Responsibilities
 
@@ -566,9 +664,12 @@ They should:
 - use API clients for API interaction;
 - contain HTTP and business assertions;
 - validate successful API responses against runtime schemas;
+- contain native screenshot assertions for visual contracts;
 - avoid duplicating framework infrastructure.
 
 Specs should not become containers for reusable setup logic, raw locator implementation, or repeated HTTP mechanics.
+
+Visual specs may contain explicit deterministic setup when the setup is scenario-specific and does not justify a new abstraction.
 
 ### Fixtures
 
@@ -588,6 +689,10 @@ Fixture dependencies should represent the actual setup flow.
 
 A fixture should not be introduced merely to hide a single line of code. It should provide meaningful reuse, lifecycle management, state composition, or dependency management.
 
+Visual regression does not create a separate fixture responsibility merely because screenshot testing exists.
+
+Visual tests should reuse existing fixtures unless repeated visual-specific setup demonstrates meaningful lifecycle or dependency value.
+
 ### Factories
 
 Factories create test data.
@@ -606,6 +711,8 @@ Factories answer the question:
 
 They do not perform the operation that consumes that data.
 
+Visual scenarios should prefer deterministic explicit overrides of existing factories rather than introducing visual-specific factories with duplicate responsibility.
+
 ### API Clients
 
 API clients represent domain-specific HTTP interaction.
@@ -623,6 +730,8 @@ API clients should not contain test assertions.
 Setup helpers may fail fast when their contract requires successful setup.
 
 The framework intentionally does not use a generic `BaseApiClient`. Shared abstractions should only be introduced when real duplication demonstrates a need.
+
+Visual regression specs may reuse domain API clients to establish deterministic application state when the browser behavior under verification is the rendered result rather than the setup operation.
 
 ### Schemas
 
@@ -660,6 +769,8 @@ They are appropriate for values such as:
 
 One-off values should remain local when extracting them would not improve reuse or clarity.
 
+Shared visual comparison policy may also be represented through focused visual constants when the values describe framework-wide screenshot behavior rather than scenario-specific exceptions.
+
 ### Page Objects
 
 Page Objects encapsulate page-level UI structure and interaction.
@@ -675,6 +786,10 @@ Page Objects should use domain types when the domain already defines the value.
 
 Assertions normally remain in specs.
 
+Visual regression should reuse the same Page Object ownership.
+
+A page-level screenshot may use the `Page` owned by the relevant Page Object rather than bypassing the established page boundary through an additional unrelated fixture.
+
 ### Component Objects
 
 Component Objects represent reusable UI regions that are not entire pages.
@@ -682,6 +797,10 @@ Component Objects represent reusable UI regions that are not entire pages.
 Child locators should be scoped to the component root when the DOM boundary supports it.
 
 Elements rendered outside that DOM subtree, such as portal-rendered dropdown content, may remain page-scoped. Locator scope should reflect the real application DOM rather than artificial structural uniformity.
+
+Component-level visual assertions should reuse an existing stable locator or Component Object boundary when one already represents the rendered region under test.
+
+Do not create screenshot-specific Component Objects solely to obtain a locator for visual comparison.
 
 ### Mocks
 
@@ -701,6 +820,8 @@ Mocks should represent provider behavior accurately rather than invent applicati
 Utilities contain reusable technical behavior that does not naturally belong to a domain-specific layer.
 
 Utilities should remain focused. Domain behavior should not be moved into generic helpers merely to reduce line count.
+
+Native Playwright screenshot assertions should not be wrapped in a generic visual utility without demonstrated repeated responsibility that Playwright itself does not already provide.
 
 ## Authentication Architecture
 
@@ -768,6 +889,10 @@ Test data generation should remain separate from:
 - UI interaction;
 - assertions;
 - fixture lifecycle.
+
+Visual regression scenarios additionally require deterministic values for visible content that affects the screenshot contract.
+
+Values that are intentionally visible in a baseline should not depend on uncontrolled random generation when that randomness changes rendered text, layout, or component state.
 
 ## UI Architecture
 
@@ -846,6 +971,240 @@ Automated axe analysis is a quality gate for the rules included in the configure
 
 Known or provider-owned violations are not automatically suppressed merely to produce a passing pipeline. A real violation remains a failing accessibility signal unless an explicit future policy defines and justifies different handling.
 
+## Visual Regression Architecture
+
+Visual regression testing uses native Playwright screenshot assertions rather than introducing a separate visual-testing service layer.
+
+The current architecture intentionally keeps visual behavior close to the spec while reusing existing framework ownership for setup and UI access.
+
+```text
+existing factory
+        ↓
+existing API client / authenticated fixture
+        ↓
+existing Page Object / locator
+        ↓
+stable rendered state
+        ↓
+toHaveScreenshot(...)
+        ↓
+approved baseline
+```
+
+The visual layer currently contains only shared screenshot-comparison policy that has demonstrated framework-wide value.
+
+Current shared policy:
+
+```text
+animations
+→ disabled
+
+caret
+→ hidden
+```
+
+These settings reduce rendering noise while preserving meaningful visual content.
+
+The architecture does not currently introduce:
+
+- a visual scanner class;
+- a visual service;
+- a visual fixture hierarchy;
+- a screenshot wrapper;
+- a visual-specific task factory;
+- default global masking;
+- default global pixel tolerance.
+
+Those abstractions should be introduced only if repeated real requirements demonstrate a responsibility that native Playwright assertions and existing framework layers do not already own.
+
+### Visual Contract Scope
+
+The current golden visual pattern demonstrates two complementary contracts:
+
+```text
+page-level
+→ authenticated dashboard state
+
+component-level
+→ deterministic task card state
+```
+
+A page-level visual contract protects overall composition, placement, navigation, hierarchy, spacing, and relevant page content.
+
+A component-level visual contract protects a smaller reusable rendered region and provides more focused diagnostics when that component changes.
+
+These contracts are related but not redundant.
+
+Additional visual tests should be added only when they protect a meaningful visual risk rather than attempting to screenshot every existing functional test.
+
+### Visual State Ownership
+
+Visual regression requires deterministic rendered state.
+
+State preparation may legitimately combine:
+
+```text
+domain factory
++
+API setup
++
+authenticated browser context
++
+Page Object navigation
++
+explicit readiness condition
+```
+
+The setup mechanism should be selected for determinism and relevance to the rendered state under test.
+
+A visual test does not require a separate "Act" phase when the behavior being verified is the resulting visual state itself.
+
+The architectural boundary is:
+
+```text
+state preparation
+        ↓
+visual assertion
+```
+
+Existing framework abstractions should be reused where they already provide the required responsibility.
+
+A new fixture or helper should not be created merely to shorten visual specs.
+
+### Baseline Architecture
+
+Approved baseline images represent expected visual behavior.
+
+They are version-controlled test assets.
+
+```text
+spec
++
+snapshot directory
++
+approved PNG
+=
+versioned visual contract
+```
+
+Current ownership pattern:
+
+```text
+tests/visual/
+  visual.spec.ts
+  visual.spec.ts-snapshots/
+    task-dashboard-visual-linux.png
+    task-card-visual-linux.png
+```
+
+Logical snapshot names remain in the spec:
+
+```text
+task-dashboard.png
+task-card.png
+```
+
+Playwright owns project/platform-specific physical naming.
+
+Baseline files must remain colocated with their owning spec through the Playwright snapshot model unless a future architectural decision establishes a different repository-wide ownership model.
+
+### Canonical Rendering Boundary
+
+Visual comparison is sensitive to:
+
+- operating system;
+- browser build;
+- fonts;
+- rendering engine;
+- environment;
+- unstable content.
+
+The framework therefore defines the reusable Playwright Docker/Linux environment as the canonical rendering boundary.
+
+```text
+developer machine
+→ may differ
+
+canonical Docker/Linux runtime
+→ baseline generation
+→ reproducibility verification
+→ CI comparison
+```
+
+Approved baselines must not depend on developer-specific macOS or Windows rendering.
+
+The same Docker image family used by CI should be used when generating or intentionally updating expected images.
+
+### Baseline Approval Boundary
+
+Baseline generation and baseline approval are separate concepts.
+
+```text
+Playwright generates PNG
+≠
+baseline approved
+```
+
+A generated baseline becomes approved only after:
+
+```text
+canonical generation
+→ human review
+→ same-runtime rerun without update
+→ reproducibility confirmation
+→ Git commit
+```
+
+This keeps approval explicit and reviewable.
+
+CI does not own baseline approval.
+
+### Baseline Change Decision
+
+A failing screenshot comparison does not imply that the baseline should change.
+
+The required architectural decision is:
+
+```text
+visual diff
+        ↓
+RCA
+        ↓
+intended change?
+```
+
+If yes:
+
+```text
+regenerate in canonical runtime
+→ review
+→ verify without update
+→ version approved baseline change
+```
+
+If no:
+
+```text
+preserve failing expectation
+→ correct product or test instability
+```
+
+This prevents baseline regeneration from becoming an automatic failure-recovery mechanism.
+
+### Visual Failure Evidence
+
+Playwright provides focused visual failure evidence:
+
+```text
+expected
+actual
+diff
+```
+
+These outputs belong to execution diagnostics and may be persisted through `test-results` and CI artifacts.
+
+They are distinct from committed baseline ownership.
+
 ## Execution Boundary Rules
 
 Test placement and Playwright project ownership must remain aligned.
@@ -859,6 +1218,9 @@ tests/api/**
 tests/accessibility/**
 → accessibility project
 
+tests/visual/**
+→ visual project
+
 tests/ui/**
 → browser projects
 
@@ -871,6 +1233,12 @@ Do not place browser-dependent behavior under the API suite.
 Do not place browser-independent API contract tests under UI or smoke suites merely to force execution through browser projects.
 
 Accessibility tests should remain under the dedicated accessibility project rather than being added to the standard UI browser matrix solely for structural symmetry.
+
+Visual regression tests should remain under the dedicated visual project rather than being multiplied across the standard UI browser matrix solely for structural symmetry.
+
+The current visual project executes once through Chromium in the canonical Docker/Linux runtime.
+
+Browser-specific visual projects or baselines should be introduced only when a concrete browser-specific requirement demonstrates a materially different visual risk.
 
 If a new test type requires a materially different execution model, introduce the smallest explicit project boundary required by the behavior rather than extending unrelated projects.
 
@@ -891,12 +1259,15 @@ Do not introduce a new:
 - domain directory;
 - helper wrapper;
 - fixture;
+- visual wrapper;
 
 solely for symmetry or anticipated future reuse.
 
 New abstractions should solve demonstrated duplication, lifecycle complexity, domain responsibility, or maintainability problems.
 
 Consistency means equivalent responsibilities follow equivalent patterns. It does not mean different responsibilities must have identical structure.
+
+For visual regression specifically, native Playwright screenshot assertions remain the default mechanism unless demonstrated repeated behavior requires a new architectural abstraction.
 
 ## Architectural Change Policy
 
@@ -912,6 +1283,10 @@ An ADR should be considered when a change:
 - significantly changes execution or deployment architecture.
 
 Changes to test-project boundaries or CI execution responsibilities should be documented when they alter how suites are selected, distributed, or validated.
+
+The current native Playwright visual regression implementation does not introduce a separate major external technology or new service layer. Its project boundary, baseline ownership, canonical runtime, and CI responsibility are therefore documented directly in the framework architecture and testing standards.
+
+A future move to an external visual-testing platform or materially different baseline ownership model should be reviewed as a potential architectural decision.
 
 When implementation and documentation disagree, the discrepancy should be resolved rather than allowing the documentation to become stale.
 

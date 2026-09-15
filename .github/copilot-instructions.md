@@ -19,7 +19,7 @@ reuse
 → create
 ```
 
-Do not create a new client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
+Do not create a new client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, visual abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
 
 Do not treat "add a test" as a request to modify only the spec file.
 
@@ -34,6 +34,7 @@ Preserve:
 - API vs browser authentication separation;
 - Page Object and Component Object responsibility boundaries;
 - accessibility scanner and WCAG policy ownership;
+- visual comparison policy and baseline ownership;
 - semantic test structure;
 - existing formatting and naming conventions.
 
@@ -105,6 +106,140 @@ AccessibilityFormatter
 spec assertion
 ```
 
+For visual regression work:
+
+- place visual tests under `tests/visual/**`;
+- execute them through the dedicated `visual` Playwright project;
+- use native Playwright screenshot assertions;
+- reuse existing factories, API setup, fixtures, Page Objects, and locators;
+- establish deterministic visible state before screenshot comparison;
+- use the central visual comparison policy rather than duplicating screenshot options in individual specs;
+- keep visual assertions in specs;
+- use semantic snapshot names that describe the protected visual contract;
+- keep approved baselines version-controlled with their owning visual spec;
+- generate and approve canonical baselines only in the Docker/Linux Playwright runtime used by CI;
+- manually review generated or updated baselines;
+- rerun visual tests without `--update-snapshots` before treating a baseline as reproducible;
+- keep CI compare-only;
+- inspect expected, actual, and diff evidence before deciding how to handle a visual failure;
+- do not duplicate visual execution across Chromium, Firefox, and WebKit unless a concrete browser-specific visual requirement justifies additional baselines.
+
+Preserve the established visual flow:
+
+```text
+deterministic test data
+        ↓
+existing API / fixture setup
+        ↓
+relevant Page Object / locator ownership
+        ↓
+stable rendered state
+        ↓
+toHaveScreenshot(...)
+        ↓
+approved version-controlled baseline
+```
+
+Do not introduce a visual scanner, service, screenshot wrapper, visual-specific fixture hierarchy, or visual-specific factory merely for structural symmetry.
+
+Do not create a helper that only forwards arguments to an existing factory or Playwright assertion without adding meaningful responsibility.
+
+The current shared visual comparison policy is:
+
+```text
+animations
+→ disabled
+
+caret
+→ hidden
+```
+
+Reuse the central policy.
+
+Do not introduce global:
+
+```text
+threshold
+maxDiffPixels
+maxDiffPixelRatio
+masking
+```
+
+merely to make visual comparisons pass.
+
+If a concrete visual scenario requires tolerance or masking:
+
+1. identify the exact source of nondeterminism;
+2. confirm that the unstable content is not part of the intended visual contract;
+3. use the smallest scenario-specific exception;
+4. preserve meaningful layout and content validation.
+
+Do not mask or ignore meaningful content such as:
+
+- titles;
+- descriptions;
+- status;
+- priority;
+- controls;
+- spacing;
+- typography;
+- component layout.
+
+Approved visual baselines belong to Git.
+
+They are not equivalent to:
+
+```text
+playwright-report/
+test-results/
+```
+
+which are execution artifacts.
+
+Current baseline ownership follows the Playwright snapshot model:
+
+```text
+tests/visual/
+  visual.spec.ts
+  visual.spec.ts-snapshots/
+```
+
+A visual comparison failure must not automatically trigger:
+
+```text
+--update-snapshots
+```
+
+Required failure handling is:
+
+```text
+visual comparison fails
+        ↓
+inspect expected / actual / diff
+        ↓
+perform RCA
+        ↓
+determine whether the change is intended
+```
+
+If intended:
+
+```text
+regenerate in canonical Docker/Linux runtime
+→ manually review
+→ rerun without update
+→ commit approved baseline change
+```
+
+If unintended:
+
+```text
+keep expected baseline unchanged
+→ fix product or test instability
+```
+
+Never update a baseline merely to make CI green.
+
 Preserve authentication boundaries:
 
 ```text
@@ -119,7 +254,7 @@ Do not treat API authentication and browser authentication as interchangeable.
 
 Use UI login only when login behavior itself is under test.
 
-Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, or accessibility abstraction unless demonstrated reuse or complexity justifies them.
+Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, accessibility abstraction, or visual abstraction unless demonstrated reuse or complexity justifies them.
 
 Prefer the smallest architecturally complete change.
 
@@ -146,6 +281,18 @@ fixture
 ```
 
 or may reuse the existing scanner, policy, formatter, and fixtures without introducing any new abstraction.
+
+A visual regression change may require:
+
+```text
+existing factory
+→ existing API setup
+→ existing Page Object / locator
+→ visual spec
+→ approved baseline
+```
+
+or may require only a new visual spec and baseline when the existing framework already supports the necessary deterministic state.
 
 Only modify the layers genuinely required by the behavior.
 
@@ -177,6 +324,28 @@ A failing accessibility project may represent a real application accessibility v
 
 Do not hide or reinterpret that failure merely to claim validation passed.
 
+For visual regression work, normal verification must run without baseline updates.
+
+Run:
+
+```bash
+npx playwright test --project=visual
+```
+
+when the execution environment matches the expected visual runtime.
+
+Canonical visual baseline generation and approval must use the framework Docker/Linux runtime defined in `docs/TESTING_STANDARDS.md`.
+
+Do not treat:
+
+```bash
+npx playwright test --project=visual --update-snapshots
+```
+
+as ordinary validation.
+
+It is an explicit baseline-generation or intentional baseline-update operation and requires manual review followed by a second run without `--update-snapshots`.
+
 Run broader regression scope when shared framework infrastructure changes.
 
 Do not claim validation passed unless it was actually executed successfully.
@@ -188,7 +357,10 @@ Update documentation when a change modifies:
 - authentication strategy;
 - dependency direction;
 - framework-wide implementation standards;
-- major technology choices.
+- major technology choices;
+- visual baseline ownership;
+- visual approval workflow;
+- visual execution boundaries.
 
 If the requested change conflicts with the documented architecture:
 

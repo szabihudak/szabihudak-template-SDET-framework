@@ -61,7 +61,7 @@ Review architecture impact
 Before implementation, answer:
 
 1. What behavior is being verified?
-2. Is this primarily API, UI, accessibility, or composed behavior?
+2. Is this primarily API, UI, accessibility, visual regression, or composed behavior?
 3. Is the behavior browser-independent or browser-dependent?
 4. Which Playwright project should own the test?
 5. Is there an existing test demonstrating a similar pattern?
@@ -83,6 +83,10 @@ tests/accessibility/**
 → accessibility project
 → Chromium
 
+tests/visual/**
+→ visual project
+→ Chromium
+
 tests/ui/**
 → chromium
 → firefox
@@ -98,11 +102,15 @@ API tests are browser-independent and must execute through the dedicated `api` p
 
 Accessibility tests use browser-rendered application state but execute through the dedicated `accessibility` project. The current automated accessibility gate runs once through Chromium rather than being multiplied across the full UI browser matrix.
 
+Visual regression tests use browser-rendered application state but execute through the dedicated `visual` project. The current visual gate runs once through Chromium in the canonical Docker/Linux runtime rather than maintaining equivalent baselines across the full UI browser matrix.
+
 UI and smoke tests are browser-dependent and execute through browser projects.
 
 Do not allow API tests to run once per browser simply because browser projects exist.
 
 Do not multiply automated accessibility tests across the UI browser matrix unless a concrete browser-specific accessibility requirement demonstrates a need.
+
+Do not multiply visual regression tests across the UI browser matrix unless a concrete browser-specific visual risk demonstrates a need for additional browser-specific baselines.
 
 Do not use browser projects for HTTP-only contract validation.
 
@@ -118,6 +126,13 @@ When adding a new accessibility test:
 ```text
 place under tests/accessibility
 → execute with --project=accessibility
+```
+
+When adding a new visual regression test:
+
+```text
+place under tests/visual
+→ execute with --project=visual
 ```
 
 When adding a new UI or smoke test:
@@ -157,6 +172,9 @@ Need reusable UI-region interaction?
 
 Need automated accessibility analysis?
 → AccessibilityScanner
+
+Need shared visual comparison policy?
+→ Visual constants/configuration
 
 Need controlled network behavior?
 → Mock
@@ -213,6 +231,19 @@ New accessibility coverage
 → reuse the central WCAG policy
 → keep assertions in the spec
 → keep execution in the accessibility project
+```
+
+or:
+
+```text
+New visual regression coverage
+→ inspect existing visual specs
+→ inspect relevant Page Object and locators
+→ reuse existing factories and API setup where appropriate
+→ establish deterministic visible state
+→ reuse the central visual comparison policy
+→ keep screenshot assertions in the spec
+→ keep execution in the visual project
 ```
 
 Existing implementations are reference patterns, not templates to copy blindly.
@@ -617,6 +648,326 @@ Accessibility tests currently execute through Chromium once rather than through 
 
 Do not duplicate them across Chromium, Firefox, and WebKit merely because accessibility behavior can theoretically vary between browser environments. Add browser-specific accessibility execution only when a concrete requirement or observed behavior demonstrates that additional coverage is valuable.
 
+## Visual Regression Test Standard
+
+Visual regression tests use the dedicated `visual` Playwright project and belong under:
+
+```text
+tests/visual/**
+```
+
+The current golden pattern covers two complementary visual contracts:
+
+```text
+page-level visual state
++
+component-level visual state
+```
+
+Representative coverage currently includes:
+
+```text
+authenticated dashboard
+→ page-level screenshot comparison
+
+deterministic task card
+→ locator-level screenshot comparison
+```
+
+Visual tests should normally follow:
+
+```text
+deterministic test data
+        ↓
+API/programmatic state setup
+        ↓
+navigate to the relevant UI
+        ↓
+wait for meaningful stable state
+        ↓
+visual assertion
+```
+
+The setup and readiness steps form the deterministic state preparation for the visual assertion. Do not manufacture an artificial action phase when the behavior under verification is the rendered state itself.
+
+Prefer explicit scenario data through existing domain factories:
+
+```ts
+const task = createTask({
+  title: "Visual Regression Task - Card",
+  description: "Stable visual regression fixture",
+  priority: "low",
+  status: "in_progress",
+});
+```
+
+Do not create a visual-specific factory, fixture, or helper merely to wrap an existing factory when that wrapper does not add meaningful responsibility.
+
+Visible data that affects layout must be deterministic.
+
+Avoid uncontrolled:
+
+- random visible titles;
+- random visible descriptions;
+- timestamps;
+- changing identifiers rendered to the user;
+- unstable loading states;
+- environment-dependent content.
+
+Use existing API clients and authenticated fixtures when they already provide the required setup boundary.
+
+Visual tests should reuse existing Page Object and locator ownership rather than introducing screenshot-specific selectors solely for visual testing.
+
+### Visual Comparison Policy
+
+The framework centralizes only genuinely shared visual comparison policy.
+
+Current shared policy includes:
+
+```text
+animations
+→ disabled
+
+caret
+→ hidden
+```
+
+These settings reduce rendering noise without hiding meaningful application content.
+
+Do not introduce global:
+
+```text
+threshold
+maxDiffPixels
+maxDiffPixelRatio
+masking
+```
+
+merely to make visual tests easier to pass.
+
+A tolerance or mask may be introduced only for a concrete, understood rendering characteristic and must not be used to conceal a real visual regression.
+
+Prefer:
+
+```text
+stabilize first
+→ compare strictly
+→ introduce exception only when justified
+```
+
+over:
+
+```text
+failure
+→ increase tolerance
+→ green
+```
+
+Masking is scenario-specific and must be limited to genuinely dynamic content that is not part of the visual contract.
+
+Do not mask meaningful content such as:
+
+- component layout;
+- task title;
+- task description;
+- priority;
+- status;
+- spacing;
+- typography;
+- relevant controls.
+
+### Baseline Ownership and Storage
+
+Approved visual baselines are test assets, not disposable execution artifacts.
+
+Playwright-managed snapshot directories remain colocated with their owning visual spec.
+
+Current pattern:
+
+```text
+tests/visual/
+  visual.spec.ts
+  visual.spec.ts-snapshots/
+    task-dashboard-visual-linux.png
+    task-card-visual-linux.png
+```
+
+The logical screenshot names are defined by the spec:
+
+```text
+task-dashboard.png
+task-card.png
+```
+
+Playwright owns the platform/project-specific physical snapshot filename.
+
+Do not manually rename generated baseline files independently from the screenshot assertion unless the corresponding test contract is intentionally being changed.
+
+Approved baseline PNG files must be committed to Git.
+
+```text
+visual spec
++
+approved baseline
+→ versioned visual contract
+```
+
+Do not treat committed baselines like transient files under:
+
+```text
+playwright-report/
+test-results/
+```
+
+Reports and test results are execution artifacts.
+
+Baselines are version-controlled expected results.
+
+### Canonical Baseline Runtime
+
+Visual rendering may differ across operating systems, browser builds, fonts, and rendering environments.
+
+The canonical baseline runtime for this framework is the same Docker/Linux Playwright environment used by CI.
+
+Do not create or approve canonical visual baselines from a developer macOS or Windows browser merely because the test passes locally.
+
+Baseline generation must use the reusable framework Docker image.
+
+Example:
+
+```bash
+docker build -t playwright-enterprise-tests .
+```
+
+Generate or intentionally update visual baselines through the canonical runtime:
+
+```bash
+docker run --rm \
+  -e TEST_ENV=hosted \
+  -v "$PWD/tests/visual:/app/tests/visual" \
+  -v "$PWD/playwright-report:/app/playwright-report" \
+  -v "$PWD/test-results:/app/test-results" \
+  playwright-enterprise-tests \
+  npx playwright test --project=visual --update-snapshots
+```
+
+The `tests/visual` bind mount is required during baseline generation so newly generated or updated baseline files survive the ephemeral container and are written back to the host repository.
+
+Do not use `--update-snapshots` during normal verification.
+
+### New Baseline Workflow
+
+Creating a new approved visual baseline is an explicit review operation.
+
+Required workflow:
+
+```text
+implement visual assertion
+        ↓
+establish deterministic visible state
+        ↓
+build canonical Docker image
+        ↓
+run visual project with --update-snapshots
+        ↓
+inspect generated baseline manually
+        ↓
+confirm expected content and stable state
+        ↓
+run visual project again without --update-snapshots
+        ↓
+confirm reproducibility
+        ↓
+commit spec + approved baseline together
+```
+
+Manual baseline review must verify that:
+
+- the intended page or component is captured;
+- the expected deterministic state is visible;
+- loading or transitional state is absent;
+- dynamic noise is not accidentally part of the baseline;
+- meaningful UI content has not been masked;
+- the screenshot represents the visual contract the test is intended to protect.
+
+A generated image is not automatically an approved baseline merely because Playwright created it successfully.
+
+### Baseline Update Workflow
+
+A visual failure must not immediately trigger baseline regeneration.
+
+Required decision flow:
+
+```text
+visual comparison fails
+        ↓
+inspect expected / actual / diff
+        ↓
+perform RCA
+        ↓
+is the rendering change intended?
+        ↓
+yes
+→ regenerate in canonical runtime
+→ manually review updated baseline
+→ rerun without --update-snapshots
+→ commit approved baseline change
+
+no
+→ keep test failing
+→ fix product or test instability
+```
+
+Do not update a baseline merely to make CI green.
+
+An intentional visual change should produce an intentional, reviewable baseline diff in Git.
+
+An unintended visual change should remain a failing quality signal.
+
+### Visual Browser Scope
+
+Visual regression tests currently execute through Chromium once rather than through the full UI browser matrix.
+
+This is intentional.
+
+Functional browser coverage and visual baseline coverage address different risks:
+
+```text
+UI browser matrix
+→ Chromium
+→ Firefox
+→ WebKit
+→ functional browser behavior
+
+visual project
+→ Chromium
+→ controlled visual contract
+```
+
+Do not duplicate every visual test across Chromium, Firefox, and WebKit merely because browser engines can render differently.
+
+Additional browser-specific visual baselines should be introduced only when:
+
+- a supported browser has a concrete visual requirement;
+- historical defects demonstrate browser-specific visual risk;
+- a product or contractual requirement requires browser-specific visual consistency.
+
+### Visual Failure Diagnostics
+
+Visual comparison failures should preserve:
+
+```text
+expected image
+actual image
+diff image
+```
+
+alongside the standard Playwright diagnostics available through `test-results`.
+
+Use these artifacts for RCA before deciding whether the product, test stability, or approved baseline should change.
+
+A visual diff is evidence to investigate, not an instruction to regenerate the expected image.
+
 ## API/UI Composition
 
 Prefer API or programmatic setup when UI setup would make a test slower, more brittle, or unrelated to the behavior under test.
@@ -736,7 +1087,16 @@ docker run --rm \
   npx playwright test --project=accessibility
 ```
 
-Do not create separate Docker images for API, accessibility, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
+The same image also owns canonical visual execution:
+
+```bash
+docker run --rm \
+  -e TEST_ENV=hosted \
+  playwright-enterprise-tests \
+  npx playwright test --project=visual
+```
+
+Do not create separate Docker images for API, accessibility, visual, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
 
 Project selection remains a Playwright execution concern.
 
@@ -788,6 +1148,17 @@ test-results/
 ```
 
 outside the container lifecycle.
+
+Visual baseline generation additionally requires the owning snapshot path to persist outside the container lifecycle.
+
+Current visual baseline generation therefore bind-mounts:
+
+```text
+tests/visual
+→ /app/tests/visual
+```
+
+so approved snapshot candidates are written back into the repository working tree.
 
 Do not assume that local Docker bind mounts and CI artifact upload are the same mechanism.
 
@@ -848,7 +1219,7 @@ one reusable image
 → durable external artifacts
 ```
 
-The test image must be built once per workflow execution and reused across API, accessibility, and browser jobs.
+The test image must be built once per workflow execution and reused across API, accessibility, visual, and browser jobs.
 
 Do not independently rebuild an equivalent image in every test job unless a demonstrated isolation or performance requirement justifies it.
 
@@ -865,7 +1236,7 @@ quality
 → docker run
 ```
 
-API, accessibility, and UI jobs must use the same built image.
+API, accessibility, visual, and UI jobs must use the same built image.
 
 Playwright remains responsible for selecting the execution project:
 
@@ -876,11 +1247,24 @@ API job
 Accessibility job
 → --project=accessibility
 
+Visual job
+→ --project=visual
+
 UI matrix
 → --project=chromium
 → --project=firefox
 → --project=webkit
 ```
+
+The visual CI job must compare against committed baselines.
+
+It must not execute:
+
+```text
+--update-snapshots
+```
+
+CI is a verification boundary, not a baseline approval boundary.
 
 Docker must not introduce separate images merely to mirror Playwright project boundaries.
 
@@ -911,6 +1295,7 @@ build-image
     ↓
     ├── api
     ├── accessibility
+    ├── visual
     └── ui matrix
         ├── chromium
         ├── firefox
@@ -919,9 +1304,9 @@ build-image
 
 The `build-image` job should depend on successful quality validation.
 
-The `api`, `accessibility`, and `ui` jobs should depend on the successfully built image rather than directly on the quality job.
+The `api`, `accessibility`, `visual`, and `ui` jobs should depend on the successfully built image rather than directly on the quality job.
 
-API, accessibility, and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
+API, accessibility, visual, and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
 
 Do not serialize independent jobs merely because they belong to the same workflow.
 
@@ -979,6 +1364,9 @@ api
 accessibility
 → 10 minutes
 
+visual
+→ 10 minutes
+
 ui
 → 10 minutes per browser matrix job
 ```
@@ -1029,6 +1417,15 @@ load same reusable test image
 → execute --project=accessibility
 ```
 
+Visual job:
+
+```text
+load same reusable test image
+→ canonical Chromium/Linux runtime provided by shared image
+→ execute --project=visual
+→ compare against committed baselines
+```
+
 UI matrix job:
 
 ```text
@@ -1037,7 +1434,7 @@ load same reusable test image
 → execute matching project
 ```
 
-Do not reinstall Playwright browsers independently in API, accessibility, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
+Do not reinstall Playwright browsers independently in API, accessibility, visual, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
 
 Do not create browser-specific Docker images merely to match the browser matrix.
 
@@ -1103,12 +1500,14 @@ Examples:
 ```text
 playwright-report-api
 playwright-report-accessibility
+playwright-report-visual
 playwright-report-chromium
 playwright-report-firefox
 playwright-report-webkit
 
 test-results-api
 test-results-accessibility
+test-results-visual
 test-results-chromium
 test-results-firefox
 test-results-webkit
@@ -1131,6 +1530,10 @@ Matrix jobs may use the same local path because they execute on isolated runners
 Do not duplicate the same report into multiple artifacts unless there is a demonstrated diagnostic need.
 
 Retention should be finite and intentional.
+
+Version-controlled visual baselines are not CI artifacts.
+
+They belong to Git and must not be substituted with temporary workflow artifact storage.
 
 ## Matrix Standard
 
@@ -1164,6 +1567,8 @@ GitHub Actions matrix
 Do not introduce a matrix when a single execution would provide equivalent coverage.
 
 The accessibility project intentionally uses a single Chromium execution and therefore does not require a CI matrix.
+
+The visual project intentionally uses a single canonical Chromium/Linux execution and therefore does not require a CI matrix.
 
 ## Sharding Standard
 
@@ -1199,6 +1604,22 @@ Avoid generic names that hide responsibility.
 Same-role files should follow the same structural grammar where practical.
 
 Do not make different roles artificially identical.
+
+Visual snapshot names should communicate the visual contract being protected.
+
+Prefer semantic names such as:
+
+```text
+task-dashboard.png
+task-card.png
+```
+
+rather than generic names such as:
+
+```text
+screenshot1.png
+expected.png
+```
 
 ## Imports and Formatting
 
@@ -1250,6 +1671,7 @@ Before creating a new:
 - Component Object;
 - mock;
 - utility;
+- visual helper;
 - Playwright project;
 - CI job;
 - CI matrix dimension;
@@ -1273,6 +1695,10 @@ yes → create the smallest appropriate abstraction
 Do not design for hypothetical future requirements.
 
 Repeated real usage should drive generalization.
+
+For visual testing specifically, do not wrap native Playwright screenshot assertions merely to create structural symmetry.
+
+Introduce a reusable visual helper only when repeated real behavior demonstrates a responsibility that native Playwright assertions and existing framework layers do not already own.
 
 ## Definition of Done
 
@@ -1302,6 +1728,24 @@ Relevant project/regression scope passes when appropriate
 CI execution remains valid when shared execution config changes
         ↓
 Documentation updated if architecture or standards changed
+```
+
+For visual regression changes, completion additionally requires when applicable:
+
+```text
+deterministic visible state established
+        ↓
+baseline generated in canonical Docker/Linux runtime
+        ↓
+baseline manually reviewed
+        ↓
+baseline rerun without --update-snapshots
+        ↓
+reproducibility confirmed
+        ↓
+approved baseline version-controlled with the test
+        ↓
+CI remains compare-only
 ```
 
 A passing test is necessary but not sufficient.
@@ -1353,6 +1797,12 @@ accessibility project
 or:
 
 ```text
+visual project
+```
+
+or:
+
+```text
 browser projects
 ```
 
@@ -1363,5 +1813,11 @@ Agents must not cause browser-independent API tests to execute redundantly acros
 Agents must not cause accessibility tests to execute redundantly across the browser matrix without a demonstrated browser-specific requirement.
 
 Agents generating accessibility coverage should reuse the existing scanner, central WCAG policy, fixtures, formatter, and assertion pattern instead of recreating axe configuration or introducing speculative abstractions.
+
+Agents must not cause visual regression tests to execute redundantly across the browser matrix without a demonstrated browser-specific visual requirement.
+
+Agents generating visual regression coverage should reuse existing factories, API setup, Page Object or locator ownership, and the central visual comparison policy. They must preserve deterministic visible state, committed baseline ownership, canonical Docker/Linux baseline generation, manual approval, and compare-only CI execution.
+
+Agents must never use `--update-snapshots` as an automatic response to a failing visual comparison.
 
 Architecture must drive generated code, not the other way around.

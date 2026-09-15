@@ -5,25 +5,26 @@
 [![CI](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml)
 [![Docker](https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, and automated accessibility testing.
+A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, and visual regression testing.
 
-The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, and failure diagnostics**.
+The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, and failure diagnostics**.
 
 ## Engineering Capabilities
 
-| Area                  | Implementation                                                              |
-| --------------------- | --------------------------------------------------------------------------- |
-| API Testing           | Browser-independent Playwright API tests with domain-specific clients       |
-| Contract Testing      | TypeBox schemas with AJV runtime validation                                 |
-| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking              |
-| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution  |
-| Authentication        | Programmatic API and browser authentication                                 |
-| Test Data             | Deterministic factories with scenario-specific overrides                    |
-| Cross-Browser         | Chromium, Firefox, and WebKit execution                                     |
-| Containerization      | Reproducible Playwright execution with Docker                               |
-| CI/CD                 | GitHub Actions with quality gates, accessibility checks, and browser matrix |
-| Diagnostics           | HTML reports, traces, screenshots, video, and CI artifacts                  |
-| Engineering Standards | Architecture documentation, testing standards, and ADRs                     |
+| Area                  | Implementation                                                             |
+| --------------------- | -------------------------------------------------------------------------- |
+| API Testing           | Browser-independent Playwright API tests with domain-specific clients      |
+| Contract Testing      | TypeBox schemas with AJV runtime validation                                |
+| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking             |
+| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution |
+| Visual Regression     | Native Playwright page and component screenshot baseline comparison        |
+| Authentication        | Programmatic API and browser authentication                                |
+| Test Data             | Deterministic factories with scenario-specific overrides                   |
+| Cross-Browser         | Chromium, Firefox, and WebKit execution                                    |
+| Containerization      | Reproducible Playwright execution with Docker                              |
+| CI/CD                 | GitHub Actions with quality, accessibility, visual, and browser test gates |
+| Diagnostics           | HTML reports, traces, screenshots, video, and CI artifacts                 |
+| Engineering Standards | Architecture documentation, testing standards, and ADRs                    |
 
 ## Architecture at a Glance
 
@@ -34,41 +35,47 @@ flowchart TD
     A --> B[API Testing]
     A --> C[UI Testing]
     A --> D[Accessibility Testing]
+    A --> E[Visual Regression Testing]
 
-    B --> E[Domain API Clients]
-    E --> F[TypeBox Schemas]
-    F --> G[AJV Runtime Validation]
+    B --> F[Domain API Clients]
+    F --> G[TypeBox Schemas]
+    G --> H[AJV Runtime Validation]
 
-    C --> H[Page Objects / Component Objects]
-    H --> I[Playwright Fixtures]
-    I --> J[Programmatic Authentication]
+    C --> I[Page Objects / Component Objects]
+    I --> J[Playwright Fixtures]
+    J --> K[Programmatic Authentication]
 
-    D --> K[AccessibilityScanner]
-    K --> L[Central WCAG Policy]
-    L --> M[Axe Analysis]
+    D --> L[AccessibilityScanner]
+    L --> M[Central WCAG Policy]
+    M --> N[Axe Analysis]
 
-    G --> N[Test Infrastructure]
-    J --> N
-    M --> N
+    E --> O[Native Screenshot Assertions]
+    O --> P[Versioned Baselines]
 
-    N --> O[Docker]
-    N --> P[GitHub Actions]
+    H --> Q[Test Infrastructure]
+    K --> Q
+    N --> Q
+    P --> Q
 
-    O --> Q[Reproducible Runtime]
-    O --> R[Runtime TEST_ENV]
-    O --> S[Ephemeral Containers]
+    Q --> R[Docker]
+    Q --> S[GitHub Actions]
 
-    P --> T[Quality Gates]
-    P --> U[Single Image Build]
-    U --> V[API Project]
-    U --> W[Accessibility Project]
-    U --> X[UI Browser Matrix]
+    R --> T[Reproducible Runtime]
+    R --> U[Runtime TEST_ENV]
+    R --> V[Ephemeral Containers]
 
-    X --> Y[Chromium]
-    X --> Z[Firefox]
-    X --> AA[WebKit]
+    S --> W[Quality Gates]
+    S --> X[Single Image Build]
+    X --> Y[API Project]
+    X --> Z[Accessibility Project]
+    X --> AA[Visual Project]
+    X --> AB[UI Browser Matrix]
 
-    P --> AB[Test Reports & Failure Diagnostics]
+    AB --> AC[Chromium]
+    AB --> AD[Firefox]
+    AB --> AE[WebKit]
+
+    S --> AF[Test Reports & Failure Diagnostics]
 ```
 
 ## Engineering Approach
@@ -84,13 +91,13 @@ The framework favors:
 - deterministic and isolated test data;
 - reproducible execution across local and CI environments;
 - build-once, configure-at-runtime container execution;
-- efficient CI ownership between API, accessibility, and browser tests;
+- efficient CI ownership between API, accessibility, visual, and browser tests;
 - actionable diagnostics when execution fails;
 - documented architectural decisions and trade-offs.
 
 New capabilities are introduced only when they demonstrate a real testing or architectural requirement.
 
-> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
+> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
 
 ## Quick Navigation
 
@@ -112,6 +119,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | Runtime Schema Validation | TypeBox + AJV                 |
 | UI Automation             | Playwright Browser Automation |
 | Accessibility Testing     | @axe-core/playwright          |
+| Visual Regression         | Playwright Screenshot Testing |
 | Containerization          | Docker                        |
 | CI/CD                     | GitHub Actions                |
 | Formatting                | Prettier                      |
@@ -183,6 +191,26 @@ Automated accessibility checks use the framework's central WCAG 2.2 Level AA pol
 
 Automated axe coverage provides a quality signal for supported automated rules; it does not replace manual accessibility testing or prove complete WCAG conformance.
 
+### Visual regression flow
+
+```text
+Deterministic test state
+  ↓
+Page Object / Component locator
+  ↓
+Native Playwright screenshot assertion
+  ↓
+Version-controlled approved baseline
+  ↓
+Visual comparison
+```
+
+Visual regression coverage uses native Playwright screenshot assertions for representative page-level and component-level visual contracts.
+
+Approved baselines are generated and reviewed in the canonical Docker/Linux runtime, stored with the visual specs, and version-controlled with the framework. CI compares current rendering against committed baselines and does not automatically update them.
+
+Detailed baseline creation, review, and update rules are defined in [`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
+
 For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Repository Structure
@@ -213,6 +241,7 @@ src/
   mocks/
   security/
   accessibility/
+  visual/
   ai/
   utils/
   reporting/
@@ -292,6 +321,30 @@ The dedicated accessibility Playwright project currently executes through Chromi
 Real accessibility violations remain failing quality signals. The framework does not suppress violations or use `continue-on-error` merely to keep CI green.
 
 Automated axe analysis does not replace manual accessibility testing for requirements that cannot be reliably automated.
+
+## Visual Regression Testing
+
+Visual regression testing uses Playwright's native screenshot assertions rather than introducing a separate visual-testing abstraction.
+
+The current golden coverage includes:
+
+```text
+authenticated dashboard
+→ page-level visual contract
+
+deterministic task card
+→ component-level visual contract
+```
+
+Visual scenarios use deterministic API-driven setup and existing Page Object or locator ownership before screenshot comparison.
+
+The dedicated `visual` Playwright project currently executes through Chromium in the canonical Docker/Linux runtime. Visual coverage is not duplicated across Firefox and WebKit unless a concrete cross-browser visual risk justifies additional browser-specific baselines.
+
+Approved screenshot baselines are stored alongside the visual specs under Playwright-managed snapshot directories and are committed to Git.
+
+Baseline creation and updates are explicit review operations. CI performs comparison against committed baselines and never automatically approves rendering changes through `--update-snapshots`.
+
+For the complete baseline lifecycle and visual testing rules, see [`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
 
 ## Authentication
 
@@ -383,7 +436,7 @@ docker run --rm \
   npx playwright test --project=api
 ```
 
-This keeps the container image reusable rather than creating separate images for API, accessibility, and browser projects.
+This keeps the container image reusable rather than creating separate images for API, accessibility, visual, and browser projects.
 
 ### Container Lifecycle
 
@@ -455,6 +508,9 @@ build-image
         ├── accessibility
         │   └── same image → --project=accessibility
         │
+        ├── visual
+        │   └── same image → --project=visual
+        │
         └── ui matrix
             ├── same image → chromium
             ├── same image → firefox
@@ -470,15 +526,17 @@ Prettier
 
 After quality validation succeeds, CI builds the reusable Playwright test image once.
 
-The image is tagged with the current commit SHA, saved as a temporary GitHub Actions artifact, and reused by the API, accessibility, and UI jobs.
+The image is tagged with the current commit SHA, saved as a temporary GitHub Actions artifact, and reused by the API, accessibility, visual, and UI jobs.
 
 API tests execute once because they are browser-independent.
 
 Accessibility tests execute once through the dedicated Chromium-based accessibility project.
 
+Visual regression tests execute once through the dedicated Chromium-based visual project and compare current rendering against committed baselines without updating them.
+
 UI and smoke tests execute through browser-specific Playwright projects using a GitHub Actions matrix.
 
-The API, accessibility, and UI jobs load and execute the same previously built Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
+The API, accessibility, visual, and UI jobs load and execute the same previously built Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
 
 Test containers are ephemeral and execute with `--rm`.
 
@@ -496,6 +554,10 @@ accessibility
 → tests/accessibility/**
 → Chromium
 
+visual
+→ tests/visual/**
+→ Chromium
+
 chromium
 firefox
 webkit
@@ -503,7 +565,7 @@ webkit
 → tests/smoke/**
 ```
 
-This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
+This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility and visual regression execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
 
 ## Reports and Diagnostics
 
@@ -524,6 +586,13 @@ Accessibility CI evidence is preserved separately through:
 ```text
 playwright-report-accessibility
 test-results-accessibility
+```
+
+Visual regression CI evidence is preserved separately through:
+
+```text
+playwright-report-visual
+test-results-visual
 ```
 
 Playwright is configured to retain additional diagnostics for failed or retried execution, including screenshots, video, and traces according to the configured policy.
@@ -600,6 +669,12 @@ Run accessibility tests only:
 npx playwright test --project=accessibility
 ```
 
+Run visual tests only:
+
+```bash
+npx playwright test --project=visual
+```
+
 Run a browser project:
 
 ```bash
@@ -652,6 +727,17 @@ docker run --rm \
   npx playwright test --project=accessibility
 ```
 
+Run only the visual project against the committed baselines:
+
+```bash
+docker run --rm \
+  -e TEST_ENV=hosted \
+  -v "$(pwd)/playwright-report:/app/playwright-report" \
+  -v "$(pwd)/test-results:/app/test-results" \
+  playwright-enterprise-tests \
+  npx playwright test --project=visual
+```
+
 Run the complete suite while preserving reports and test results on the host:
 
 ```bash
@@ -697,6 +783,7 @@ AI coding agents are instructed to:
 - preserve authentication and fixture boundaries;
 - select the correct Playwright execution project;
 - reuse the established accessibility scanner, WCAG policy, fixtures, formatter, and assertion pattern for accessibility coverage;
+- preserve deterministic visual setup, existing Page Object or locator ownership, and the established baseline policy for visual regression coverage;
 - validate formatting, types, and affected tests before completion.
 
 Repository-level agent behavior is defined in [`AGENTS.md`](AGENTS.md), with GitHub Copilot-specific instructions in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
@@ -715,6 +802,7 @@ The target provides realistic scenarios for:
 - API contract testing;
 - API/UI integration;
 - automated accessibility testing;
+- visual regression testing;
 - negative testing;
 - controlled network failure scenarios.
 
@@ -739,6 +827,9 @@ Cross-browser execution        ✅
 Automated accessibility        ✅
 WCAG policy                    ✅
 Accessibility CI gate          ✅
+Visual regression testing      ✅
+Versioned visual baselines     ✅
+Visual CI gate                 ✅
 Docker test execution          ✅
 Runtime container config       ✅
 Container artifact persistence ✅
