@@ -2,7 +2,7 @@
 
 [![Playwright](https://img.shields.io/badge/Playwright-1.62.1-2EAD33?logo=playwright)](https://playwright.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![CI](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml)
+[![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework/actions/workflows/playwright.yml)
 [![Docker](https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
 A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, and visual regression testing.
