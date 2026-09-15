@@ -50,6 +50,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "visual",
+      testMatch: /tests\/visual\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "chromium",
       testMatch: [/tests\/ui\/.*\.spec\.ts/, /tests\/smoke\/.*\.spec\.ts/],
       use: { ...devices["Desktop Chrome"] },
