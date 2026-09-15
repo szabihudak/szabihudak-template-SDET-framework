@@ -1,4 +1,4 @@
-export const VISUAL_COMPARSION_OPTIONS = {
-  animation: "disabled",
+export const VISUAL_COMPARISON_OPTIONS = {
+  animations: "disabled",
   caret: "hide",
 } as const;
