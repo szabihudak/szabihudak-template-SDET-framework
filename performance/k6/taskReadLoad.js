@@ -14,14 +14,12 @@ export const options = {
 const baseUrl = __ENV.TARGET_BASE_URL;
 
 function createPerformanceUser() {
-  const uniqueId = `${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 8)}`;
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   return {
     name: `Performance User ${uniqueId}`,
     email: `perf_${uniqueId}@example.com`,
-    password: "Test123!",
+    password: "TestPassword123!",
   };
 }
 
