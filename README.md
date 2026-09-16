@@ -15,21 +15,21 @@ The framework is designed around the concerns that matter in real automation sys
 
 ## Engineering Capabilities
 
-| Area                  | Implementation                                                             |
-| --------------------- | -------------------------------------------------------------------------- |
-| API Testing           | Browser-independent Playwright API tests with domain-specific clients      |
-| Contract Testing      | TypeBox schemas with AJV runtime validation                                |
-| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking             |
-| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution |
-| Visual Regression     | Native Playwright page and component screenshot baseline comparison        |
-| Performance Testing   | k6 API workload with workload-specific metrics and calibrated thresholds   |
-| Authentication        | Programmatic API and browser authentication                                |
-| Test Data             | Deterministic factories with scenario-specific overrides                   |
-| Cross-Browser         | Chromium, Firefox, and WebKit execution                                    |
-| Containerization      | Reproducible Playwright execution with Docker                              |
+| Area                  | Implementation                                                                   |
+| --------------------- | -------------------------------------------------------------------------------- |
+| API Testing           | Browser-independent Playwright API tests with domain-specific clients            |
+| Contract Testing      | TypeBox schemas with AJV runtime validation                                      |
+| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                   |
+| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution       |
+| Visual Regression     | Native Playwright page and component screenshot baseline comparison              |
+| Performance Testing   | k6 API workload with workload-specific metrics and calibrated thresholds         |
+| Authentication        | Programmatic API and browser authentication                                      |
+| Test Data             | Deterministic factories with scenario-specific overrides                         |
+| Cross-Browser         | Chromium, Firefox, and WebKit execution                                          |
+| Containerization      | Reproducible Playwright execution with Docker                                    |
 | CI/CD                 | GitHub Actions with Playwright quality gates and dedicated performance execution |
-| Diagnostics           | Playwright diagnostics and k6 HTML performance reports preserved as CI evidence |
-| Engineering Standards | Architecture documentation, testing standards, and ADRs                    |
+| Diagnostics           | Playwright diagnostics and k6 HTML performance reports preserved as CI evidence  |
+| Engineering Standards | Architecture documentation, testing standards, and ADRs                          |
 
 ## Architecture at a Glance
 
