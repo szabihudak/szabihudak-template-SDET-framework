@@ -12,7 +12,7 @@ permissions:
 
 env:
   TEST_ENV: hosted
-  TEST_IMAGE: playwright-enterprise-tests:${{ github.sha }}
+  TEST_IMAGE: ghcr.io/${{ github.repository_owner }}/playwright-enterprise-tests:${{ github.sha }}
 
 concurrency:
   group: playwright-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -22,6 +22,9 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -47,40 +50,70 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
         run: docker build -t "$TEST_IMAGE" .
 
-      - name: Save Playwright test image
-        run: docker save "$TEST_IMAGE" -o playwright-test-image.tar
-
-      - name: Upload Playwright test image
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-image
-          path: playwright-test-image.tar
-          retention-days: 1
-          compression-level: 0
+      - name: Push Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: docker push "$TEST_IMAGE"
 
   api:
     needs: build-image
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Playwright test image
-        uses: actions/download-artifact@v4
+      - name: Log in to GHCR
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
         with:
-          name: playwright-test-image
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load Playwright test image
-        run: docker load -i playwright-test-image.tar
+      - name: Pull Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: docker pull "$TEST_IMAGE"
+
+      - name: Build Playwright test image for fork PR
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: docker build -t "$TEST_IMAGE" .
 
       - name: Run API tests
         run: |
@@ -112,6 +145,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    permissions:
+      contents: read
+      packages: read
+
     strategy:
       fail-fast: false
       matrix:
@@ -124,13 +161,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Playwright test image
-        uses: actions/download-artifact@v4
+      - name: Log in to GHCR
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
         with:
-          name: playwright-test-image
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load Playwright test image
-        run: docker load -i playwright-test-image.tar
+      - name: Pull Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: docker pull "$TEST_IMAGE"
+
+      - name: Build Playwright test image for fork PR
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: docker build -t "$TEST_IMAGE" .
 
       - name: Run UI tests
         run: |
@@ -162,17 +213,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Playwright test image
-        uses: actions/download-artifact@v4
+      - name: Log in to GHCR
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
         with:
-          name: playwright-test-image
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load Playwright test image
-        run: docker load -i playwright-test-image.tar
+      - name: Pull Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: docker pull "$TEST_IMAGE"
+
+      - name: Build Playwright test image for fork PR
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: docker build -t "$TEST_IMAGE" .
 
       - name: Run Accessibility tests
         run: |
@@ -204,17 +273,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Playwright test image
-        uses: actions/download-artifact@v4
+      - name: Log in to GHCR
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
         with:
-          name: playwright-test-image
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load Playwright test image
-        run: docker load -i playwright-test-image.tar
+      - name: Pull Playwright test image
+        if: >
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: docker pull "$TEST_IMAGE"
+
+      - name: Build Playwright test image for fork PR
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: docker build -t "$TEST_IMAGE" .
 
       - name: Run Visual tests
         run: |
