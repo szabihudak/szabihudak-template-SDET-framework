@@ -73,6 +73,8 @@ Depending on the task, inspect the applicable:
 - Component Object;
 - accessibility utility;
 - visual comparison policy;
+- performance workload;
+- CI workflow;
 - mock;
 - utility;
 - configuration.
@@ -125,6 +127,14 @@ Visual regression behavior
 → central visual comparison policy
 → version-controlled baselines
 → visual Playwright project
+
+Performance behavior
+→ existing k6 workload under performance/k6/
+→ separate k6 runtime boundary
+→ shared environment configuration
+→ workload-specific metrics
+→ calibrated thresholds
+→ dedicated performance workflow
 ```
 
 References demonstrate structural grammar and responsibility boundaries.
@@ -164,6 +174,9 @@ AccessibilityFormatter
 
 Visual comparison policy
 → shared screenshot-stability settings only
+
+Performance workload
+→ k6-owned load generation, workload-specific metrics, and threshold evaluation
 
 Mock
 → controlled network behavior
@@ -490,6 +503,28 @@ Do not update a baseline merely to make CI green.
 
 CI is compare-only and must never automatically approve or regenerate baselines.
 
+## Performance Rules
+
+Performance workloads belong under:
+
+```text
+performance/k6/**
+```
+
+and execute through the dedicated k6 runtime rather than a Playwright project.
+
+Do not import Playwright or Node.js-specific framework helpers into k6 workloads.
+
+Use the shared runtime-neutral environment configuration as the source of target environment URLs.
+
+Keep authentication and other setup traffic outside the measured operation when those actions are not the performance target.
+
+Use workload-specific metrics and enforceable thresholds for the behavior being measured.
+
+Do not expand the hosted baseline into uncontrolled stress, spike, soak, or large-scale load testing against shared infrastructure.
+
+Performance CI is owned by the dedicated manually triggered performance workflow rather than the normal pull-request test path.
+
 ## Authentication Rules
 
 API and browser authentication are separate concerns:
@@ -666,6 +701,20 @@ before considering the baseline reproducible.
 
 Do not claim a visual validation passed merely because an update command generated expected images.
 
+For performance changes, run the affected k6 workload through its dedicated Docker runtime against the intended target environment.
+
+Verify that:
+
+```text
+measured requests succeed
+→ workload-specific metrics are populated
+→ configured thresholds are evaluated
+→ threshold failure produces a failing execution result
+→ the expected HTML report is generated
+```
+
+Do not claim performance validation passed solely because the k6 process executed; threshold evaluation and report generation are part of the validation evidence.
+
 Run broader regression scope when the change affects shared framework infrastructure.
 
 Do not claim a test or validation command passed unless it was actually executed successfully.
@@ -684,6 +733,7 @@ Update documentation when a change modifies:
 - major technology choices;
 - visual baseline ownership or approval rules;
 - visual execution boundaries.
+- performance workload, runtime, threshold, or CI ownership boundaries.
 
 Do not modify architecture documentation for ordinary feature additions that already follow documented patterns.
 
@@ -704,7 +754,7 @@ existing architecture preserved
         ↓
 correct layers modified
         ↓
-correct Playwright project selected
+correct execution project or runtime selected
         ↓
 no unnecessary abstraction introduced
         ↓
@@ -715,6 +765,8 @@ authentication boundaries preserved
 accessibility policy preserved where applicable
         ↓
 visual baseline policy preserved where applicable
+        ↓
+performance workload boundaries and threshold policy preserved where applicable
         ↓
 formatting passes
         ↓

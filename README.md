@@ -1,13 +1,17 @@
 # Playwright Enterprise Framework
 
 [![Playwright](https://img.shields.io/badge/Playwright-1.62.1-2EAD33?logo=playwright)](https://playwright.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![k6](https://img.shields.io/badge/k6-Performance-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
+[![axe-core](https://img.shields.io/badge/axe--core-Accessibility-5C2D91)](https://github.com/dequelabs/axe-core)
+[![Visual Regression](https://img.shields.io/badge/Visual-Regression-FF6F00)](https://playwright.dev/docs/test-snapshots)
 [![Docker](https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![GHCR](https://img.shields.io/badge/GHCR-Container%20Registry-181717?logo=github&logoColor=white)](https://ghcr.io/)
+[![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, and visual regression testing.
+A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, visual regression, and API performance testing.
 
-The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, and failure diagnostics**.
+The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, performance quality signals, and failure diagnostics**.
 
 ## Engineering Capabilities
 
@@ -18,12 +22,13 @@ The framework is designed around the concerns that matter in real automation sys
 | UI Automation         | Page Objects, Component Objects, fixtures, and network mocking             |
 | Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution |
 | Visual Regression     | Native Playwright page and component screenshot baseline comparison        |
+| Performance Testing   | k6 API workload with workload-specific metrics and calibrated thresholds   |
 | Authentication        | Programmatic API and browser authentication                                |
 | Test Data             | Deterministic factories with scenario-specific overrides                   |
 | Cross-Browser         | Chromium, Firefox, and WebKit execution                                    |
 | Containerization      | Reproducible Playwright execution with Docker                              |
-| CI/CD                 | GitHub Actions with quality, accessibility, visual, and browser test gates |
-| Diagnostics           | HTML reports, traces, screenshots, video, and CI artifacts                 |
+| CI/CD                 | GitHub Actions with Playwright quality gates and dedicated performance execution |
+| Diagnostics           | Playwright diagnostics and k6 HTML performance reports preserved as CI evidence |
 | Engineering Standards | Architecture documentation, testing standards, and ADRs                    |
 
 ## Architecture at a Glance
@@ -31,6 +36,7 @@ The framework is designed around the concerns that matter in real automation sys
 ```mermaid
 flowchart TD
     A[Playwright Test Suite]
+    PERF[k6 Performance Workload]
 
     A --> B[API Testing]
     A --> C[UI Testing]
@@ -59,6 +65,9 @@ flowchart TD
 
     Q --> R[Docker]
     Q --> S[GitHub Actions]
+
+    PERF --> R
+    PERF --> S
 
     R --> T[Reproducible Runtime]
     R --> U[Runtime TEST_ENV]
@@ -91,13 +100,13 @@ The framework favors:
 - deterministic and isolated test data;
 - reproducible execution across local and CI environments;
 - build-once, configure-at-runtime container execution;
-- efficient CI ownership between API, accessibility, visual, and browser tests;
+- explicit CI ownership between Playwright test execution and performance workloads;
 - actionable diagnostics when execution fails;
 - documented architectural decisions and trade-offs.
 
 New capabilities are introduced only when they demonstrate a real testing or architectural requirement.
 
-> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
+> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, k6 API performance testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
 
 ## Quick Navigation
 
@@ -105,6 +114,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 - [Testing Standards](docs/TESTING_STANDARDS.md)
 - [Framework Requirements](docs/FRAMEWORK_REQUIREMENTS.md)
 - [Architecture Decision Records](docs/adr/)
+- [Performance Testing](#performance-testing)
 - [Docker Execution](#docker-execution)
 - [CI Pipeline](#ci-pipeline)
 - [Running Locally](#running-locally)
@@ -120,7 +130,9 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | UI Automation             | Playwright Browser Automation |
 | Accessibility Testing     | @axe-core/playwright          |
 | Visual Regression         | Playwright Screenshot Testing |
+| Performance Testing       | k6                            |
 | Containerization          | Docker                        |
+| Container Registry        | GitHub Container Registry     |
 | CI/CD                     | GitHub Actions                |
 | Formatting                | Prettier                      |
 | Target Application        | UPEX DOJO                     |
@@ -211,6 +223,36 @@ Approved baselines are generated and reviewed in the canonical Docker/Linux runt
 
 Detailed baseline creation, review, and update rules are defined in [`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
 
+### Performance flow
+
+```text
+k6 setup
+  ↓
+API authentication
+  ↓
+Authenticated task-read workload
+  ↓
+Workload-specific metrics
+  ↓
+Performance thresholds
+  ↓
+PASS / FAIL
+```
+
+The current k6 baseline measures authenticated task-read behavior with a controlled `2 VU / 30s` workload.
+
+The measured operation owns dedicated `task_read_duration` and `task_read_failures` metrics so setup traffic does not contaminate its performance quality gate.
+
+Current calibrated thresholds are:
+
+```text
+task_read_duration
+→ p(95) < 500 ms
+
+task_read_failures
+→ rate < 1%
+```
+
 For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Repository Structure
@@ -254,7 +296,6 @@ tests/
   accessibility/
   visual/
   security/
-  performance/
 
 .github/
   workflows/
@@ -346,6 +387,54 @@ Baseline creation and updates are explicit review operations. CI performs compar
 
 For the complete baseline lifecycle and visual testing rules, see [`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
 
+## Performance Testing
+
+API performance testing uses k6 through a runtime boundary separate from Playwright.
+
+The current baseline exercises authenticated task reads against the UPEX DOJO API without creating task data during the measured workload.
+
+Authentication is established during k6 setup and reused by the measured workload.
+
+Current workload:
+
+```text
+executor
+→ constant-vus
+
+virtual users
+→ 2
+
+duration
+→ 30 seconds
+
+pacing
+→ 1 second between iterations
+```
+
+The workload is deliberately small because the hosted UPEX DOJO environment is shared infrastructure. It is a controlled performance baseline rather than a stress, spike, soak, or capacity test.
+
+Performance quality is evaluated through workload-specific metrics:
+
+```text
+task_read_duration
+→ p(95) < 500 ms
+
+task_read_failures
+→ rate < 1%
+```
+
+The thresholds were introduced after repeated baseline calibration rather than being selected as arbitrary SLA values.
+
+Threshold failure produces a non-zero k6 exit code.
+
+The performance run also generates:
+
+```text
+performance-results/task-read-load.html
+```
+
+as human-readable execution evidence.
+
 ## Authentication
 
 The target application exposes separate API and browser authentication mechanisms:
@@ -396,7 +485,7 @@ Factories remain independent from HTTP execution, UI interaction, assertions, an
 
 ## Docker Execution
 
-Docker provides a reproducible execution environment for the Playwright test suite.
+Docker provides reproducible execution environments while preserving runtime ownership between Playwright test execution and k6 performance testing.
 
 The test image is built from the official Playwright image matching the framework's installed Playwright version:
 
@@ -410,14 +499,16 @@ The image contains the Linux runtime and browser dependencies required for Playw
 npm ci
 ```
 
-The framework follows:
+This Playwright image owns Playwright-based API, accessibility, visual, and browser execution. Performance testing runs separately through the pinned k6 Docker image rather than extending the Playwright image with k6.
+
+The framework's Playwright image follows:
 
 ```text
 build once
 → configure at runtime
 ```
 
-Target environment selection is therefore not baked into the image.
+Target environment selection is therefore not baked into the Playwright image.
 
 For example:
 
@@ -499,22 +590,21 @@ quality
 build-image
 ├── docker build once
 ├── image tag = github.sha
-├── docker save
-└── temporary GitHub Actions artifact
+└── push to GitHub Container Registry
         ↓
         ├── api
-        │   └── same image → --project=api
+        │   └── pull same SHA image → --project=api
         │
         ├── accessibility
-        │   └── same image → --project=accessibility
+        │   └── pull same SHA image → --project=accessibility
         │
         ├── visual
-        │   └── same image → --project=visual
+        │   └── pull same SHA image → --project=visual
         │
         └── ui matrix
-            ├── same image → chromium
-            ├── same image → firefox
-            └── same image → webkit
+            ├── pull same SHA image → chromium
+            ├── pull same SHA image → firefox
+            └── pull same SHA image → webkit
 ```
 
 The quality gate currently validates:
@@ -526,7 +616,7 @@ Prettier
 
 After quality validation succeeds, CI builds the reusable Playwright test image once.
 
-The image is tagged with the current commit SHA, saved as a temporary GitHub Actions artifact, and reused by the API, accessibility, visual, and UI jobs.
+The image is tagged with the current commit SHA, published to GitHub Container Registry, and reused by the API, accessibility, visual, and UI jobs.
 
 API tests execute once because they are browser-independent.
 
@@ -536,11 +626,33 @@ Visual regression tests execute once through the dedicated Chromium-based visual
 
 UI and smoke tests execute through browser-specific Playwright projects using a GitHub Actions matrix.
 
-The API, accessibility, visual, and UI jobs load and execute the same previously built Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
+The API, accessibility, visual, and UI jobs pull and execute the same previously built SHA-tagged Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
 
 Test containers are ephemeral and execute with `--rm`.
 
 Playwright report and test-result directories are bind-mounted from the containers to the GitHub Actions runners so CI can upload them as workflow artifacts after container execution.
+
+Executable Playwright images are distributed through GitHub Container Registry; GitHub Actions artifacts remain reserved for reports and failure diagnostics.
+
+### Performance CI
+
+Performance execution is owned by the separate:
+
+```text
+.github/workflows/performance.yml
+```
+
+workflow.
+
+The current hosted performance baseline is intentionally triggered through:
+
+```text
+workflow_dispatch
+```
+
+rather than normal pull-request execution.
+
+The workflow resolves the selected `TEST_ENV` through the shared environment configuration, runs the pinned k6 Docker runtime, enforces the performance thresholds, and preserves the generated HTML report as a CI artifact.
 
 ## Playwright Projects
 
@@ -599,6 +711,12 @@ Playwright is configured to retain additional diagnostics for failed or retried 
 
 Docker-based local execution can preserve the same generated Playwright output directories through bind mounts, independently of CI artifact handling.
 
+Performance CI preserves the generated k6 HTML report separately as:
+
+```text
+performance-report-task-read
+```
+
 ## Environment Configuration
 
 The framework supports explicit target environments through `TEST_ENV`.
@@ -611,7 +729,19 @@ local
 ci
 ```
 
-The GitHub Actions workflow explicitly targets:
+Environment URLs are defined in:
+
+```text
+config/environments/environments.json
+```
+
+The TypeScript environment adapter consumes the same configuration through:
+
+```text
+config/environments/environment.ts
+```
+
+The GitHub Actions workflows explicitly target:
 
 ```text
 TEST_ENV=hosted
@@ -622,6 +752,8 @@ Docker execution can select the same target at container runtime:
 ```text
 docker run -e TEST_ENV=hosted ...
 ```
+
+The performance workflow resolves the selected environment's `apiBaseUrl` from the shared JSON configuration and supplies it to k6 as `TARGET_BASE_URL`.
 
 The execution environment and test target environment are intentionally treated as separate concepts.
 
@@ -748,6 +880,44 @@ docker run --rm \
   playwright-enterprise-tests
 ```
 
+### Running Performance Tests with Docker
+
+Resolve the hosted API URL from the shared environment configuration:
+
+```bash
+TARGET_BASE_URL=$(node -e "
+  const environments = require('./config/environments/environments.json');
+  process.stdout.write(environments.hosted.apiBaseUrl);
+")
+```
+
+Create the report directory:
+
+```bash
+mkdir -p performance-results
+```
+
+Run the current performance baseline:
+
+```bash
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -e TARGET_BASE_URL="$TARGET_BASE_URL" \
+  -e K6_WEB_DASHBOARD=true \
+  -e K6_WEB_DASHBOARD_PORT=-1 \
+  -e K6_WEB_DASHBOARD_EXPORT=/reports/task-read-load.html \
+  -v "$PWD/performance/k6:/scripts" \
+  -v "$PWD/performance-results:/reports" \
+  grafana/k6:1.8.1 \
+  run /scripts/taskReadLoad.js
+```
+
+The HTML report is written to:
+
+```text
+performance-results/task-read-load.html
+```
+
 ## Engineering Standards
 
 The repository contains explicit architecture and implementation standards.
@@ -784,6 +954,7 @@ AI coding agents are instructed to:
 - select the correct Playwright execution project;
 - reuse the established accessibility scanner, WCAG policy, fixtures, formatter, and assertion pattern for accessibility coverage;
 - preserve deterministic visual setup, existing Page Object or locator ownership, and the established baseline policy for visual regression coverage;
+- preserve the separate k6 performance runtime boundary, controlled workload design, workload-specific metrics, and calibrated threshold policy for performance coverage;
 - validate formatting, types, and affected tests before completion.
 
 Repository-level agent behavior is defined in [`AGENTS.md`](AGENTS.md), with GitHub Copilot-specific instructions in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
@@ -803,6 +974,7 @@ The target provides realistic scenarios for:
 - API/UI integration;
 - automated accessibility testing;
 - visual regression testing;
+- controlled API performance baseline testing;
 - negative testing;
 - controlled network failure scenarios.
 
@@ -830,10 +1002,16 @@ Accessibility CI gate          ✅
 Visual regression testing      ✅
 Versioned visual baselines     ✅
 Visual CI gate                 ✅
+k6 performance testing         ✅
+Performance quality thresholds ✅
+Performance HTML reporting     ✅
+Dedicated performance CI       ✅
+Shared environment config      ✅
 Docker test execution          ✅
 Runtime container config       ✅
 Container artifact persistence ✅
 GitHub Actions CI              ✅
+GHCR image distribution        ✅
 CI quality gates               ✅
 CI artifacts                   ✅
 Browser matrix execution       ✅

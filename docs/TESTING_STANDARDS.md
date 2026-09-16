@@ -12,7 +12,7 @@ These standards apply to both human contributors and AI-assisted development.
 
 Before writing code, inspect the existing implementation and determine which framework layers and execution boundaries are actually required.
 
-Do not create a new abstraction merely because a new test is being added.
+Do not create a new abstraction merely because a new test or performance workload is being added.
 
 Prefer:
 
@@ -28,9 +28,9 @@ Equivalent responsibilities should follow existing golden patterns.
 
 Different responsibilities should not be forced into artificial structural uniformity.
 
-## New Test Implementation Workflow
+## New Test or Performance Workload Implementation Workflow
 
-When implementing a new test, follow this sequence:
+When implementing a new test or performance workload, follow this sequence:
 
 ```text
 Understand the behavior
@@ -39,7 +39,7 @@ Find an analogous existing test
         ↓
 Identify required framework layers
         ↓
-Identify required execution project
+Identify required execution project or runtime
         ↓
 Reuse existing layers where possible
         ↓
@@ -53,7 +53,7 @@ Format
         ↓
 Typecheck
         ↓
-Run affected project
+Run affected project or workload
         ↓
 Review architecture impact
 ```
@@ -61,10 +61,10 @@ Review architecture impact
 Before implementation, answer:
 
 1. What behavior is being verified?
-2. Is this primarily API, UI, accessibility, visual regression, or composed behavior?
+2. Is this primarily API, UI, accessibility, visual regression, performance, or composed behavior?
 3. Is the behavior browser-independent or browser-dependent?
-4. Which Playwright project should own the test?
-5. Is there an existing test demonstrating a similar pattern?
+4. Does the behavior belong to a Playwright project or the separate k6 performance runtime?
+5. Is there an existing test or workload demonstrating a similar pattern?
 6. Which existing framework components can be reused?
 7. Which components genuinely need modification?
 8. Is any new abstraction actually required?
@@ -96,6 +96,9 @@ tests/smoke/**
 → chromium
 → firefox
 → webkit
+
+performance/k6/**
+→ k6 performance runtime
 ```
 
 API tests are browser-independent and must execute through the dedicated `api` project.
@@ -106,11 +109,13 @@ Visual regression tests use browser-rendered application state but execute throu
 
 UI and smoke tests are browser-dependent and execute through browser projects.
 
+Performance workloads are not Playwright projects. They execute through the dedicated k6 runtime under `performance/k6/**`.
+
 Do not allow API tests to run once per browser simply because browser projects exist.
 
 Do not multiply automated accessibility tests across the UI browser matrix unless a concrete browser-specific accessibility requirement demonstrates a need.
 
-Do not multiply visual regression tests across the UI browser matrix unless a concrete browser-specific visual risk demonstrates a need for additional browser-specific baselines.
+Do not multiply visual regression tests across the UI browser matrix unless a concrete browser-specific visual requirement justifies maintaining additional browser-specific baselines.
 
 Do not use browser projects for HTTP-only contract validation.
 
@@ -142,7 +147,14 @@ place under tests/ui or tests/smoke
 → execute through the intended browser project
 ```
 
-If the test behavior does not fit an existing execution boundary, review the architecture before introducing a new project.
+When adding a new k6 performance workload:
+
+```text
+place under performance/k6
+→ execute through the k6 runtime
+```
+
+If the test or workload behavior does not fit an existing execution boundary, review the architecture before introducing a new project or runtime boundary.
 
 ## Layer Decision Guide
 
@@ -176,6 +188,12 @@ Need automated accessibility analysis?
 Need shared visual comparison policy?
 → Visual constants/configuration
 
+Need controlled API performance workload?
+→ k6 workload
+
+Need workload-specific performance measurement?
+→ k6 custom metric / threshold
+
 Need controlled network behavior?
 → Mock
 
@@ -183,9 +201,9 @@ Need to verify behavior?
 → Spec
 ```
 
-Not every test requires every layer.
+Not every test or performance workload requires every layer.
 
-A new test should modify the smallest set of layers necessary to represent the behavior correctly.
+A new test or performance workload should modify the smallest set of layers necessary to represent the behavior correctly.
 
 ## Existing Implementation First
 
@@ -244,6 +262,19 @@ New visual regression coverage
 → reuse the central visual comparison policy
 → keep screenshot assertions in the spec
 → keep execution in the visual project
+```
+
+or:
+
+```text
+New performance coverage
+→ inspect the existing k6 workload
+→ preserve the Playwright / k6 runtime boundary
+→ reuse shared environment configuration where applicable
+→ use native k6 HTTP and metrics
+→ separate setup traffic from the measured operation
+→ calibrate thresholds from repeated baseline evidence
+→ keep execution in the k6 runtime
 ```
 
 Existing implementations are reference patterns, not templates to copy blindly.
@@ -656,317 +687,440 @@ Visual regression tests use the dedicated `visual` Playwright project and belong
 tests/visual/**
 ```
 
-The current golden pattern covers two complementary visual contracts:
+The current golden pattern uses Playwright's native screenshot comparison through `toHaveScreenshot()`.
+
+Visual regression coverage should verify intentional visual state rather than duplicate functional assertions already owned by API or UI tests.
+
+The current execution boundary is:
 
 ```text
-page-level visual state
-+
-component-level visual state
+visual project
+→ Chromium
+→ canonical Docker/Linux runtime
+→ version-controlled screenshot baselines
 ```
 
-Representative coverage currently includes:
+Do not multiply the same visual coverage across Chromium, Firefox, and WebKit merely because the functional UI suite uses a browser matrix.
 
-```text
-authenticated dashboard
-→ page-level screenshot comparison
+Additional browser-specific visual baselines should be introduced only when a concrete visual compatibility requirement justifies their maintenance cost.
 
-deterministic task card
-→ locator-level screenshot comparison
-```
+### Visual Baseline Standard
 
-Visual tests should normally follow:
+Visual baselines are version-controlled test assets owned by the visual spec that uses them.
 
-```text
-deterministic test data
-        ↓
-API/programmatic state setup
-        ↓
-navigate to the relevant UI
-        ↓
-wait for meaningful stable state
-        ↓
-visual assertion
-```
+Keep Playwright's spec-local snapshot structure rather than introducing a separate global baseline repository without a demonstrated need.
 
-The setup and readiness steps form the deterministic state preparation for the visual assertion. Do not manufacture an artificial action phase when the behavior under verification is the rendered state itself.
-
-Prefer explicit scenario data through existing domain factories:
-
-```ts
-const task = createTask({
-  title: "Visual Regression Task - Card",
-  description: "Stable visual regression fixture",
-  priority: "low",
-  status: "in_progress",
-});
-```
-
-Do not create a visual-specific factory, fixture, or helper merely to wrap an existing factory when that wrapper does not add meaningful responsibility.
-
-Visible data that affects layout must be deterministic.
-
-Avoid uncontrolled:
-
-- random visible titles;
-- random visible descriptions;
-- timestamps;
-- changing identifiers rendered to the user;
-- unstable loading states;
-- environment-dependent content.
-
-Use existing API clients and authenticated fixtures when they already provide the required setup boundary.
-
-Visual tests should reuse existing Page Object and locator ownership rather than introducing screenshot-specific selectors solely for visual testing.
-
-### Visual Comparison Policy
-
-The framework centralizes only genuinely shared visual comparison policy.
-
-Current shared policy includes:
-
-```text
-animations
-→ disabled
-
-caret
-→ hidden
-```
-
-These settings reduce rendering noise without hiding meaningful application content.
-
-Do not introduce global:
-
-```text
-threshold
-maxDiffPixels
-maxDiffPixelRatio
-masking
-```
-
-merely to make visual tests easier to pass.
-
-A tolerance or mask may be introduced only for a concrete, understood rendering characteristic and must not be used to conceal a real visual regression.
-
-Prefer:
-
-```text
-stabilize first
-→ compare strictly
-→ introduce exception only when justified
-```
-
-over:
-
-```text
-failure
-→ increase tolerance
-→ green
-```
-
-Masking is scenario-specific and must be limited to genuinely dynamic content that is not part of the visual contract.
-
-Do not mask meaningful content such as:
-
-- component layout;
-- task title;
-- task description;
-- priority;
-- status;
-- spacing;
-- typography;
-- relevant controls.
-
-### Baseline Ownership and Storage
-
-Approved visual baselines are test assets, not disposable execution artifacts.
-
-Playwright-managed snapshot directories remain colocated with their owning visual spec.
-
-Current pattern:
-
-```text
-tests/visual/
-  visual.spec.ts
-  visual.spec.ts-snapshots/
-    task-dashboard-visual-linux.png
-    task-card-visual-linux.png
-```
-
-The logical screenshot names are defined by the spec:
-
-```text
-task-dashboard.png
-task-card.png
-```
-
-Playwright owns the platform/project-specific physical snapshot filename.
-
-Do not manually rename generated baseline files independently from the screenshot assertion unless the corresponding test contract is intentionally being changed.
-
-Approved baseline PNG files must be committed to Git.
+Baseline generation must use the canonical Docker/Linux visual runtime.
 
 ```text
 visual spec
-+
-approved baseline
-→ versioned visual contract
+→ canonical Docker/Linux execution
+→ approved baseline
+→ version-controlled snapshot
+→ CI comparison
 ```
 
-Do not treat committed baselines like transient files under:
+Do not generate or update canonical baselines from an arbitrary local host environment when operating-system, font-rendering, or browser-rendering differences can change screenshot output.
+
+Baseline updates must be intentional and reviewed.
+
+Do not use:
 
 ```text
-playwright-report/
-test-results/
+--update-snapshots
 ```
 
-Reports and test results are execution artifacts.
+in normal visual comparison CI execution.
 
-Baselines are version-controlled expected results.
+A changed screenshot must not automatically become the new expected result merely to make the visual test pass.
 
-### Canonical Baseline Runtime
+### Visual State Standard
 
-Visual rendering may differ across operating systems, browser builds, fonts, and rendering environments.
+Visual comparisons must execute against deterministic application state.
 
-The canonical baseline runtime for this framework is the same Docker/Linux Playwright environment used by CI.
+Prefer existing factories, API setup, fixtures, Page Objects, and Component Objects to establish the required state rather than reproducing setup logic inside the visual assertion.
 
-Do not create or approve canonical visual baselines from a developer macOS or Windows browser merely because the test passes locally.
-
-Baseline generation must use the reusable framework Docker image.
-
-Example:
-
-```bash
-docker build -t playwright-enterprise-tests .
-```
-
-Generate or intentionally update visual baselines through the canonical runtime:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  -v "$PWD/tests/visual:/app/tests/visual" \
-  -v "$PWD/playwright-report:/app/playwright-report" \
-  -v "$PWD/test-results:/app/test-results" \
-  playwright-enterprise-tests \
-  npx playwright test --project=visual --update-snapshots
-```
-
-The `tests/visual` bind mount is required during baseline generation so newly generated or updated baseline files survive the ephemeral container and are written back to the host repository.
-
-Do not use `--update-snapshots` during normal verification.
-
-### New Baseline Workflow
-
-Creating a new approved visual baseline is an explicit review operation.
-
-Required workflow:
+The current framework intentionally supports both:
 
 ```text
-implement visual assertion
-        ↓
-establish deterministic visible state
-        ↓
-build canonical Docker image
-        ↓
-run visual project with --update-snapshots
-        ↓
-inspect generated baseline manually
-        ↓
-confirm expected content and stable state
-        ↓
-run visual project again without --update-snapshots
-        ↓
-confirm reproducibility
-        ↓
-commit spec + approved baseline together
+page-level comparison
+→ validates the composed dashboard state
+
+component-level comparison
+→ validates a focused task card state
 ```
 
-Manual baseline review must verify that:
+Choose the smallest screenshot scope that represents the visual behavior being protected.
 
-- the intended page or component is captured;
-- the expected deterministic state is visible;
-- loading or transitional state is absent;
-- dynamic noise is not accidentally part of the baseline;
-- meaningful UI content has not been masked;
-- the screenshot represents the visual contract the test is intended to protect.
+Do not create component-level screenshot coverage merely to mirror page-level coverage.
 
-A generated image is not automatically an approved baseline merely because Playwright created it successfully.
+Dynamic or unstable state should be controlled through deterministic test data and existing framework setup before introducing visual masking or threshold relaxation.
 
-### Baseline Update Workflow
+### Visual Comparison Policy
 
-A visual failure must not immediately trigger baseline regeneration.
+Use the framework's central visual comparison policy rather than defining arbitrary screenshot tolerances independently in individual specs.
 
-Required decision flow:
+Do not add global visual thresholds merely because minor differences are possible.
+
+Do not introduce masks, custom tolerances, or ignored regions without a concrete unstable visual element that cannot be made deterministic through cleaner state control.
+
+A real visual difference must remain visible as a failing quality signal until it is intentionally reviewed and accepted.
+
+### Visual CI Standard
+
+Visual regression execution uses the dedicated `visual` Playwright project in CI.
+
+The CI responsibility is comparison, not baseline generation.
 
 ```text
-visual comparison fails
-        ↓
-inspect expected / actual / diff
-        ↓
-perform RCA
-        ↓
-is the rendering change intended?
-        ↓
-yes
-→ regenerate in canonical runtime
-→ manually review updated baseline
-→ rerun without --update-snapshots
-→ commit approved baseline change
-
-no
-→ keep test failing
-→ fix product or test instability
+version-controlled baseline
+→ run visual project in canonical Docker/Linux runtime
+→ compare actual rendering against baseline
+→ preserve report and failure diagnostics
 ```
 
-Do not update a baseline merely to make CI green.
-
-An intentional visual change should produce an intentional, reviewable baseline diff in Git.
-
-An unintended visual change should remain a failing quality signal.
-
-### Visual Browser Scope
-
-Visual regression tests currently execute through Chromium once rather than through the full UI browser matrix.
-
-This is intentional.
-
-Functional browser coverage and visual baseline coverage address different risks:
+Normal CI execution must not use:
 
 ```text
-UI browser matrix
-→ Chromium
-→ Firefox
-→ WebKit
-→ functional browser behavior
-
-visual project
-→ Chromium
-→ controlled visual contract
+--update-snapshots
 ```
 
-Do not duplicate every visual test across Chromium, Firefox, and WebKit merely because browser engines can render differently.
+A visual mismatch must fail the visual test rather than automatically updating the expected screenshot.
 
-Additional browser-specific visual baselines should be introduced only when:
+Visual CI should preserve the same canonical runtime used to generate approved baselines so operating-system, browser, and rendering differences do not create avoidable noise.
 
-- a supported browser has a concrete visual requirement;
-- historical defects demonstrate browser-specific visual risk;
-- a product or contractual requirement requires browser-specific visual consistency.
+Visual reports and failure diagnostics are execution evidence and should be preserved through the framework's normal CI artifact strategy.
 
-### Visual Failure Diagnostics
+The visual job should remain independent from API, accessibility, and browser-matrix jobs after the reusable Playwright image is available.
 
-Visual comparison failures should preserve:
+A visual failure must not prevent independent test jobs from producing their own quality signals.
+
+## Performance Test Standard
+
+Performance testing uses k6 through a dedicated runtime boundary and belongs under:
 
 ```text
-expected image
-actual image
-diff image
+performance/k6/**
 ```
 
-alongside the standard Playwright diagnostics available through `test-results`.
+Do not implement a k6 workload as a Playwright project merely to reuse the Playwright test runner.
 
-Use these artifacts for RCA before deciding whether the product, test stability, or approved baseline should change.
+The current golden performance pattern separates prerequisite setup from the measured workload:
 
-A visual diff is evidence to investigate, not an instruction to regenerate the expected image.
+```text
+setup
+├── register performance user
+└── authenticate performance user
+        ↓
+measured workload
+└── authenticated GET /tasks
+```
+
+Registration and authentication must succeed before the measured scenario begins.
+
+Their latency must not contaminate the workload-specific task-read latency metric.
+
+### Performance Transport Standard
+
+Use native k6 HTTP APIs for k6 workloads.
+
+Do not import:
+
+- Playwright API clients;
+- Playwright fixtures;
+- Playwright request contexts;
+- Node-specific runtime infrastructure;
+
+into the k6 workload merely to remove superficial code duplication.
+
+The runtime boundary is intentional:
+
+```text
+Playwright API client
+→ functional API automation
+
+k6 HTTP
+→ performance workload generation
+```
+
+Shared runtime-neutral configuration may be reused across both execution technologies.
+
+Runtime-specific transport remains owned by the runtime that executes it.
+
+### Performance Workload Standard
+
+A performance workload must communicate what behavior and load model it measures.
+
+The current authenticated task-read baseline uses:
+
+```text
+executor
+→ constant-vus
+
+virtual users
+→ 2
+
+duration
+→ 30 seconds
+
+pacing
+→ 1 second between iterations
+```
+
+This is a controlled baseline against a shared hosted application.
+
+It must not be described as:
+
+- production capacity testing;
+- stress testing;
+- spike testing;
+- soak testing;
+- endurance testing;
+
+unless the workload and execution environment are explicitly designed for that purpose.
+
+Do not increase virtual users, execution duration, or request rate against shared infrastructure merely to make a workload appear more realistic.
+
+Load level must reflect the intended test purpose and the ownership constraints of the target environment.
+
+The current read workload intentionally avoids task creation so repeated iterations do not create uncontrolled task-data pollution.
+
+The setup phase currently creates one performance user per execution. This is acceptable for the current self-contained baseline, but test-data ownership should be reviewed if repeated execution creates unnecessary persistent data.
+
+### Performance Metric Standard
+
+Measured operations should own workload-specific metrics when global HTTP metrics include setup or unrelated traffic.
+
+The current task-read baseline uses:
+
+```text
+task_read_duration
+→ Trend measuring GET /tasks response duration
+
+task_read_failures
+→ Rate measuring failed GET /tasks operations
+```
+
+The measured task-read request must also have a functional check confirming that the response status is `200`.
+
+Checks validate that the workload operation succeeded. They should not duplicate the full functional API contract suite already owned by Playwright API tests.
+
+Registration and authentication remain fail-fast setup prerequisites.
+
+Do not use registration or authentication latency to decide whether the task-read operation satisfies its latency threshold.
+
+Global k6 HTTP metrics may remain useful diagnostic signals, but the primary quality gate should correspond to the operation being evaluated.
+
+### Performance Threshold Standard
+
+Performance thresholds are executable quality boundaries.
+
+The current calibrated thresholds are:
+
+```text
+task_read_duration
+→ p(95) < 500 ms
+
+task_read_failures
+→ rate < 1%
+```
+
+The latency threshold is based on repeated baseline executions against the current shared hosted environment and includes reasonable headroom for the observed tail-latency variation.
+
+It must not be represented as a provider SLA or production capacity guarantee.
+
+Do not choose or change a performance threshold because:
+
+- a round number appears reasonable;
+- one execution happened to pass at that value;
+- a failing pipeline needs to become green.
+
+Before introducing or changing a threshold, consider:
+
+- the measured operation;
+- the workload model;
+- the target environment;
+- repeated baseline evidence;
+- normal observed variation;
+- any applicable product or service-level requirement.
+
+A threshold failure must remain a failing performance quality signal.
+
+Do not use `continue-on-error` or equivalent behavior to convert a real threshold failure into a successful quality result.
+
+### Performance Reporting Standard
+
+Performance execution must provide both an executable quality signal and human-readable evidence.
+
+These responsibilities are separate:
+
+```text
+k6 metrics
+        ↓
+thresholds
+        ↓
+PASS / FAIL quality gate
+
+k6 metrics
+        ↓
+HTML report
+        ↓
+human-readable execution evidence
+```
+
+The current performance workload uses the built-in k6 web dashboard export to generate:
+
+```text
+performance-results/task-read-load.html
+```
+
+The report should make the workload result understandable without replacing threshold semantics.
+
+A generated HTML report must not decide whether the performance test passes.
+
+Threshold evaluation remains the executable quality gate.
+
+CI should preserve the generated report as an artifact even when the performance execution fails, so the failure remains diagnosable.
+
+A report-upload problem must not silently hide missing performance evidence.
+
+Do not introduce a custom `handleSummary()` implementation or third-party reporting dependency while the native k6 reporting capability satisfies the current requirement.
+
+### Performance Environment Standard
+
+Performance workloads must reuse the framework's runtime-neutral environment configuration rather than maintain a separate hardcoded environment map.
+
+The shared source of truth is:
+
+```text
+config/environments/environments.json
+```
+
+The environment ownership model is:
+
+```text
+environments.json
+→ runtime-neutral environment data
+
+environment.ts
+→ typed Node / Playwright adapter
+
+performance workflow
+→ resolve selected apiBaseUrl
+→ TARGET_BASE_URL
+→ k6 runtime
+```
+
+The performance workload receives its target through:
+
+```text
+TARGET_BASE_URL
+```
+
+It must not hardcode the hosted API URL when that value is already owned by the shared environment configuration.
+
+`TEST_ENV` selects the logical framework environment.
+
+`TARGET_BASE_URL` is the resolved API URL supplied to the k6 runtime.
+
+These variables represent different responsibilities and should not be treated as interchangeable.
+
+Do not import the TypeScript environment adapter into k6 merely to reuse configuration. k6 and Playwright should share runtime-neutral environment data while retaining runtime-specific adapters and execution boundaries.
+
+### Performance Docker Runtime Standard
+
+k6 performance execution uses its own purpose-built runtime rather than the Playwright test image.
+
+The current runtime image is pinned to:
+
+```text
+grafana/k6:1.8.1
+```
+
+The runtime ownership is intentionally separate:
+
+```text
+Playwright image
+→ Playwright API, accessibility, visual, and browser UI execution
+
+k6 image
+→ performance workload execution
+```
+
+Do not install k6 into the Playwright Docker image merely to create one universal test container.
+
+The performance runtime mounts:
+
+```text
+performance/k6
+→ /scripts
+
+performance-results
+→ /reports
+```
+
+The container must run with the host runner's user and group identity when writing report files into the mounted results directory:
+
+```text
+--user "$(id -u):$(id -g)"
+```
+
+This prevents container-created report files from becoming unwritable or inaccessible to the GitHub Actions runner.
+
+Performance containers should remain ephemeral through:
+
+```text
+--rm
+```
+
+The k6 image version must remain explicitly pinned so local and CI execution do not silently change runtime versions.
+
+Runtime upgrades should be intentional and validated rather than obtained implicitly through a floating image tag.
+
+### Performance CI Standard
+
+The current hosted performance baseline executes through the dedicated:
+
+```text
+.github/workflows/performance.yml
+```
+
+workflow.
+
+Execution is manually triggered through:
+
+```text
+workflow_dispatch
+```
+
+because the hosted target is shared infrastructure rather than an isolated performance environment.
+
+Do not automatically run the current hosted performance workload on every pull request or push merely because k6 supports automated execution.
+
+The current workflow responsibility is:
+
+```text
+resolve TEST_ENV
+→ read shared environment configuration
+→ resolve apiBaseUrl
+→ pass TARGET_BASE_URL to k6
+→ run pinned k6 container
+→ evaluate thresholds
+→ export HTML report
+→ preserve report as CI evidence
+```
+
+Performance threshold evaluation owns the quality result.
+
+A threshold failure must fail the performance execution.
+
+Report export and artifact upload are diagnostic responsibilities and must not convert a failing threshold result into a successful quality result.
+
+The current shared-hosted performance execution should avoid overlapping framework-owned runs against the same target.
+
+Concurrency should therefore favor measurement isolation rather than maximum parallelism.
+
+The current performance workload is intentionally separate from the main Playwright workflow because its execution cadence, load-generation responsibility, and target-safety constraints differ from functional test execution.
 
 ## API/UI Composition
 
@@ -1219,24 +1373,26 @@ one reusable image
 → durable external artifacts
 ```
 
-The test image must be built once per workflow execution and reused across API, accessibility, visual, and browser jobs.
+The test image must be built once per trusted workflow execution and reused across API, accessibility, visual, and browser jobs.
 
-Do not independently rebuild an equivalent image in every test job unless a demonstrated isolation or performance requirement justifies it.
+Do not independently rebuild an equivalent image in every trusted test job unless a demonstrated isolation or performance requirement justifies it.
 
-The current CI image flow is:
+The current trusted CI image flow is:
 
 ```text
 quality
 → build image once
 → tag with github.sha
-→ docker save
-→ temporary workflow artifact
-→ download in test job
-→ docker load
+→ push to GHCR
+→ pull exact SHA in test job
 → docker run
 ```
 
-API, accessibility, visual, and UI jobs must use the same built image.
+Fork pull requests where registry write access is not appropriate may build the image locally in the consuming test jobs instead of requiring package write access.
+
+Trusted API, accessibility, visual, and UI jobs must pull and execute the same SHA-tagged image revision for a workflow execution.
+
+Fork pull-request jobs using the local-build fallback must build from the same checked-out workflow revision and preserve the same Playwright image contract without requiring GHCR publication.
 
 Playwright remains responsible for selecting the execution project:
 
@@ -1271,6 +1427,23 @@ Docker must not introduce separate images merely to mirror Playwright project bo
 Containerized CI execution should remain ephemeral through `--rm`.
 
 Reports and diagnostics that must survive the container lifecycle must be mounted to the GitHub Actions runner and then preserved using the existing CI artifact strategy.
+
+Executable Playwright Docker images must be distributed through the container registry rather than uploaded as test-report artifacts.
+
+The ownership boundary is:
+
+```text
+GitHub Container Registry
+→ executable Playwright runtime image
+
+GitHub Actions artifacts
+→ HTML reports
+→ screenshots
+→ traces
+→ diagnostics
+```
+
+Container images and test evidence solve different persistence problems and must not be treated as interchangeable artifact types.
 
 When evolving the containerized CI model, evaluate:
 
@@ -1369,6 +1542,9 @@ visual
 
 ui
 → 10 minutes per browser matrix job
+
+performance
+→ 5 minutes
 ```
 
 Timeout ceilings protect runner resources from stuck execution. They must not be increased merely to hide unexplained performance degradation or flaky behavior.
@@ -1404,7 +1580,7 @@ Containerized Playwright test jobs must use the browser runtime already provided
 API job:
 
 ```text
-load reusable test image
+use the workflow's reusable test image
 → no browser execution required
 → execute --project=api
 ```
@@ -1412,7 +1588,7 @@ load reusable test image
 Accessibility job:
 
 ```text
-load same reusable test image
+use the same reusable test image
 → Chromium runtime provided by shared image
 → execute --project=accessibility
 ```
@@ -1420,16 +1596,15 @@ load same reusable test image
 Visual job:
 
 ```text
-load same reusable test image
-→ canonical Chromium/Linux runtime provided by shared image
+use the same reusable test image
+→ Chromium runtime provided by shared image
 → execute --project=visual
-→ compare against committed baselines
 ```
 
 UI matrix job:
 
 ```text
-load same reusable test image
+use the same reusable test image
 → select matrix browser through Playwright project
 → execute matching project
 ```
@@ -1462,11 +1637,74 @@ TEST_ENV
 
 Do not treat them as interchangeable.
 
+Supported target URLs are owned by:
+
+```text
+config/environments/environments.json
+```
+
+The shared environment configuration is consumed through runtime-specific boundaries:
+
+```text
+TEST_ENV
+        ↓
+environments.json
+        ├── webBaseUrl
+        │   → Playwright execution
+        │
+        └── apiBaseUrl
+            → performance workflow
+            → TARGET_BASE_URL
+            → k6 execution
+```
+
+Playwright consumes the shared environment data through the TypeScript environment layer.
+
+The performance workflow resolves the selected environment's `apiBaseUrl` and supplies it to k6 through:
+
+```text
+TARGET_BASE_URL
+```
+
+Do not maintain separate hardcoded target URLs in Playwright CI and performance CI when the value already belongs to the shared environment configuration.
+
+`TEST_ENV` expresses the selected logical environment.
+
+`TARGET_BASE_URL` is a resolved runtime value for k6.
+
+Do not treat them as interchangeable.
+
 ## CI Permission and Secret Standard
 
 Use least privilege for workflow permissions.
 
 A test workflow should not receive write access unless a concrete workflow requirement needs it.
+
+The Playwright workflow should default to:
+
+```text
+contents: read
+```
+
+The image-publishing job may additionally receive:
+
+```text
+packages: write
+```
+
+because it publishes the SHA-tagged Playwright image to GitHub Container Registry.
+
+Jobs that only consume the published image should receive:
+
+```text
+packages: read
+```
+
+rather than package write access.
+
+Package permissions should be scoped to the jobs that require them rather than granted workflow-wide.
+
+Fork pull-request execution must not depend on package write access when the workflow uses the local-build fallback instead of publishing an image.
 
 Sensitive values must not be hardcoded in workflow YAML.
 
@@ -1531,9 +1769,35 @@ Do not duplicate the same report into multiple artifacts unless there is a demon
 
 Retention should be finite and intentional.
 
-Version-controlled visual baselines are not CI artifacts.
+Performance execution additionally preserves:
 
-They belong to Git and must not be substituted with temporary workflow artifact storage.
+```text
+performance-report-task-read
+→ generated k6 HTML report
+```
+
+The performance report is human-readable execution evidence. k6 thresholds remain responsible for the performance PASS / FAIL quality signal.
+
+Version-controlled visual baselines are not CI artifacts. They are reviewed repository assets.
+
+Executable Playwright Docker images are not CI report artifacts. They belong in GitHub Container Registry.
+
+The artifact strategy therefore separates:
+
+```text
+GitHub Container Registry
+→ executable Playwright runtime image
+
+GitHub Actions artifacts
+→ test reports
+→ screenshots
+→ traces
+→ diagnostics
+→ k6 HTML performance evidence
+
+repository
+→ reviewed visual baselines
+```
 
 ## Matrix Standard
 
@@ -1568,7 +1832,7 @@ Do not introduce a matrix when a single execution would provide equivalent cover
 
 The accessibility project intentionally uses a single Chromium execution and therefore does not require a CI matrix.
 
-The visual project intentionally uses a single canonical Chromium/Linux execution and therefore does not require a CI matrix.
+The visual project also intentionally uses a single Chromium execution in the canonical Docker/Linux runtime and therefore does not require a CI browser matrix.
 
 ## Sharding Standard
 
@@ -1604,22 +1868,6 @@ Avoid generic names that hide responsibility.
 Same-role files should follow the same structural grammar where practical.
 
 Do not make different roles artificially identical.
-
-Visual snapshot names should communicate the visual contract being protected.
-
-Prefer semantic names such as:
-
-```text
-task-dashboard.png
-task-card.png
-```
-
-rather than generic names such as:
-
-```text
-screenshot1.png
-expected.png
-```
 
 ## Imports and Formatting
 
@@ -1669,9 +1917,10 @@ Before creating a new:
 - fixture;
 - Page Object;
 - Component Object;
+- visual helper;
+- performance helper;
 - mock;
 - utility;
-- visual helper;
 - Playwright project;
 - CI job;
 - CI matrix dimension;
@@ -1696,20 +1945,24 @@ Do not design for hypothetical future requirements.
 
 Repeated real usage should drive generalization.
 
-For visual testing specifically, do not wrap native Playwright screenshot assertions merely to create structural symmetry.
+For visual regression testing specifically, do not wrap Playwright's native screenshot assertions merely to create structural symmetry with other framework layers.
 
-Introduce a reusable visual helper only when repeated real behavior demonstrates a responsibility that native Playwright assertions and existing framework layers do not already own.
+Introduce a reusable visual abstraction only when repeated real visual scenarios demonstrate a responsibility that native Playwright comparison primitives and the existing central visual policy do not already express cleanly.
+
+For performance testing specifically, do not wrap native k6 HTTP, metrics, scenarios, or threshold primitives merely to create structural symmetry with Playwright framework layers.
+
+Introduce a reusable performance abstraction only when repeated real performance workloads demonstrate a responsibility that native k6 primitives do not already express cleanly.
 
 ## Definition of Done
 
-Before considering a test implementation complete:
+Before considering a test or performance workload implementation complete:
 
 ```text
 Behavior implemented
         ↓
-Correct test suite selected
+Correct test suite or performance workload selected
         ↓
-Correct Playwright project owns the test
+Correct Playwright project or k6 runtime owns the test/workload
         ↓
 Architecture boundaries respected
         ↓
@@ -1721,9 +1974,9 @@ Prettier passes
         ↓
 TypeScript typecheck passes
         ↓
-Affected tests pass
+Affected tests or workloads pass
         ↓
-Relevant project/regression scope passes when appropriate
+Relevant project, workload, or regression scope passes when appropriate
         ↓
 CI execution remains valid when shared execution config changes
         ↓
@@ -1733,19 +1986,39 @@ Documentation updated if architecture or standards changed
 For visual regression changes, completion additionally requires when applicable:
 
 ```text
-deterministic visible state established
+deterministic visual state established
         ↓
-baseline generated in canonical Docker/Linux runtime
+correct screenshot scope selected
         ↓
-baseline manually reviewed
+canonical Docker/Linux baseline generated
         ↓
-baseline rerun without --update-snapshots
+baseline intentionally reviewed
         ↓
-reproducibility confirmed
+version-controlled baseline committed
         ↓
-approved baseline version-controlled with the test
+visual project comparison passes
         ↓
-CI remains compare-only
+CI comparison remains update-free
+```
+
+For performance changes, completion additionally requires when applicable:
+
+```text
+correct k6 runtime boundary preserved
+        ↓
+setup and measured workload separated
+        ↓
+workload-specific metrics defined
+        ↓
+thresholds supported by baseline evidence
+        ↓
+shared environment configuration reused
+        ↓
+local Docker execution verified
+        ↓
+HTML report generated
+        ↓
+CI threshold semantics preserved
 ```
 
 A passing test is necessary but not sufficient.
@@ -1782,7 +2055,7 @@ but only the layers required by the behavior should be modified.
 
 Agents should inspect existing implementations and project ownership before deciding which layers are required.
 
-When generating a new test, an agent must determine whether the behavior belongs to:
+When generating a new test or performance workload, an agent must determine whether the behavior belongs to:
 
 ```text
 api project
@@ -1806,6 +2079,12 @@ or:
 browser projects
 ```
 
+or:
+
+```text
+k6 performance runtime
+```
+
 before implementation.
 
 Agents must not cause browser-independent API tests to execute redundantly across browser projects.
@@ -1814,10 +2093,18 @@ Agents must not cause accessibility tests to execute redundantly across the brow
 
 Agents generating accessibility coverage should reuse the existing scanner, central WCAG policy, fixtures, formatter, and assertion pattern instead of recreating axe configuration or introducing speculative abstractions.
 
-Agents must not cause visual regression tests to execute redundantly across the browser matrix without a demonstrated browser-specific visual requirement.
+Agents generating visual regression coverage should reuse existing factories, fixtures, Page Objects, and Component Objects to establish deterministic state, use Playwright's native screenshot assertions, and preserve the framework's central visual comparison policy.
 
-Agents generating visual regression coverage should reuse existing factories, API setup, Page Object or locator ownership, and the central visual comparison policy. They must preserve deterministic visible state, committed baseline ownership, canonical Docker/Linux baseline generation, manual approval, and compare-only CI execution.
+Agents must not introduce arbitrary visual thresholds, masks, or ignored regions merely to make screenshot comparisons pass.
 
-Agents must never use `--update-snapshots` as an automatic response to a failing visual comparison.
+Agents must not update or regenerate visual baselines merely to convert an unexplained visual failure into a passing result.
+
+Canonical visual baselines must be generated and intentionally reviewed through the framework's approved Docker/Linux baseline workflow.
+
+Agents generating performance coverage must preserve the separate k6 runtime, use native k6 HTTP and metric primitives, reuse shared runtime-neutral environment configuration where applicable, and keep setup traffic separate from workload-specific performance metrics.
+
+Agents must not introduce arbitrary performance thresholds or increase hosted workload intensity merely to create a stronger-looking performance test.
+
+Agents must not convert a real k6 threshold failure into a successful result merely to keep CI green.
 
 Architecture must drive generated code, not the other way around.

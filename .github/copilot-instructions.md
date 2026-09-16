@@ -35,6 +35,7 @@ Preserve:
 - Page Object and Component Object responsibility boundaries;
 - accessibility scanner and WCAG policy ownership;
 - visual comparison policy and baseline ownership;
+- performance workload and k6 runtime ownership;
 - semantic test structure;
 - existing formatting and naming conventions.
 
@@ -240,6 +241,17 @@ keep expected baseline unchanged
 
 Never update a baseline merely to make CI green.
 
+For performance work:
+
+- place performance workloads under `performance/k6/**`;
+- keep performance execution in the dedicated k6 runtime rather than a Playwright project;
+- do not import Playwright or Node.js-specific framework helpers into k6 workloads;
+- reuse the shared runtime-neutral environment configuration for target resolution;
+- keep setup traffic separate from the measured operation when setup is not the performance target;
+- use workload-specific metrics and enforceable thresholds for the measured behavior;
+- do not increase hosted workload intensity into stress, spike, soak, or large-scale load testing against shared infrastructure;
+- preserve dedicated manually triggered performance CI ownership rather than moving the hosted baseline into the normal pull-request path.
+
 Preserve authentication boundaries:
 
 ```text
@@ -346,6 +358,12 @@ as ordinary validation.
 
 It is an explicit baseline-generation or intentional baseline-update operation and requires manual review followed by a second run without `--update-snapshots`.
 
+For performance work, run the affected k6 workload through its dedicated Docker runtime against the intended target environment.
+
+Verify that the measured requests succeed, workload-specific metrics are populated, configured thresholds are evaluated, and the expected HTML performance report is generated.
+
+Do not claim performance validation passed solely because the k6 process started or completed without verifying its quality-gate evidence.
+
 Run broader regression scope when shared framework infrastructure changes.
 
 Do not claim validation passed unless it was actually executed successfully.
@@ -360,7 +378,8 @@ Update documentation when a change modifies:
 - major technology choices;
 - visual baseline ownership;
 - visual approval workflow;
-- visual execution boundaries.
+- visual execution boundaries;
+- performance workload, runtime, threshold, or CI ownership boundaries.
 
 If the requested change conflicts with the documented architecture:
 

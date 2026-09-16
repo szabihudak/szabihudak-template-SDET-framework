@@ -16,89 +16,93 @@ The architecture must support multiple testing disciplines while remaining maint
 
 The framework should allow independent evolution of different testing capabilities without requiring architectural redesign.
 
+The architecture should grow from demonstrated engineering needs rather than introducing layers, abstractions, or tooling only for portfolio presence.
+
 ---
 
 # Quality Engineering Domains
 
-The platform should support the following quality domains:
+The platform currently supports the following quality domains:
 
 - UI Automation
 - API Automation
 - Accessibility Testing
 - Visual Regression Testing
 - Performance Testing
-- Security Testing
 - Test Data Management
 - Environment Management
 - CI/CD
 - Docker Execution
-- AI-assisted QA
 - Reporting & Observability
+
+Additional domains may be introduced when they provide demonstrated engineering value.
+
+Deferred capabilities include:
+
+- Security Testing
+- AI-assisted QA
 
 ---
 
 # Architecture
 
-```
+```text
 playwright-enterprise-framework/
-
-├── config/
 │
-│   ├── environments/
-│   ├── auth/
-│   └── secrets/
+├── config/
+│   └── environments/
 │
 ├── docs/
-│
 │   └── adr/
+│       ├── ADR-001-target-application.md
+│       ├── ADR-002-realworld-implementation.md
+│       ├── ADR-003-framework-architecture.md
+│       └── ADR-004-target-application-upex-dojo.md
 │
 ├── performance/
-│
 │   └── k6/
 │
 ├── src/
-│
-│   ├── api/
+│   ├── accessibility/
+│   │   ├── constants/
+│   │   └── utils/
 │   │
+│   ├── api/
 │   │   ├── clients/
+│   │   ├── constants/
 │   │   ├── models/
-│   │   └── services/
+│   │   ├── schemas/
+│   │   └── utils/
 │   │
 │   ├── components/
-│   │
-│   ├── pages/
-│   │
-│   ├── fixtures/
-│   │
 │   ├── data/
-│   │
-│   ├── security/
-│   │
-│   ├── accessibility/
-│   │
-│   ├── ai/
-│   │
+│   ├── fixtures/
+│   ├── mocks/
+│   ├── pages/
 │   ├── utils/
 │   │
-│   └── reporting/
+│   └── visual/
+│       └── constants/
 │
 ├── tests/
-│
-│   ├── smoke/
-│   ├── regression/
-│   ├── ui/
-│   ├── api/
 │   ├── accessibility/
-│   ├── visual/
-│   ├── security/
-│   └── performance/
+│   ├── api/
+│   ├── smoke/
+│   ├── ui/
+│   └── visual/
 │
 ├── .github/
+│   ├── workflows/
+│   │   ├── playwright.yml
+│   │   └── performance.yml
+│   └── copilot-instructions.md
 │
-│   └── workflows/
-│
+├── AGENTS.md
+├── Dockerfile
+├── README.md
 ├── playwright.config.ts
 ├── package.json
+├── package-lock.json
 └── tsconfig.json
 ```
 
@@ -108,183 +112,184 @@ playwright-enterprise-framework/
 
 ## Tests
 
-Contains only business scenarios.
+Contains executable test scenarios organized by testing responsibility.
 
-Tests should describe behaviour.
+Tests should describe observable behaviour and assertions.
 
-Tests should never contain implementation logic.
+Reusable framework implementation should remain outside test specifications where reuse or architectural ownership is demonstrated.
 
 ---
 
 ## Fixtures
 
-Responsible for dependency injection.
+Responsible for Playwright dependency injection and shared test setup.
 
 Examples:
 
-- authenticated users
-- browsers
+- authenticated browser state
 - API clients
 - page objects
-- generated data
+- component objects
+- generated test data
+
+Fixtures should compose existing framework capabilities rather than become a general-purpose service layer.
 
 ---
 
 ## Pages
 
-Contains page-level abstractions.
+Contains page-level browser abstractions.
 
 Responsibilities:
 
 - locators
-
 - page actions
+- page-level navigation
 
-- navigation
-
-No business workflows.
+Page Objects should model browser interaction boundaries without owning unrelated business workflows or assertions.
 
 ---
 
 ## Components
 
-Reusable UI elements.
+Contains reusable UI component abstractions.
 
-Examples:
+Components are introduced when a reusable UI boundary is demonstrated rather than created speculatively.
 
-- navigation
-
-- article cards
-
-- pagination
-
-- dialogs
-
-- editors
+Examples include reusable navigation, cards, dialogs, forms, and other independently meaningful UI elements.
 
 ---
 
 ## API
 
-Contains strongly typed API clients.
+Contains strongly typed REST API infrastructure.
 
 Responsibilities:
 
-- requests
+- API clients
+- endpoint and API constants
+- request and response models
+- runtime response schemas
+- API-specific utilities
+- authentication required for API communication
 
-- authentication
+The API layer should model observed provider contracts and keep transport concerns separate from browser automation.
 
-- serialization
-
-- response handling
+A generic service layer should not be introduced unless a demonstrated architectural need requires one.
 
 ---
 
 ## Data
 
-Responsible for:
+Responsible for reusable test-data creation and deterministic scenario setup.
+
+Responsibilities may include:
 
 - factories
-
 - builders
+- reusable datasets
+- generated unique test data
 
-- test datasets
-
-- random generators
+Test data infrastructure should support test isolation and avoid unnecessary shared mutable state.
 
 ---
 
-## Security
+## Mocks
 
-Contains reusable security utilities.
+Contains reusable network-mocking infrastructure where demonstrated reuse exists.
 
-Examples:
+Mocking should remain explicit and scenario-driven.
 
-- JWT helpers
-
-- token manipulation
-
-- authorization helpers
-
-- negative authentication scenarios
-
-Future:
-
-- OWASP checks
-
-- security headers
-
-- CSP validation
+Mocks must not hide integration behaviour that the test is intended to validate.
 
 ---
 
 ## Accessibility
 
-Contains:
+Contains reusable accessibility infrastructure.
+
+Responsibilities:
 
 - axe-core integration
+- centralized WCAG policy
+- accessibility scanning
+- human-readable accessibility diagnostics
 
-- reusable accessibility assertions
+Accessibility pass/fail assertions remain in specs rather than being owned by the reusable accessibility layer.
 
-- WCAG helpers
-
----
-
-## AI
-
-Contains:
-
-- AI prompts
-
-- OpenAI integrations
-
-- AI generated data
-
-- AI assisted validation
-
-Future:
-
-- self-healing experiments
-
-- AI reporting
+Automated accessibility testing provides an automated quality signal and must not be represented as complete WCAG compliance.
 
 ---
 
-## Reporting
+## Visual Regression
 
-Responsible for:
+Contains reusable visual-comparison policy where shared configuration is justified.
 
-- HTML reports
+Visual regression execution remains owned by the dedicated Playwright visual project and visual test specifications.
 
-- custom reports
+Approved baselines are version-controlled with the relevant visual specs.
 
-- dashboards
+Baseline generation and comparison use the canonical Docker/Linux rendering environment.
 
-- Allure integration (optional)
+CI performs comparison only and must not automatically generate or approve replacement baselines.
+
+Native Playwright screenshot comparison is the current implementation.
+
+Applitools is deferred and should only be introduced if a demonstrated requirement justifies the additional platform and operational complexity.
 
 ---
 
 ## Performance
 
-Performance testing is intentionally separated from Playwright.
+Performance testing is intentionally separated from Playwright execution.
 
-The platform uses:
+The platform uses k6 for performance workloads instead of browser-based load generation.
 
-k6
+Performance workloads are owned under:
 
-instead of browser-based load generation.
+```text
+performance/k6/
+```
+
+The current implementation focuses on controlled authenticated API performance baseline testing.
 
 Performance tests include:
 
 - API load
-
 - smoke load
+- stress (deferred)
+- spike (deferred)
+- endurance (deferred)
 
-- stress
+Performance setup that is not itself the measured target should remain separate from workload-specific measurements.
 
-- spike
+Performance quality gates use workload-specific metrics and enforceable thresholds.
 
-- endurance
+Hosted shared environments must use deliberately bounded workloads. Stress, spike, endurance, and large-scale capacity testing require an appropriate controlled environment before activation.
+
+Performance execution uses its own pinned k6 container runtime rather than extending the Playwright image with k6.
+
+---
+
+## Reporting & Observability
+
+Reporting and diagnostics are owned by the execution capability that produces them rather than by a speculative generic reporting layer.
+
+Playwright execution can provide:
+
+- HTML reports
+- traces
+- screenshots
+- videos
+- CI artifacts
+
+Accessibility failures should preserve actionable accessibility diagnostics.
+
+Visual failures should preserve expected, actual, and diff evidence where available.
+
+Performance execution should preserve a human-readable HTML report containing workload metrics and threshold results.
+
+Reporting abstractions should only be introduced when demonstrated cross-cutting reuse requires them.
 
 ---
 
@@ -292,97 +297,106 @@ Performance tests include:
 
 ## UI Automation
 
-Playwright
+Playwright.
+
+Browser projects provide cross-browser execution where the testing responsibility requires it.
 
 ---
 
 ## API Automation
 
-Playwright API
+Playwright API testing with strongly typed clients and runtime schema validation.
 
 ---
 
 ## Accessibility
 
-axe-core
+Playwright with `@axe-core/playwright`.
+
+Automated accessibility validation is owned by a dedicated Playwright project and remains a visible quality signal when real violations are detected.
 
 ---
 
 ## Visual Regression
 
-Playwright snapshots
+Native Playwright screenshot comparison.
 
-Later:
+The current visual strategy uses deterministic page-level and component-level comparisons with version-controlled baselines.
 
-Applitools
+Later, if justified by demonstrated requirements:
+
+- Applitools
 
 ---
 
 ## Performance
 
-k6
+k6.
+
+Performance execution is intentionally separated from Playwright and uses a dedicated containerized runtime and CI workflow.
 
 ---
 
 ## Security
 
-Automated security validation.
+Dedicated automated security testing is deferred.
 
-Examples:
+Security-sensitive engineering practices such as credential handling, authentication boundaries, and negative authorization behaviour may still be validated where they are part of existing API or UI scenarios.
 
-- invalid JWT
+A dedicated security-testing capability should only be introduced when its scope and execution ownership are explicitly designed.
 
-- expired token
+Potential future scope includes:
 
-- unauthorized access
-
-- forbidden resources
-
+- invalid or expired authentication
+- unauthorized and forbidden access
 - security headers
-
 - input validation
+- OWASP-oriented checks
 
-Future:
+---
 
-OWASP Top 10 smoke validation.
+## AI-assisted QA
+
+Dedicated AI runtime integration is deferred.
+
+AI may assist engineering workflows, but AI-generated implementation must remain subject to the same architecture, validation, and review standards as manually written code.
+
+AI-specific runtime features should only be introduced when they provide demonstrated product or engineering value.
 
 ---
 
 ## Observability
 
-The framework should expose enough diagnostics to investigate failures.
+The framework should expose enough evidence to investigate failures efficiently.
 
-Examples:
+Evidence depends on the execution domain and may include:
 
 - traces
-
 - logs
-
 - screenshots
-
 - videos
-
+- accessibility diagnostics
+- visual comparison evidence
+- performance reports
 - CI artifacts
+
+Observability should help explain failures rather than merely record that a failure occurred.
 
 ---
 
 # Design Principles
 
-- SOLID
-
-- DRY
-
+- SOLID where applicable
+- DRY without premature abstraction
 - KISS
-
 - Composition over inheritance
-
 - Domain-oriented structure
-
 - Strong typing
-
 - Small reusable modules
-
 - Configuration over hardcoding
+- Explicit execution ownership
+- Reuse before extension before creation
+- Abstractions introduced only when demonstrated reuse or architectural value exists
 
 ---
 
@@ -390,47 +404,72 @@ Examples:
 
 Every test should be independently executable.
 
-No dependency between tests.
+Tests must not depend on execution order or state created by another test.
 
-Where possible:
+Where appropriate:
 
-API should prepare data.
+API-driven setup should prepare deterministic data.
 
-UI should verify behaviour.
+UI tests should focus on browser-visible behaviour rather than slow UI-based setup when equivalent API setup is available.
+
+Generated data should avoid unnecessary collisions and shared mutable state.
+
+Performance setup should remain outside measured workload metrics when setup itself is not the performance target.
 
 ---
 
 # Configuration
 
-Everything environment driven.
+Execution targets are environment-driven.
 
-Examples:
+Supported environment intent includes:
 
+```text
 TEST_ENV=hosted
-
 TEST_ENV=local
-
 TEST_ENV=ci
+```
 
-No hardcoded URLs.
+Environment URLs are owned by a shared runtime-neutral configuration source.
 
-No hardcoded credentials.
+Playwright consumes that configuration through its TypeScript environment adapter.
+
+Other runtimes, including k6 execution through CI, may resolve the same environment source without depending on Playwright or Node.js-specific framework abstractions.
+
+No hardcoded environment URLs in tests or reusable framework layers.
+
+No hardcoded credentials or secrets.
 
 ---
 
 # CI/CD
 
-Framework must support:
+The framework uses GitHub Actions and containerized execution.
 
-- GitHub Actions
+Playwright-based execution and performance execution have deliberately separate CI ownership.
 
-- Docker
+The Playwright CI path owns:
 
-Future:
+- static quality gates
+- Playwright API execution
+- browser execution
+- accessibility execution
+- visual regression comparison
 
-Azure DevOps
+The Playwright test image is built once for trusted workflow execution, tagged by commit SHA, distributed through GitHub Container Registry, and consumed by downstream Playwright jobs using the same immutable image reference.
 
-GitLab CI
+Performance execution is owned by a dedicated manually triggered workflow and uses the pinned official k6 container image.
+
+Performance testing is not part of the normal pull-request execution path.
+
+CI evidence such as reports, traces, screenshots, visual diffs, and performance reports remains separate from executable container-image distribution.
+
+Potential future CI platforms may include:
+
+- Azure DevOps
+- GitLab CI
+
+They should only be introduced when a concrete requirement justifies supporting another CI platform.
 
 ---
 
@@ -438,62 +477,79 @@ GitLab CI
 
 The platform should demonstrate:
 
-✓ Enterprise Playwright
+✓ Maintainable Playwright-based UI automation
 
-✓ API Automation
+✓ Strongly typed API automation with runtime contract validation
 
-✓ Accessibility
+✓ Reusable authentication and deterministic test setup
 
-✓ Visual Regression
+✓ Cross-browser execution
 
-✓ Performance
+✓ Automated accessibility quality gates
 
-✓ Security
+✓ Native visual regression with controlled baseline ownership
 
-✓ CI/CD
+✓ Controlled API performance baseline testing with k6
 
-✓ Docker
+✓ Environment-driven execution
 
-✓ AI-assisted QA
+✓ Reproducible containerized execution
 
-✓ Production-quality architecture
+✓ Explicit separation between Playwright and performance runtime ownership
 
-✓ Senior-level engineering practices
+✓ GitHub Actions CI/CD
+
+✓ Actionable diagnostics and execution evidence
+
+✓ Architecture that evolves from demonstrated engineering needs rather than speculative abstractions
+
+✓ Senior-level Quality Engineering practices
+
+Deferred capabilities such as dedicated security testing and AI runtime integration are not required for the current architecture to satisfy these criteria.
 
 ---
 
 # Consequences
 
-Advantages
+## Advantages
 
-- scalable
+- clear responsibility boundaries
+- independently evolvable testing capabilities
+- reduced coupling between Playwright and performance execution
+- reusable infrastructure without unnecessary abstraction layers
+- reproducible execution
+- explicit CI ownership
+- actionable diagnostic evidence
+- architecture aligned with the implemented repository
+- easier technical explanation during Senior QA / SDET interviews
+- room for future capabilities without requiring speculative implementation today
 
-- modular
+## Trade-offs
 
-- interview ready
+- multiple execution runtimes require explicit ownership and documentation
+- deterministic visual testing requires controlled baseline management
+- external hosted environments limit safe performance workload intensity
+- architecture requires discipline to prevent unnecessary abstraction growth
+- CI evidence and executable container distribution require separate lifecycle management
 
-- portfolio quality
-
-- easy to extend
-
-Trade-offs
-
-- more initial complexity
-
-- requires architectural discipline
-
-- more folders than a tutorial project
-
-The long-term maintainability outweighs the initial complexity.
+These trade-offs are accepted because the resulting boundaries improve maintainability, reproducibility, diagnostic quality, and controlled extensibility.
 
 ---
 
-# Next Step
+# Evolution
 
-Initialize Playwright.
+The architecture is expected to evolve when a demonstrated testing or engineering requirement justifies a new capability.
 
-Configure TypeScript.
+New folders, layers, abstractions, tools, and execution paths should not be introduced solely to make the repository appear more enterprise-like.
 
-Implement the first smoke test.
+Future capabilities should follow the same engineering sequence:
 
-Begin Sprint 1.
+```text
+requirement
+→ design
+→ smallest architecturally complete implementation
+→ validation
+→ documentation
+```
+
+Architecture documentation must be updated when implementation changes invalidate an existing architectural statement.

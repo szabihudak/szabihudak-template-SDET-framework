@@ -30,6 +30,10 @@ The framework follows these principles:
 - runtime configuration should not be baked into reusable test images;
 - test artifacts that must outlive ephemeral execution should be persisted outside that execution lifecycle;
 - approved visual baselines are version-controlled test assets rather than transient execution artifacts;
+- performance workloads should remain separate from Playwright functional execution;
+- performance quality gates should use workload-specific metrics rather than unrelated setup traffic;
+- shared target environment data should have a runtime-neutral source of truth;
+- executable container images and diagnostic workflow artifacts should use storage mechanisms appropriate to their responsibilities;
 - abstractions are introduced only when there is demonstrated reuse or architectural value;
 - existing patterns should be extended before parallel patterns are created.
 
@@ -156,13 +160,35 @@ version-controlled approved baseline
 visual comparison
 ```
 
+A typical performance flow is:
+
+```text
+k6 setup
+  ↓
+user registration
+  ↓
+API authentication
+  ↓
+measured task-read workload
+  ↓
+workload-specific metrics
+  ↓
+performance thresholds
+  ↓
+PASS / FAIL
+  +
+HTML report
+```
+
+Performance workloads use the k6 runtime independently from Playwright clients and fixtures. Shared configuration may be reused where it is runtime-neutral, while HTTP transport remains native to the execution technology.
+
 API and UI flows may be composed when API setup provides faster or more reliable prerequisites for UI behavior.
 
 Visual regression tests may use the same API-driven or programmatic setup boundaries when those boundaries provide the most deterministic way to establish the rendered state under test.
 
 ## Test Execution Architecture
 
-The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, and visual regression execution.
+The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, visual regression execution, and k6 performance execution.
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
@@ -215,6 +241,16 @@ This separation avoids redundant API, accessibility, and visual execution while 
 
 Additional browser-specific visual execution should be introduced only when a concrete browser-specific visual requirement demonstrates value.
 
+Performance workloads are not Playwright projects.
+
+```text
+performance/k6/**
+→ k6 runtime
+→ controlled API performance execution
+```
+
+Performance execution remains separate because load generation, performance metrics, thresholds, and runtime behavior have different responsibilities from functional Playwright automation.
+
 ## Docker Execution Architecture
 
 Docker provides an additional reproducible execution boundary for the Playwright framework.
@@ -255,6 +291,14 @@ Separate Docker images should not be introduced merely because the framework con
 The execution project remains a Playwright responsibility. Docker provides the execution environment.
 
 For visual regression, Docker additionally provides the canonical rendering boundary used for approved baseline generation and CI comparison.
+
+Performance execution uses the official pinned k6 runtime separately from the Playwright test image:
+
+```text
+grafana/k6:1.8.1
+```
+
+The k6 script and report directory are mounted into the container at runtime. k6 is not installed into the Playwright image because browser automation and performance workload generation have separate runtime responsibilities.
 
 ### Docker Image and Container Boundary
 
@@ -420,22 +464,21 @@ quality
 build-image
 ├── docker build once
 ├── image tag = github.sha
-├── docker save
-└── temporary workflow artifact
+└── push image to GHCR
         ↓
         ├── api
-        │   └── API tests once
+        │   └── pull same SHA image → API tests once
         │
         ├── accessibility
-        │   └── automated accessibility tests once
+        │   └── pull same SHA image → automated accessibility tests once
         │
         ├── visual
-        │   └── visual regression tests once
+        │   └── pull same SHA image → visual regression tests once
         │
         └── ui matrix
-            ├── chromium
-            ├── firefox
-            └── webkit
+            ├── pull same SHA image → chromium
+            ├── pull same SHA image → firefox
+            └── pull same SHA image → webkit
 ```
 
 The `build-image` job depends on the successful completion of the `quality` job.
@@ -444,18 +487,18 @@ The `api`, `accessibility`, `visual`, and `ui` jobs depend on `build-image` but 
 
 This allows API, accessibility, visual, and UI execution to proceed independently and in parallel after the reusable test image has been built.
 
-The Docker image is built once per workflow execution and tagged with the current commit SHA.
+The Docker image is built once per trusted workflow execution and tagged with the current commit SHA.
 
-The built image is transferred between GitHub-hosted runners through a temporary GitHub Actions artifact:
+The built image is published to GitHub Container Registry and reused by downstream jobs through the same immutable SHA tag:
 
 ```text
 docker build
-→ docker save
-→ workflow artifact
-→ download
-→ docker load
+→ docker push to GHCR
+→ docker pull exact SHA
 → docker run
 ```
+
+For fork pull requests where registry write access is not appropriate, downstream jobs build the image locally rather than requiring package write access.
 
 API, accessibility, visual, and browser execution use the same image.
 
@@ -504,6 +547,44 @@ Test containers are ephemeral and return the Playwright process exit code to Git
 Generated Playwright output is bind-mounted to the runner before GitHub Actions uploads the required reports and diagnostics as workflow artifacts.
 
 This preserves a single reusable execution environment while retaining explicit API, accessibility, visual, and browser execution ownership.
+
+### Performance CI Execution
+
+Performance execution is owned by the separate `.github/workflows/performance.yml` workflow.
+
+The current hosted performance workflow is manually triggered through:
+
+```text
+workflow_dispatch
+```
+
+The shared hosted application is not treated as an isolated load-test environment, so the performance workload does not run automatically for every pull request or push.
+
+The workflow:
+
+```text
+resolves TEST_ENV
+→ reads the shared environment configuration
+→ passes apiBaseUrl to k6 as TARGET_BASE_URL
+→ runs the pinned k6 Docker image
+→ enforces performance thresholds
+→ exports an HTML report
+→ uploads the report as a workflow artifact
+```
+
+The current workload uses two virtual users for 30 seconds and measures authenticated task reads through dedicated `task_read_duration` and `task_read_failures` metrics.
+
+Current quality thresholds are:
+
+```text
+task_read_duration
+→ p(95) < 500 ms
+
+task_read_failures
+→ rate < 1%
+```
+
+Registration and login are setup prerequisites and are intentionally excluded from the task-read latency metric.
 
 ### CI Execution Hardening
 
@@ -593,16 +674,44 @@ This makes CI intent explicit rather than relying on the framework's default env
 
 A future change to the default test environment must not silently redirect CI execution to another target.
 
+Supported environment URLs are owned by:
+
+```text
+config/environments/environments.json
+```
+
+The TypeScript environment layer consumes the same data for Playwright execution, while the performance workflow resolves the selected environment's `apiBaseUrl` and passes it to k6 through `TARGET_BASE_URL`.
+
+This allows Playwright and k6 to share environment data without sharing runtime-specific implementation.
+
 ## CI Permissions
 
 Test workflows follow least-privilege principles.
 
-The current workflow requires repository content read access and does not require repository write access.
+The workflow defaults to repository content read access:
 
 ```text
 permissions:
   contents: read
 ```
+
+The image-publishing job additionally requires:
+
+```text
+packages: write
+```
+
+because it publishes the SHA-tagged Playwright image to GitHub Container Registry.
+
+Downstream test jobs require:
+
+```text
+packages: read
+```
+
+to pull the published image.
+
+Package permissions are scoped to the jobs that require them rather than granted workflow-wide.
 
 Additional permissions should be introduced only when a workflow capability demonstrates a concrete need.
 
@@ -645,6 +754,15 @@ test-results-webkit
 ```
 
 Matrix jobs execute on independent runners, so identical local output paths are acceptable. Artifact upload names must remain unique when outputs originate from separate jobs.
+
+Performance execution additionally preserves:
+
+```text
+performance-report-task-read
+→ generated k6 HTML report
+```
+
+Executable Playwright Docker images are not workflow artifacts. They are distributed through GitHub Container Registry, while GitHub Actions artifacts remain responsible for reports and diagnostic evidence.
 
 Artifact retention should be intentional and should balance diagnostic value with storage cost.
 
@@ -1205,6 +1323,78 @@ These outputs belong to execution diagnostics and may be persisted through `test
 
 They are distinct from committed baseline ownership.
 
+## Performance Testing Architecture
+
+Performance testing is intentionally separated from Playwright functional automation and uses k6 for controlled API workload generation.
+
+The current baseline measures authenticated task reads:
+
+```text
+setup
+├── register performance user
+└── authenticate performance user
+        ↓
+measured workload
+└── GET /tasks
+```
+
+The performance script uses native k6 HTTP APIs rather than importing Playwright API clients.
+
+This preserves the runtime boundary:
+
+```text
+Playwright API clients
+→ functional API automation
+
+k6 HTTP
+→ performance workload generation
+```
+
+Shared runtime-neutral configuration may be reused across both technologies, but runtime-specific transport implementations remain separate.
+
+The measured operation owns dedicated metrics:
+
+```text
+task_read_duration
+task_read_failures
+```
+
+This prevents setup traffic such as registration and login from contaminating the task-read quality gate.
+
+The current baseline workload is:
+
+```text
+2 virtual users
+30 seconds
+1 second pacing between iterations
+```
+
+It represents a controlled baseline against the shared hosted application rather than a production capacity, stress, spike, or endurance model.
+
+Performance thresholds are executable quality gates and should be calibrated from repeated baseline evidence rather than selected from a single run or arbitrary round numbers.
+
+The current thresholds are:
+
+```text
+task_read_duration
+→ p(95) < 500 ms
+
+task_read_failures
+→ rate < 1%
+```
+
+k6 also exports an HTML report for human-readable execution evidence.
+
+Threshold evaluation and reporting have separate responsibilities:
+
+```text
+thresholds
+→ machine-enforced quality decision
+
+HTML report
+→ human-readable execution evidence
+```
+
 ## Execution Boundary Rules
 
 Test placement and Playwright project ownership must remain aligned.
@@ -1226,6 +1416,9 @@ tests/ui/**
 
 tests/smoke/**
 → browser projects
+
+performance/k6/**
+→ k6 performance runtime
 ```
 
 Do not place browser-dependent behavior under the API suite.
@@ -1239,6 +1432,8 @@ Visual regression tests should remain under the dedicated visual project rather 
 The current visual project executes once through Chromium in the canonical Docker/Linux runtime.
 
 Browser-specific visual projects or baselines should be introduced only when a concrete browser-specific requirement demonstrates a materially different visual risk.
+
+Performance workloads should remain under the dedicated k6 execution boundary rather than being introduced as Playwright projects solely to reuse the existing test-runner structure.
 
 If a new test type requires a materially different execution model, introduce the smallest explicit project boundary required by the behavior rather than extending unrelated projects.
 

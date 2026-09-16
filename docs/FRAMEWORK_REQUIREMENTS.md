@@ -18,7 +18,7 @@ The framework must support:
 - Parallel execution
 - Test retries
 - Test tagging and filtering
-- Environment-specific configuration
+- Environment-specific configuration through a shared runtime-neutral environment source
 - Test data management
 - Screenshots on failure
 - Video recording when required
@@ -26,13 +26,15 @@ The framework must support:
 - HTML and machine-readable reporting
 - CI/CD execution
 - Docker-based execution
+- Separate containerized runtime ownership for Playwright test execution and k6 performance testing
 - Accessibility testing
 - Visual regression testing
 - Version-controlled visual regression baselines
 - Deterministic page-level and component-level visual comparison
 - Reproducible visual baseline generation and comparison through a canonical Docker/Linux runtime
 - Dedicated compare-only visual regression execution in CI
-- Performance testing
+- Controlled API performance baseline testing with workload-specific metrics and enforceable thresholds
+- Dedicated manually triggered performance execution in CI
 - API and UI test composition
 - Mocking and network interception
 - Secrets management
@@ -78,6 +80,8 @@ Failures should provide sufficient logs, screenshots, traces, videos, reports, a
 
 Visual regression failures should provide expected, actual, and diff evidence where available.
 
+Performance execution should preserve a human-readable HTML report as execution evidence, including the measured workload metrics and threshold results.
+
 ### Secure
 
 Credentials, tokens, and other sensitive information must never be committed to source control.
@@ -109,7 +113,8 @@ The application provides realistic workflows including:
 - API and UI workflow composition;
 - network interception and mocking;
 - browser-rendered states suitable for automated accessibility validation;
-- deterministic browser-rendered states suitable for visual regression testing.
+- deterministic browser-rendered states suitable for visual regression testing;
+- authenticated REST API operations suitable for controlled performance baseline testing.
 
 The application intentionally supports two authentication contexts used by the framework:
 
@@ -147,4 +152,7 @@ The framework will be considered successful when:
 - approved visual baselines are version-controlled and generated through the canonical Docker/Linux rendering environment;
 - visual baseline changes require explicit review rather than automatic CI approval;
 - visual failures provide actionable comparison evidence;
+- controlled API performance baselines execute through a dedicated k6 runtime with workload-specific metrics and enforceable thresholds;
+- performance execution is owned by a dedicated manually triggered CI workflow rather than the normal pull-request test path;
+- performance execution preserves a human-readable HTML report as CI evidence;
 - the repository can be confidently presented during a Senior QA / SDET interview.
