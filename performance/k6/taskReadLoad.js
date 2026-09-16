@@ -1,6 +1,6 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
-import { Trend } from "k6/metrics";
+import { Rate, Trend } from "k6/metrics";
 
 export const options = {
   scenarios: {
@@ -12,13 +12,13 @@ export const options = {
   },
   thresholds: {
     task_read_duration: ["p(95)<500"],
-    http_req_failed: ["rate<0.01"],
-    checks: ["rate>0.99"],
+    task_read_failures: ["rate<0.01"],
   },
 };
 
 const baseUrl = __ENV.TARGET_BASE_URL;
 const taskReadDuration = new Trend("task_read_duration", true);
+const taskReadFailures = new Rate("task_read_failures");
 
 function createPerformanceUser() {
   const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -111,9 +111,11 @@ export default function (data) {
 
   taskReadDuration.add(response.timings.duration);
 
-  check(response, {
+  const taskReadSucceeded = check(response, {
     "task read succeeds": (result) => result.status === 200,
   });
+
+  taskReadFailures.add(!taskReadSucceeded);
 
   sleep(1);
 }

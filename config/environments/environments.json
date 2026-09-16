@@ -1,0 +1,14 @@
+{
+  "hosted": {
+    "webBaseUrl": "https://dojo.upexgalaxy.com",
+    "apiBaseUrl": "https://dojo.upexgalaxy.com/api"
+  },
+  "local": {
+    "webBaseUrl": "http://localhost:3000",
+    "apiBaseUrl": "http://localhost:3000/api"
+  },
+  "ci": {
+    "webBaseUrl": "http://localhost:3000",
+    "apiBaseUrl": "http://localhost:3000/api"
+  }
+}
