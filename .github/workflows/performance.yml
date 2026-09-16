@@ -45,6 +45,7 @@ jobs:
       - name: Run k6 performance test
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -e TARGET_BASE_URL="$TARGET_BASE_URL" \
             -e K6_WEB_DASHBOARD=true \
             -e K6_WEB_DASHBOARD_PORT=-1 \
@@ -61,4 +62,4 @@ jobs:
           name: performance-report-task-read
           path: performance-results/task-read-load.html
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
