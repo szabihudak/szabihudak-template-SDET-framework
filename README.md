@@ -306,7 +306,6 @@ tests/
   workflows/
 ```
 
-
 ## API Testing
 
 API tests are implemented as browser-independent Playwright tests.
