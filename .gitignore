@@ -1,13 +1,11 @@
-
 # Playwright
 node_modules/
 /test-results/
 /playwright-report/
 /blob-report/
-/performance-results/
 /playwright/.cache/
 /playwright/.auth/
 
 # Performance test artifacts
-performance-results/
+/performance-results/
 .lighthouseci/
