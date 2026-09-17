@@ -53,38 +53,43 @@ performance/
   k6/
 
 src/
+  accessibility/
+    constants/
+    utils/
   api/
     clients/
     constants/
     models/
     schemas/
+    utils/
   components/
-  pages/
-  fixtures/
   data/
+  fixtures/
   mocks/
-  security/
-  accessibility/
-  visual/
-  ai/
+  pages/
   utils/
-  reporting/
+  visual/
+    constants/
 
 tests/
-  smoke/
-  regression/
-  ui/
-  api/
   accessibility/
+  api/
+  smoke/
+  ui/
   visual/
-  security/
-  performance/
 
 .github/
   workflows/
-```
+    playwright.yml
+    performance.yml
+  copilot-instructions.md
 
-Some directories represent planned framework capabilities and may be populated as those capabilities are introduced.
+AGENTS.md
+playwright.config.ts
+package.json
+package-lock.json
+tsconfig.json
+```
 
 ## Core Dependency Model
 
