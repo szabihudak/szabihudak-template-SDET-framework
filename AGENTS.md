@@ -519,6 +519,8 @@ Use the shared runtime-neutral environment configuration as the source of target
 
 Keep authentication and other setup traffic outside the measured operation when those actions are not the performance target.
 
+Clean up test-owned resources created for performance setup when the target application exposes a supported cleanup operation. Keep cleanup outside the measured workload.
+
 Use workload-specific metrics and enforceable thresholds for the behavior being measured.
 
 Do not expand the hosted baseline into uncontrolled stress, spike, soak, or large-scale load testing against shared infrastructure.

@@ -637,8 +637,6 @@ task_read_failures
 → rate < 1%
 ```
 
-
-
 Registration and login are setup prerequisites and are intentionally excluded from the task-read latency metric.
 
 ### CI Execution Hardening

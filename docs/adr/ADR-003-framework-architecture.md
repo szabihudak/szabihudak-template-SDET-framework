@@ -93,6 +93,7 @@ playwright-enterprise-framework/
 │
 ├── .github/
 │   ├── workflows/
+│   │   ├── ghcr-cleanup.yml
 │   │   ├── playwright.yml
 │   │   └── performance.yml
 │   └── copilot-instructions.md

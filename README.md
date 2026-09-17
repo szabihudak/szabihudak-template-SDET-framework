@@ -393,7 +393,9 @@ API performance testing uses k6 through a runtime boundary separate from Playwri
 
 The current baseline exercises authenticated task reads against the UPEX DOJO API without creating task data during the measured workload.
 
-Authentication is established during k6 setup and reused by the measured workload.
+k6 setup registers and authenticates a performance user, then creates a dedicated task outside the measured workload. The authenticated state is reused during execution.
+
+k6 teardown deletes the dedicated task after the workload completes. The generated performance user remains because the target application does not expose a supported account-deletion endpoint.
 
 Current workload:
 

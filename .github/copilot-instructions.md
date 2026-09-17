@@ -248,6 +248,7 @@ For performance work:
 - do not import Playwright or Node.js-specific framework helpers into k6 workloads;
 - reuse the shared runtime-neutral environment configuration for target resolution;
 - keep setup traffic separate from the measured operation when setup is not the performance target;
+- clean up test-owned resources created for performance setup when the target application exposes a supported cleanup operation, and keep cleanup outside the measured workload;
 - use workload-specific metrics and enforceable thresholds for the measured behavior;
 - do not increase hosted workload intensity into stress, spike, soak, or large-scale load testing against shared infrastructure;
 - preserve dedicated manually triggered performance CI ownership rather than moving the hosted baseline into the normal pull-request path.

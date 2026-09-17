@@ -810,10 +810,14 @@ The current golden performance pattern separates prerequisite setup from the mea
 ```text
 setup
 ├── register performance user
-└── authenticate performance user
+├── authenticate performance user
+└── create dedicated task
         ↓
 measured workload
 └── authenticated GET /tasks
+        ↓
+teardown
+└── delete dedicated task
 ```
 
 Registration and authentication must succeed before the measured scenario begins.
@@ -883,9 +887,9 @@ Do not increase virtual users, execution duration, or request rate against share
 
 Load level must reflect the intended test purpose and the ownership constraints of the target environment.
 
-The current read workload intentionally avoids task creation so repeated iterations do not create uncontrolled task-data pollution.
+The measured read workload intentionally avoids task creation so repeated iterations do not create uncontrolled task-data pollution.
 
-The setup phase currently creates one performance user per execution. This is acceptable for the current self-contained baseline, but test-data ownership should be reviewed if repeated execution creates unnecessary persistent data.
+A dedicated task is created during setup and deleted during teardown. The generated performance user remains because the target application does not expose a supported account-deletion endpoint.
 
 ### Performance Metric Standard
 
