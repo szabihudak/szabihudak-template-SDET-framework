@@ -1,10 +1,8 @@
 import { test, expect } from "../../src/fixtures/test-fixtures";
-import {
-  LighthouseRunner,
-  type LighthouseMetrics,
-} from "../../performance/lighthouse/LightHouseRunner";
-import lighthouseThresholds from "../../performance/lighthouse/lighthouseThresholds.json";
 import { getCurrentEnvironment } from "../../src/utils/env";
+import { LighthouseRunner } from "../../performance/lighthouse/LighthouseRunner";
+import { attachLighthouseReport } from "../../performance/lighthouse/lighthouseReporter";
+import lighthouseThresholds from "../../performance/lighthouse/lighthouseThresholds.json";
 
 test.describe("Authenticated dashboard performance", () => {
   test("meets the Lighthouse browser performance baseline", async ({
@@ -24,32 +22,12 @@ test.describe("Authenticated dashboard performance", () => {
       reportName: "authenticated-dashboard",
     });
 
-    const metrics: LighthouseMetrics = result.metrics;
+    await attachLighthouseReport(testInfo, result);
 
-    await testInfo.attach("Lighthouse metrics", {
-      body: JSON.stringify(
-        {
-          performanceScore: Math.round(metrics.performanceScore * 100),
-          lcpMs: Math.round(metrics.lcp),
-          cls: metrics.cls,
-          tbtMs: Math.round(metrics.tbt),
-          speedIndexMs: Math.round(metrics.speedIndex),
-        },
-        null,
-        2,
-      ),
-      contentType: "application/json",
-    });
-
-    await testInfo.attach("Lighthouse HTML report", {
-      path: result.htmlReportPath,
-      contentType: "text/html",
-    });
-
-    expect(metrics.performanceScore).toBeGreaterThanOrEqual(
+    expect(result.metrics.performanceScore).toBeGreaterThanOrEqual(
       lighthouseThresholds.performanceScore,
     );
-    expect(metrics.cls).toBeLessThanOrEqual(lighthouseThresholds.cls);
-    expect(metrics.tbt).toBeLessThanOrEqual(lighthouseThresholds.tbtMs);
+    expect(result.metrics.cls).toBeLessThanOrEqual(lighthouseThresholds.cls);
+    expect(result.metrics.tbt).toBeLessThanOrEqual(lighthouseThresholds.tbtMs);
   });
 });

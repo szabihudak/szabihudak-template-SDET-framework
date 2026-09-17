@@ -87,7 +87,7 @@ jobs:
       - name: Run Lighthouse browser performance audit
         run: |
           npx lhci autorun \
-            --config=performance/lighthouse/lighthouse.config.js
+            --config=performance/lighthouse/lighthouseConfig.js
 
       - name: Upload Lighthouse reports
         if: always()
