@@ -227,14 +227,23 @@ Detailed baseline creation, review, and update rules are defined in [`docs/TESTI
 
 ```text
 k6 setup
+k6 setup
+  ↓
+user registration
   ↓
 API authentication
   ↓
-Authenticated task-read workload
+dedicated task creation
   ↓
-Workload-specific metrics
+authenticated task-read workload
   ↓
-Performance thresholds
+workload-specific metrics
+  ↓
+performance thresholds
+  ↓
+k6 teardown
+  ↓
+dedicated task cleanup
   ↓
 PASS / FAIL
 ```

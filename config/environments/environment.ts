@@ -10,5 +10,11 @@ export interface EnvironmentConfig {
 export function getEnvironmentConfig(
   environment: TestEnvironment,
 ): EnvironmentConfig {
-  return environments[environment];
+  const config = environments[environment];
+
+  if (!config) {
+    throw new Error(`Unknown TEST_ENV: ${environment}`);
+  }
+
+  return config;
 }
