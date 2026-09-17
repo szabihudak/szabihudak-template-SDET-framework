@@ -27,4 +27,9 @@ export async function attachLighthouseReport(
     path: result.htmlReportPath,
     contentType: "text/html",
   });
+
+  await testInfo.attach("Lighthouse JSON report", {
+    path: result.jsonReportPath,
+    contentType: "application/json",
+  });
 }
