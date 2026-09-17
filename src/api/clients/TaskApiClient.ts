@@ -50,4 +50,30 @@ export class TaskApiClient {
 
     return createdTask;
   }
+
+  async deleteTask(taskId: string, accessToken: string): Promise<APIResponse> {
+    const { apiBaseUrl } = getCurrentEnvironment();
+
+    return this.request.delete(`${apiBaseUrl}/tasks/${taskId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  }
+
+  async deleteTaskForUser(taskId: string, accessToken: string): Promise<void> {
+    logger.info(`Deleting task: ${taskId}`);
+
+    const response = await this.deleteTask(taskId, accessToken);
+
+    if (!response.ok()) {
+      logger.error(`Task deletion failed with status ${response.status()}`);
+
+      throw new Error(
+        `Task deletion failed: ${response.status()} ${await response.text()}`,
+      );
+    }
+
+    logger.info(`Task deleted successfully: ${taskId}`);
+  }
 }

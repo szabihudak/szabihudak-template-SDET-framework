@@ -14,7 +14,8 @@
     "playwright.config.ts",
     "config/**/*.ts",
     "src/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "performance/lighthouse/LightHouseRunner.ts"
   ],
   "exclude": ["node_modules", "playwright-report", "test-results"]
 }

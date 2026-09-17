@@ -1,4 +1,5 @@
 const environments = require("../../config/environments/environments.json");
+const thresholds = require("./lighthouseThresholds.json");
 
 const environment = process.env.TEST_ENV ?? "hosted";
 const config = environments[environment];
@@ -19,10 +20,19 @@ module.exports = {
 
     assert: {
       assertions: {
-        "categories:performance": ["error", { minScore: 0.7 }],
-        "cumulative-layout-shift": ["error", { maxNumericValue: 0.1 }],
-        "total-blocking-time": ["error", { maxNumericValue: 300 }],
-        "largest-contentful-paint": ["warn", { maxNumericValue: 6000 }],
+        "categories:performance": [
+          "error",
+          { minScore: thresholds.performanceScore },
+        ],
+        "cumulative-layout-shift": [
+          "error",
+          { maxNumericValue: thresholds.cls },
+        ],
+        "total-blocking-time": ["error", { maxNumericValue: thresholds.tbtMs }],
+        "largest-contentful-paint": [
+          "warn",
+          { maxNumericValue: thresholds.lcpMs },
+        ],
       },
     },
 
