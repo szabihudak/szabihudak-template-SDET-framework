@@ -57,7 +57,7 @@ export function setup() {
 
   if (!registrationSucceeded) {
     throw new Error(
-      `Performance user registration failed: ${registrationResponse.status} ${registrationResponse.body}`,
+      `Performance user registration failed with status ${registrationResponse.status}`,
     );
   }
 
@@ -84,7 +84,7 @@ export function setup() {
 
   if (!loginSucceeded) {
     throw new Error(
-      `Performance user login failed: ${loginResponse.status} ${loginResponse.body}`,
+      `Performance user login failed with status ${loginResponse.status}`,
     );
   }
 
@@ -94,8 +94,42 @@ export function setup() {
     throw new Error("Login response did not contain access_token");
   }
 
+  const taskResponse = http.post(
+    `${baseUrl}/tasks`,
+    JSON.stringify({
+      title: `Performance Task ${Date.now()}`,
+    }),
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${loginBody.access_token}`,
+      },
+      tags: {
+        name: "setup_create_task",
+      },
+    },
+  );
+
+  const taskCreated = check(taskResponse, {
+    "performance task creation succeeds": (response) =>
+      response.status >= 200 && response.status < 300,
+  });
+
+  if (!taskCreated) {
+    throw new Error(
+      `Performance task creation failed with status ${taskResponse.status}`,
+    );
+  }
+
+  const taskBody = taskResponse.json();
+
+  if (!taskBody.id) {
+    throw new Error("Task creation response did not contain id");
+  }
+
   return {
     accessToken: loginBody.access_token,
+    taskId: taskBody.id,
   };
 }
 
@@ -118,4 +152,30 @@ export default function (data) {
   taskReadFailures.add(!taskReadSucceeded);
 
   sleep(1);
+}
+
+export function teardown(data) {
+  if (!data?.accessToken || !data?.taskId) {
+    throw new Error("Performance teardown did not receive required setup data");
+  }
+
+  const deleteResponse = http.del(`${baseUrl}/tasks/${data.taskId}`, null, {
+    headers: {
+      Authorization: `Bearer ${data.accessToken}`,
+    },
+    tags: {
+      name: "teardown_delete_task",
+    },
+  });
+
+  const taskDeleted = check(deleteResponse, {
+    "performance task cleanup succeeds": (response) =>
+      response.status >= 200 && response.status < 300,
+  });
+
+  if (!taskDeleted) {
+    throw new Error(
+      `Performance task cleanup failed with status ${deleteResponse.status}`,
+    );
+  }
 }
