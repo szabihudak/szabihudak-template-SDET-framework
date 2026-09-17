@@ -227,7 +227,6 @@ Detailed baseline creation, review, and update rules are defined in [`docs/TESTI
 
 ```text
 k6 setup
-k6 setup
   ↓
 user registration
   ↓
@@ -267,9 +266,6 @@ For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITEC
 ## Repository Structure
 
 ```text
-Dockerfile
-.dockerignore
-
 config/
   environments/
 
@@ -280,37 +276,36 @@ performance/
   k6/
 
 src/
+  accessibility/
+    constants/
+    utils/
   api/
     clients/
     constants/
     models/
     schemas/
+    utils/
   components/
-  pages/
-  fixtures/
   data/
+  fixtures/
   mocks/
-  security/
-  accessibility/
-  visual/
-  ai/
+  pages/
   utils/
-  reporting/
+  visual/
+    constants/
 
 tests/
-  api/
-  ui/
-  smoke/
-  regression/
   accessibility/
+  api/
+  smoke/
+  ui/
   visual/
-  security/
+    visual.spec.ts-snapshots/
 
 .github/
   workflows/
 ```
 
-Some directories represent planned framework capabilities and will be populated as those capabilities are introduced.
 
 ## API Testing
 
