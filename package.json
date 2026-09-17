@@ -8,7 +8,10 @@
     "test:list": "playwright test --list",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "typecheck": "tsc --noEmit"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
   },
   "author": "Szabolcs Hudak",
   "devDependencies": {
@@ -18,6 +21,7 @@
     "@types/node": "^26.2.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "husky": "^9.1.7",
     "prettier": "^3.9.6",
     "typescript": "^7.0.2"
   },
