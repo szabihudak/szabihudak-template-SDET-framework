@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  performance:
+  api-performance:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -39,10 +39,10 @@ jobs:
 
           echo "TARGET_BASE_URL=$TARGET_BASE_URL" >> "$GITHUB_ENV"
 
-      - name: Create performance results directory
+      - name: Create k6 results directory
         run: mkdir -p performance-results/k6
 
-      - name: Run k6 performance test
+      - name: Run k6 API performance test
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
@@ -55,11 +55,45 @@ jobs:
             "$K6_IMAGE" \
             run /scripts/taskReadLoad.js
 
-      - name: Upload performance report
+      - name: Upload k6 performance report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: performance-report-task-read
+          name: performance-report-k6-task-read
           path: performance-results/k6/task-read-load.html
+          retention-days: 7
+          if-no-files-found: error
+
+  browser-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create Lighthouse results directory
+        run: mkdir -p performance-results/lighthouse
+
+      - name: Run Lighthouse browser performance audit
+        run: |
+          npx lhci autorun \
+            --config=performance/lighthouse/lighthouse.config.js
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-lighthouse
+          path: performance-results/lighthouse/
           retention-days: 7
           if-no-files-found: error
