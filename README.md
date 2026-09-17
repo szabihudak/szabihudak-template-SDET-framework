@@ -274,6 +274,8 @@ docs/
 
 performance/
   k6/
+  lighthouse/
+
 
 src/
   accessibility/
@@ -435,7 +437,7 @@ Threshold failure produces a non-zero k6 exit code.
 The performance run also generates:
 
 ```text
-performance-results/task-read-load.html
+performance-results/k6/task-read-load.html
 ```
 
 as human-readable execution evidence.

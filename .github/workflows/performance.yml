@@ -40,7 +40,7 @@ jobs:
           echo "TARGET_BASE_URL=$TARGET_BASE_URL" >> "$GITHUB_ENV"
 
       - name: Create performance results directory
-        run: mkdir -p performance-results
+        run: mkdir -p performance-results/k6
 
       - name: Run k6 performance test
         run: |
@@ -51,7 +51,7 @@ jobs:
             -e K6_WEB_DASHBOARD_PORT=-1 \
             -e K6_WEB_DASHBOARD_EXPORT=/reports/task-read-load.html \
             -v "$PWD/performance/k6:/scripts" \
-            -v "$PWD/performance-results:/reports" \
+            -v "$PWD/performance-results/k6:/reports" \
             "$K6_IMAGE" \
             run /scripts/taskReadLoad.js
 
@@ -60,6 +60,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: performance-report-task-read
-          path: performance-results/task-read-load.html
+          path: performance-results/k6/task-read-load.html
           retention-days: 7
           if-no-files-found: error

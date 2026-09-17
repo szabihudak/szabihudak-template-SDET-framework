@@ -975,8 +975,15 @@ human-readable execution evidence
 The current performance workload uses the built-in k6 web dashboard export to generate:
 
 ```text
-performance-results/task-read-load.html
+performance-results/k6/task-read-load.html
 ```
+
+Performance evidence should remain grouped by execution technology so independent performance capabilities do not share a flat output namespace.
+
+````text
+performance-results/
+├── k6/
+└── lighthouse/
 
 The report should make the workload result understandable without replacing threshold semantics.
 
@@ -998,7 +1005,7 @@ The shared source of truth is:
 
 ```text
 config/environments/environments.json
-```
+````
 
 The environment ownership model is:
 

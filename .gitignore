@@ -7,3 +7,7 @@ node_modules/
 /performance-results/
 /playwright/.cache/
 /playwright/.auth/
+
+# Performance test artifacts
+performance-results/
+.lighthouseci/
