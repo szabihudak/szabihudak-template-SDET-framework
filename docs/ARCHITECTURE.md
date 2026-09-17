@@ -80,6 +80,7 @@ tests/
 
 .github/
   workflows/
+    ghcr-cleanup.yml
     playwright.yml
     performance.yml
   copilot-instructions.md
@@ -174,11 +175,17 @@ user registration
   ↓
 API authentication
   ↓
+dedicated task creation
+  ↓
 measured task-read workload
   ↓
 workload-specific metrics
   ↓
 performance thresholds
+  ↓
+k6 teardown
+  ↓
+dedicated task cleanup
   ↓
 PASS / FAIL
   +
@@ -503,6 +510,28 @@ docker build
 → docker run
 ```
 
+GHCR image retention is managed separately from test execution.
+
+The cleanup policy is:
+
+```text
+weekly maintenance workflow
+→ inspect playwright-enterprise-tests package versions
+→ always keep the newest 3 versions
+→ keep any additional versions younger than 7 days
+→ delete only versions older than 7 days that are not among the newest 3
+```
+
+Cleanup is owned by:
+
+```text
+.github/workflows/ghcr-cleanup.yml
+```
+
+The Playwright CI workflow does not delete the image at the end of a test run. This preserves short-term reproducibility for recent commit-SHA images while preventing unbounded registry growth.
+
+Registry lifecycle management is treated as a separate maintenance responsibility from functional test execution.
+
 For fork pull requests where registry write access is not appropriate, downstream jobs build the image locally rather than requiring package write access.
 
 API, accessibility, visual, and browser execution use the same image.
@@ -579,6 +608,25 @@ resolves TEST_ENV
 
 The current workload uses two virtual users for 30 seconds and measures authenticated task reads through dedicated `task_read_duration` and `task_read_failures` metrics.
 
+The workload uses explicit setup and teardown lifecycle management:
+
+```text
+setup
+→ register performance user
+→ authenticate
+→ create dedicated task
+
+measured workload
+→ authenticated task reads
+
+teardown
+→ delete the dedicated task
+```
+
+The dedicated task is test-owned data and is removed after execution.
+
+The generated performance user currently remains because the target application does not expose a supported account-deletion endpoint. This is treated as a target-application limitation rather than bypassed through undocumented cleanup behavior.
+
 Current quality thresholds are:
 
 ```text
@@ -588,6 +636,8 @@ task_read_duration
 task_read_failures
 → rate < 1%
 ```
+
+
 
 Registration and login are setup prerequisites and are intentionally excluded from the task-read latency metric.
 
