@@ -29,12 +29,15 @@ jobs:
 
           cutoff_epoch=$(date -u -d "${RETENTION_DAYS} days ago" +%s)
 
-          versions=$(gh api \
-            --paginate \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/users/${OWNER}/packages/container/${PACKAGE_NAME}/versions?per_page=100" \
-            --jq '.[] | [.id, .created_at] | @tsv')
+          versions=$(
+            gh api \
+              --paginate \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/users/${OWNER}/packages/container/${PACKAGE_NAME}/versions?per_page=100" \
+              --jq '.[] | [.id, .created_at] | @tsv' |
+              sort -t $'\t' -k2,2r
+          )
 
           if [ -z "$versions" ]; then
             echo "No GHCR package versions found."
