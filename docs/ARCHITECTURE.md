@@ -203,9 +203,9 @@ authenticated browser state
   ↓
 representative dashboard state
   ↓
-Lighthouse audit
+3 independent Lighthouse measurements
   ↓
-browser performance metrics
+median browser performance metrics
   ↓
 shared Lighthouse threshold policy
   ↓
@@ -345,14 +345,14 @@ The k6 script and report directory are mounted into the container at runtime. k6
 
 Lighthouse browser performance does not use the k6 container.
 
-Standalone LHCI and authenticated Playwright + Lighthouse execution require a Node/Chromium runtime and therefore execute through the environment prepared for browser-performance execution.
+Standalone LHCI and authenticated Playwright + Lighthouse execution use the Node runtime with the Playwright-managed Chromium installation prepared for browser-performance execution and therefore execute through the environment prepared for browser-performance execution.
 
 ```text
 k6 API performance
 → pinned k6 Docker runtime
 
 Lighthouse browser performance
-→ Node + Chromium runtime
+→ Node + Playwright-managed Chromium runtime
 → standalone LHCI or Playwright-orchestrated authenticated audit
 ```
 
@@ -1550,6 +1550,8 @@ authenticated Playwright + Lighthouse
 → Lighthouse audit
 → shared Lighthouse threshold policy
 ```
+
+Authenticated Lighthouse execution evaluates the shared quality policy against median metrics from three independent measurements. Aggregation belongs to the Lighthouse measurement layer rather than the scenario spec, keeping Playwright responsible only for deterministic application-state orchestration.
 
 The authenticated path reuses existing deterministic business-state initialization rather than creating Lighthouse-specific setup. Playwright owns scenario and browser-state orchestration; Lighthouse owns performance measurement.
 

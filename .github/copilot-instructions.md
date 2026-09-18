@@ -285,6 +285,9 @@ For authenticated browser performance:
 - reuse existing deterministic fixtures, API setup, Page Objects, and authenticated browser state where applicable;
 - confirm the representative application state before beginning Lighthouse measurement;
 - use Playwright for scenario and browser-state orchestration and Lighthouse for browser-performance measurement.
+- preserve the authenticated Lighthouse measurement model: three independent Lighthouse measurements followed by median metric aggregation and shared policy evaluation;
+- keep retries disabled for the `performance` project; measurement variance belongs in the Lighthouse measurement model, not in Playwright retries;
+- use the Playwright-managed Chromium runtime for Lighthouse execution rather than introducing separate browser discovery or installation.
 
 Preserve the established authenticated browser-performance flow:
 
@@ -449,7 +452,7 @@ For authenticated browser-performance changes, run:
 npx playwright test --project=performance
 ```
 
-Verify that deterministic setup succeeds, the representative authenticated browser state is established and confirmed ready, Lighthouse measurement completes, the shared Lighthouse policy is evaluated, and the expected Lighthouse and Playwright evidence is generated.
+Verify that deterministic setup succeeds, the representative authenticated browser state is established and confirmed ready, all three Lighthouse measurements complete, median metrics are aggregated, the shared Lighthouse policy is evaluated against those median metrics, and the expected per-run Lighthouse and Playwright evidence is generated.
 
 Do not claim performance validation passed solely because the measurement process started or completed without verifying its quality-gate and report evidence.
 

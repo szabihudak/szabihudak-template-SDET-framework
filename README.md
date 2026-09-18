@@ -964,7 +964,7 @@ Run a browser project:
 npx playwright test --project=chromium
 ```
 
-Lighthouse execution requires a locally available Chrome/Chromium browser in addition to the installed Node dependencies.
+Lighthouse execution uses the Playwright-managed Chromium runtime when available, keeping standalone and authenticated browser-performance execution aligned to the same browser ownership model.
 
 Run the standalone Lighthouse baseline:
 

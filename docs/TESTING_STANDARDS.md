@@ -1323,6 +1323,21 @@ discover existing deterministic setup
 → begin Lighthouse measurement
 ```
 
+Authenticated Lighthouse scenarios use repeated measurement rather than gating on a single browser-performance sample.
+
+The current authenticated baseline performs three independent Lighthouse measurements and evaluates the shared Lighthouse quality policy against the median value of each measured metric.
+
+```text
+deterministic authenticated state
+→ Lighthouse run 1
+→ Lighthouse run 2
+→ Lighthouse run 3
+→ median metric aggregation
+→ shared threshold and severity evaluation
+```
+
+Individual run metrics and reports remain available as execution evidence. Median aggregation reduces sensitivity to normal single-run variance; it must not be used to hide reproducible performance regressions.
+
 Do not duplicate business-state initialization solely for performance coverage when the framework already provides deterministic setup for the same state.
 
 Performance coverage should change the measurement layer rather than recreate the application-state initialization layer.
@@ -1789,6 +1804,23 @@ first attempt fails
 
 A test that repeatedly requires retries must not be treated as equivalent to a consistently passing test.
 
+Performance quality gates must not rely on Playwright retries to recover from a failed threshold evaluation.
+
+The dedicated `performance` project therefore executes with retries disabled. A hard Lighthouse threshold violation must remain a failing quality signal rather than being converted into an overall pass by a later retry.
+
+```text
+performance measurement
+→ hard threshold passes
+→ PASS
+
+performance measurement
+→ hard threshold fails
+→ FAIL
+→ no Playwright retry
+```
+
+Measurement variance is handled inside the measurement model through repeated Lighthouse runs and median aggregation, not through test-runner retries.
+
 Flaky tests should be investigated and corrected. If temporary quarantine becomes necessary, it should have an explicit reason, ownership, and path back to normal execution rather than becoming permanent ignored coverage.
 
 ## CI Browser Installation Standard
@@ -1832,7 +1864,8 @@ Browser-performance job:
 ```text
 use the dedicated performance workflow runner
 → install Node dependencies
-→ install / expose Chrome or Chromium runtime
+→ install Playwright-managed Chromium
+→ expose the same Chromium runtime to Lighthouse execution
 → execute standalone LHCI
 → execute --project=performance for authenticated Lighthouse coverage
 ```

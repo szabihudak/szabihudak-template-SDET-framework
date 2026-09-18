@@ -612,6 +612,19 @@ For API performance, use workload-specific metrics and native enforceable k6 thr
 
 For Lighthouse, reuse the shared version-controlled threshold and severity policy across standalone LHCI and authenticated Playwright + Lighthouse execution.
 
+For authenticated Lighthouse execution, preserve the established measurement model:
+
+```text
+deterministic authenticated state
+→ 3 independent Lighthouse measurements
+→ median metric aggregation
+→ shared threshold and severity evaluation
+```
+
+Do not replace repeated measurement with Playwright retries. The `performance` project must keep retries disabled so a hard performance-policy failure remains a failing quality signal.
+
+Use the Playwright-managed Chromium runtime for Lighthouse execution rather than introducing independent browser discovery or a parallel browser installation.
+
 Do not introduce arbitrary thresholds or change existing performance quality gates merely to make an unexplained failure pass.
 
 For k6, native threshold failures must remain failing quality signals.
