@@ -2011,6 +2011,9 @@ Retention should be finite and intentional.
 Performance execution additionally preserves:
 
 ```text
+performance-report-k6-task-read
+→ generated k6 HTML performance evidence
+
 performance-report-lighthouse
 → Lighthouse HTML / JSON browser-performance evidence
 
