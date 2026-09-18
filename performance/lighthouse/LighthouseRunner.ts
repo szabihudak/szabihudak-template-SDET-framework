@@ -1,11 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { chromium, type BrowserContext } from "@playwright/test";
+import { chromium, type Cookie } from "@playwright/test";
 import * as chromeLauncher from "chrome-launcher";
 import lighthouse from "lighthouse";
-
-type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
 export type LighthouseMetrics = {
   performanceScore: number;
@@ -23,7 +21,7 @@ export type LighthouseAuditResult = {
 
 type LighthouseAuditOptions = {
   url: string;
-  storageState: StorageState;
+  authCookies: Cookie[];
   reportName: string;
 };
 
@@ -45,7 +43,7 @@ function getNumericAuditValue(
 export class LighthouseRunner {
   async audit({
     url,
-    storageState,
+    authCookies,
     reportName,
   }: LighthouseAuditOptions): Promise<LighthouseAuditResult> {
     const chrome = await chromeLauncher.launch({
@@ -59,7 +57,7 @@ export class LighthouseRunner {
 
       const context = browser.contexts()[0];
 
-      await context.addCookies(storageState.cookies);
+      await context.addCookies(authCookies);
 
       await browser.close();
 
