@@ -212,6 +212,14 @@ Need controlled API performance workload?
 Need workload-specific performance measurement?
 → k6 custom metric / threshold
 
+Need browser-observed performance measurement?
+→ Lighthouse / LHCI
+
+Need authenticated browser-performance measurement?
+→ reuse existing deterministic Playwright setup
+→ performance project
+→ Lighthouse measurement
+
 Need controlled network behavior?
 → Mock
 
@@ -866,7 +874,7 @@ Registration and authentication must succeed before the measured scenario begins
 
 Their latency must not contaminate the workload-specific task-read latency metric.
 
-### Performance Transport Standard
+### API Performance Transport Standard
 
 Use native k6 HTTP APIs for k6 workloads.
 
@@ -893,7 +901,7 @@ Shared runtime-neutral configuration may be reused across both execution technol
 
 Runtime-specific transport remains owned by the runtime that executes it.
 
-### Performance Workload Standard
+### API Performance Workload Standard
 
 A performance workload must communicate what behavior and load model it measures.
 
@@ -933,7 +941,7 @@ The measured read workload intentionally avoids task creation so repeated iterat
 
 A dedicated task is created during setup and deleted during teardown. The generated performance user remains because the target application does not expose a supported account-deletion endpoint.
 
-### Performance Metric Standard
+### API Performance Metric Standard
 
 Measured operations should own workload-specific metrics when global HTTP metrics include setup or unrelated traffic.
 
@@ -1035,7 +1043,9 @@ Before changing a Lighthouse threshold or severity, review:
 
 Performance execution must provide both an executable quality signal and human-readable evidence.
 
-These responsibilities are separate:
+These responsibilities are separate.
+
+For API performance, the separation is:
 
 ```text
 k6 metrics
@@ -1099,7 +1109,7 @@ The shared source of truth is:
 config/environments/environments.json
 ````
 
-The environment ownership model is:
+The API-performance environment ownership model is:
 
 ```text
 environments.json
@@ -1222,7 +1232,7 @@ Do not introduce a universal performance container merely to make k6 and Lightho
 
 ### Performance CI Standard
 
-The current hosted performance baseline executes through the dedicated:
+The current hosted performance capabilities execute through the dedicated:
 
 ```text
 .github/workflows/performance.yml
@@ -1238,7 +1248,7 @@ workflow_dispatch
 
 because the hosted target is shared infrastructure rather than an isolated performance environment.
 
-Do not automatically run the current hosted performance workload on every pull request or push merely because k6 supports automated execution.
+Do not automatically run the current hosted performance capabilities on every pull request or push merely because the underlying tools support automated execution.
 
 The current workflow responsibility is:
 
@@ -1291,7 +1301,11 @@ The current shared-hosted performance execution should avoid overlapping framewo
 
 Concurrency should therefore favor measurement isolation rather than maximum parallelism.
 
-The current performance workload is intentionally separate from the main Playwright workflow because its execution cadence, load-generation responsibility, and target-safety constraints differ from functional test execution.
+The performance workflow is intentionally separate from the main Playwright workflow because performance execution has its own cadence, measurement responsibilities, evidence, and target-safety constraints.
+
+API load generation remains owned by the k6 job.
+
+Browser-performance measurement remains owned by the browser-performance job, with Playwright used only where framework-owned scenario setup and authenticated browser state are required before Lighthouse measurement.
 
 ### Browser Performance Standard
 
@@ -1813,6 +1827,20 @@ use the same reusable test image
 → execute matching project
 ```
 
+Browser-performance job:
+
+```text
+use the dedicated performance workflow runner
+→ install Node dependencies
+→ install / expose Chrome or Chromium runtime
+→ execute standalone LHCI
+→ execute --project=performance for authenticated Lighthouse coverage
+```
+
+The browser-performance job must not assume that the reusable Playwright Docker image owns Lighthouse execution.
+
+Lighthouse requires a Node/Chrome-or-Chromium runtime appropriate to browser-performance measurement, while the `performance` Playwright project is used only for authenticated scenario orchestration before Lighthouse measurement.
+
 Do not reinstall Playwright browsers independently in API, accessibility, visual, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
 
 Do not create browser-specific Docker images merely to match the browser matrix.
@@ -1877,7 +1905,7 @@ The performance workflow resolves the selected environment's `apiBaseUrl` and su
 TARGET_BASE_URL
 ```
 
-Do not maintain separate hardcoded target URLs in Playwright CI and performance CI when the value already belongs to the shared environment configuration.
+Do not maintain separate hardcoded target URLs in CI execution when the environment-specific value is already owned by the shared environment configuration.
 
 `TEST_ENV` expresses the selected logical environment.
 
@@ -2171,7 +2199,7 @@ Introduce a reusable visual abstraction only when repeated real visual scenarios
 
 For performance testing specifically, do not wrap native k6 HTTP, metrics, scenarios, or threshold primitives merely to create structural symmetry with Playwright framework layers.
 
-Introduce a reusable performance abstraction only when repeated real performance workloads demonstrate a responsibility that native k6 primitives do not already express cleanly.Introduce a reusable performance abstraction only when multiple real consumers require shared behavior that the underlying performance tools do not already express cleanly.
+Introduce a reusable performance abstraction only when multiple real consumers require shared behavior that the underlying performance tools do not already express cleanly.
 
 Use the measurement tool's native mechanism by default:
 
@@ -2367,7 +2395,7 @@ Agents must reuse the existing Lighthouse execution, shared threshold policy, an
 
 Agents must not introduce arbitrary performance thresholds or increase hosted workload intensity merely to create a stronger-looking performance test.
 
-Agents must not convert a real k6 threshold failure into a successful result merely to keep CI green.Agents must not convert a real performance quality-gate failure into a successful result merely to keep CI green.
+Agents must not convert a real performance quality-gate failure into a successful result merely to keep CI green.
 
 For k6, native threshold failures must remain failing quality signals.
 
