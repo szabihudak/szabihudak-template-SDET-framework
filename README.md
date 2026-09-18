@@ -260,6 +260,8 @@ The current k6 baseline measures authenticated task-read behavior with a control
 
 The authenticated Lighthouse baseline reuses the framework's existing deterministic application setup rather than introducing performance-specific business-state initialization. A registered and authenticated user, one deterministic task, and the authenticated dashboard state are established before browser performance is measured.
 
+Authenticated Lighthouse execution performs three independent Lighthouse measurements and evaluates the shared quality policy against the median metric values. This reduces sensitivity to single-run noise while preserving the same threshold and severity semantics used by the standalone LHCI path.
+
 Lighthouse currently evaluates:
 
 ```text

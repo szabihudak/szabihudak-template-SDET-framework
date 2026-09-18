@@ -1547,7 +1547,8 @@ authenticated Playwright + Lighthouse
 → authenticated user
 → deterministic task state
 → representative dashboard state
-→ Lighthouse audit
+→ 3 independent Lighthouse measurements
+→ median metric aggregation
 → shared Lighthouse threshold policy
 ```
 
