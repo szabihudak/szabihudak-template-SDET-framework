@@ -30,7 +30,7 @@ The framework follows these principles:
 - runtime configuration should not be baked into reusable test images;
 - test artifacts that must outlive ephemeral execution should be persisted outside that execution lifecycle;
 - approved visual baselines are version-controlled test assets rather than transient execution artifacts;
-- performance workloads should remain separate from Playwright functional execution;
+- performance execution should use the runtime boundary appropriate to the measurement responsibility;
 - performance quality gates should use workload-specific metrics rather than unrelated setup traffic;
 - shared target environment data should have a runtime-neutral source of truth;
 - executable container images and diagnostic workflow artifacts should use storage mechanisms appropriate to their responsibilities;
@@ -51,6 +51,7 @@ docs/
 
 performance/
   k6/
+  lighthouse/
 
 src/
   accessibility/
@@ -74,6 +75,7 @@ src/
 tests/
   accessibility/
   api/
+  performance/
   smoke/
   ui/
   visual/
@@ -166,7 +168,7 @@ version-controlled approved baseline
 visual comparison
 ```
 
-A typical performance flow is:
+A typical API performance flow is:
 
 ```text
 k6 setup
@@ -192,6 +194,28 @@ PASS / FAIL
 HTML report
 ```
 
+A typical authenticated browser performance flow is:
+
+```text
+existing deterministic fixture setup
+  ↓
+authenticated browser state
+  ↓
+representative dashboard state
+  ↓
+Lighthouse audit
+  ↓
+browser performance metrics
+  ↓
+shared Lighthouse threshold policy
+  ↓
+PASS / FAIL
+  +
+HTML / JSON evidence
+```
+
+Authenticated browser performance reuses the existing Playwright fixture and Page Object boundaries to establish representative application state, while Lighthouse owns browser performance measurement.
+
 Performance workloads use the k6 runtime independently from Playwright clients and fixtures. Shared configuration may be reused where it is runtime-neutral, while HTTP transport remains native to the execution technology.
 
 API and UI flows may be composed when API setup provides faster or more reliable prerequisites for UI behavior.
@@ -200,7 +224,7 @@ Visual regression tests may use the same API-driven or programmatic setup bounda
 
 ## Test Execution Architecture
 
-The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, visual regression execution, and k6 performance execution.
+The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, visual regression execution, API performance execution, and browser performance execution.
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
@@ -253,15 +277,22 @@ This separation avoids redundant API, accessibility, and visual execution while 
 
 Additional browser-specific visual execution should be introduced only when a concrete browser-specific visual requirement demonstrates value.
 
-Performance workloads are not Playwright projects.
+API performance workloads are not Playwright projects.
 
 ```text
 performance/k6/**
 → k6 runtime
 → controlled API performance execution
+
+tests/performance/**
+→ performance Playwright project
+→ authenticated browser performance execution
+→ Lighthouse measurement
 ```
 
-Performance execution remains separate because load generation, performance metrics, thresholds, and runtime behavior have different responsibilities from functional Playwright automation.
+API performance remains in the dedicated k6 runtime because load generation, workload metrics, thresholds, and runtime behavior have different responsibilities from functional Playwright automation.
+
+Authenticated browser performance uses a dedicated Playwright project when existing fixtures and browser state are required to establish the representative state measured by Lighthouse.
 
 ## Docker Execution Architecture
 
@@ -311,6 +342,21 @@ grafana/k6:1.8.1
 ```
 
 The k6 script and report directory are mounted into the container at runtime. k6 is not installed into the Playwright image because browser automation and performance workload generation have separate runtime responsibilities.
+
+Lighthouse browser performance does not use the k6 container.
+
+Standalone LHCI and authenticated Playwright + Lighthouse execution require a Node/Chromium runtime and therefore execute through the environment prepared for browser-performance execution.
+
+```text
+k6 API performance
+→ pinned k6 Docker runtime
+
+Lighthouse browser performance
+→ Node + Chromium runtime
+→ standalone LHCI or Playwright-orchestrated authenticated audit
+```
+
+The framework does not force both performance technologies into one universal container because their runtime and measurement responsibilities are different.
 
 ### Docker Image and Container Boundary
 
@@ -606,6 +652,18 @@ resolves TEST_ENV
 → uploads the report as a workflow artifact
 ```
 
+Browser performance execution is owned by a separate job in the same performance workflow:
+
+```text
+install Node dependencies and Chromium
+→ run standalone LHCI against webBaseUrl
+→ run authenticated dashboard Lighthouse through the performance Playwright project
+→ evaluate Lighthouse quality gates
+→ preserve Lighthouse and Playwright execution evidence
+```
+
+Keeping API and browser performance in separate jobs preserves their independent runtime and measurement responsibilities while retaining one explicit performance workflow boundary.
+
 The current workload uses two virtual users for 30 seconds and measures authenticated task reads through dedicated `task_read_duration` and `task_read_failures` metrics.
 
 The workload uses explicit setup and teardown lifecycle management:
@@ -733,9 +791,19 @@ Supported environment URLs are owned by:
 config/environments/environments.json
 ```
 
-The TypeScript environment layer consumes the same data for Playwright execution, while the performance workflow resolves the selected environment's `apiBaseUrl` and passes it to k6 through `TARGET_BASE_URL`.
+The TypeScript environment layer consumes the same data for Playwright execution, while the performance workflow resolves environment-specific targets for each performance boundary:
 
-This allows Playwright and k6 to share environment data without sharing runtime-specific implementation.
+```text
+k6 API performance
+→ apiBaseUrl
+→ TARGET_BASE_URL
+
+Lighthouse browser performance
+→ webBaseUrl
+→ browser audit target
+```
+
+This allows Playwright, k6, and Lighthouse to share runtime-neutral environment data without sharing runtime-specific transport or execution implementation.
 
 ## CI Permissions
 
@@ -811,8 +879,14 @@ Matrix jobs execute on independent runners, so identical local output paths are 
 Performance execution additionally preserves:
 
 ```text
-performance-report-task-read
+performance-report-k6-task-read
 → generated k6 HTML report
+
+performance-report-lighthouse
+→ Lighthouse HTML / JSON execution evidence
+
+performance-report-playwright
+→ authenticated browser-performance Playwright report
 ```
 
 Executable Playwright Docker images are not workflow artifacts. They are distributed through GitHub Container Registry, while GitHub Actions artifacts remain responsible for reports and diagnostic evidence.
@@ -1378,7 +1452,17 @@ They are distinct from committed baseline ownership.
 
 ## Performance Testing Architecture
 
-Performance testing is intentionally separated from Playwright functional automation and uses k6 for controlled API workload generation.
+Performance testing separates API workload performance from browser-observed performance according to their measurement responsibilities.
+
+````text
+API performance
+→ k6
+→ controlled HTTP workload generation
+
+Browser performance
+→ Lighthouse
+├── standalone LHCI
+└── authenticated Playwright + Lighthouse
 
 The current baseline measures authenticated task reads:
 
@@ -1389,7 +1473,7 @@ setup
         ↓
 measured workload
 └── GET /tasks
-```
+````
 
 The performance script uses native k6 HTTP APIs rather than importing Playwright API clients.
 
@@ -1448,6 +1532,53 @@ HTML report
 → human-readable execution evidence
 ```
 
+### Browser Performance Architecture
+
+Browser performance uses Lighthouse through two complementary execution paths:
+
+```text
+standalone LHCI
+→ configured public application URL
+→ repeated Lighthouse collection
+→ shared Lighthouse threshold policy
+
+authenticated Playwright + Lighthouse
+→ existing fixture initialization
+→ authenticated user
+→ deterministic task state
+→ representative dashboard state
+→ Lighthouse audit
+→ shared Lighthouse threshold policy
+```
+
+The authenticated path reuses existing deterministic business-state initialization rather than creating Lighthouse-specific setup. Playwright owns scenario and browser-state orchestration; Lighthouse owns performance measurement.
+
+The Lighthouse quality policy is shared because both standalone LHCI and authenticated Lighthouse execution consume the same browser-performance thresholds and severities:
+
+```text
+lighthouseThresholds.json
+├── LHCI native assertions
+└── Playwright-side Lighthouse policy evaluation
+```
+
+Measurement, policy evaluation, and execution evidence remain separate responsibilities:
+
+```text
+LighthouseRunner
+→ measurement
+
+Lighthouse policy
+→ threshold and severity evaluation
+
+Lighthouse reporter
+→ execution evidence and warning presentation
+
+performance spec
+→ scenario orchestration
+```
+
+This shared policy is specific to Lighthouse's multiple consumers. k6 retains its native workload thresholds rather than introducing a framework-wide performance policy abstraction solely for structural symmetry.
+
 ## Execution Boundary Rules
 
 Test placement and Playwright project ownership must remain aligned.
@@ -1470,9 +1601,15 @@ tests/ui/**
 tests/smoke/**
 → browser projects
 
+tests/performance/**
+→ performance Playwright project
+→ browser performance orchestration
+
 performance/k6/**
 → k6 performance runtime
-```
+
+performance/lighthouse/**
+→ Lighthouse execution, policy, and reporting infrastructure
 
 Do not place browser-dependent behavior under the API suite.
 
@@ -1486,7 +1623,9 @@ The current visual project executes once through Chromium in the canonical Docke
 
 Browser-specific visual projects or baselines should be introduced only when a concrete browser-specific requirement demonstrates a materially different visual risk.
 
-Performance workloads should remain under the dedicated k6 execution boundary rather than being introduced as Playwright projects solely to reuse the existing test-runner structure.
+API performance workloads should remain under the dedicated k6 execution boundary rather than being introduced as Playwright projects solely to reuse the existing test-runner structure.
+
+Browser performance scenarios may use the dedicated performance Playwright project when Playwright-owned fixtures, Page Objects, or authenticated browser state are required to establish the representative state measured by Lighthouse.
 
 If a new test type requires a materially different execution model, introduce the smallest explicit project boundary required by the behavior rather than extending unrelated projects.
 
@@ -1539,3 +1678,4 @@ A future move to an external visual-testing platform or materially different bas
 When implementation and documentation disagree, the discrepancy should be resolved rather than allowing the documentation to become stale.
 
 Architecture documentation should evolve together with meaningful framework changes.
+```
