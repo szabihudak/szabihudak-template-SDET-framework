@@ -22,6 +22,7 @@ test.describe("Authenticated dashboard performance", () => {
       authCookies,
       reportName: "authenticated-dashboard",
     });
+    await attachLighthouseReport(testInfo, result);
 
     expect(result.metrics.performanceScore).toBeGreaterThanOrEqual(
       lighthouseThresholds.performanceScore.value,
