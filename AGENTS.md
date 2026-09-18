@@ -128,13 +128,28 @@ Visual regression behavior
 → version-controlled baselines
 → visual Playwright project
 
-Performance behavior
+API performance behavior
 → existing k6 workload under performance/k6/
 → separate k6 runtime boundary
 → shared environment configuration
 → workload-specific metrics
-→ calibrated thresholds
+→ calibrated native k6 thresholds
 → dedicated performance workflow
+
+Browser performance behavior
+→ existing Lighthouse infrastructure under performance/lighthouse/
+→ shared environment configuration
+→ Lighthouse / LHCI measurement
+→ shared Lighthouse threshold and severity policy
+→ dedicated performance workflow
+
+Authenticated browser performance behavior
+→ existing deterministic fixture / API setup
+→ authenticated browser state
+→ relevant Page Object
+→ performance Playwright project for scenario orchestration
+→ Lighthouse measurement
+→ shared Lighthouse threshold and severity policy
 ```
 
 References demonstrate structural grammar and responsibility boundaries.
@@ -175,14 +190,23 @@ AccessibilityFormatter
 Visual comparison policy
 → shared screenshot-stability settings only
 
-Performance workload
-→ k6-owned load generation, workload-specific metrics, and threshold evaluation
+API performance workload
+→ k6-owned load generation, workload-specific metrics, and native threshold evaluation
+
+Lighthouse runner
+→ browser-performance measurement and Lighthouse report generation
+
+Lighthouse policy
+→ shared browser-performance threshold and severity evaluation
+
+Lighthouse reporter
+→ Playwright evidence and Lighthouse warning presentation
 
 Mock
 → controlled network behavior
 
 Spec
-→ behavior verification and assertions
+→ behavior verification, scenario orchestration, and assertions
 ```
 
 Do not move responsibilities between layers merely to reduce code.
@@ -505,7 +529,22 @@ CI is compare-only and must never automatically approve or regenerate baselines.
 
 ## Performance Rules
 
-Performance workloads belong under:
+First determine which performance responsibility the requested behavior belongs to:
+
+```text
+API workload performance
+→ k6
+
+Browser performance
+→ Lighthouse / LHCI
+
+Authenticated browser performance
+→ existing deterministic Playwright setup
+→ performance Playwright project for scenario orchestration
+→ Lighthouse measurement
+```
+
+API performance workloads belong under:
 
 ```text
 performance/k6/**
@@ -515,17 +554,79 @@ and execute through the dedicated k6 runtime rather than a Playwright project.
 
 Do not import Playwright or Node.js-specific framework helpers into k6 workloads.
 
+Use native k6 HTTP, metrics, scenarios, and threshold primitives unless a demonstrated responsibility cannot be expressed cleanly by k6 itself.
+
+Browser-performance infrastructure belongs under:
+
+```text
+performance/lighthouse/**
+```
+
+Use the existing Lighthouse runner, shared threshold policy, reporter, and LHCI configuration rather than creating parallel Lighthouse infrastructure.
+
+Authenticated browser-performance specs belong under:
+
+```text
+tests/performance/**
+```
+
+and execute through:
+
+```text
+--project=performance
+```
+
+Use the performance Playwright project only when framework-owned fixtures, API setup, Page Objects, or authenticated browser state are required to establish the representative state measured by Lighthouse.
+
+Before creating browser-performance setup, inspect existing functional coverage for deterministic initialization that already represents the required business state.
+
+Preserve the golden flow:
+
+```text
+discover existing deterministic setup
+        ↓
+reuse it
+        ↓
+establish representative browser state
+        ↓
+confirm the state is ready
+        ↓
+begin Lighthouse measurement
+```
+
+Do not duplicate business-state initialization solely for performance coverage when existing fixtures, API setup, Page Objects, or browser-state capabilities already own that responsibility.
+
+Performance coverage should change the measurement layer rather than recreate the application-state initialization layer.
+
 Use the shared runtime-neutral environment configuration as the source of target environment URLs.
+
+For API performance, use the resolved `apiBaseUrl` through the established k6 runtime boundary.
+
+For browser performance, use the resolved `webBaseUrl` as the Lighthouse audit target.
 
 Keep authentication and other setup traffic outside the measured operation when those actions are not the performance target.
 
-Clean up test-owned resources created for performance setup when the target application exposes a supported cleanup operation. Keep cleanup outside the measured workload.
+Clean up test-owned resources created for performance setup when the target application exposes a supported cleanup operation. Keep cleanup outside the measured workload or audit.
 
-Use workload-specific metrics and enforceable thresholds for the behavior being measured.
+For API performance, use workload-specific metrics and native enforceable k6 thresholds for the behavior being measured.
 
-Do not expand the hosted baseline into uncontrolled stress, spike, soak, or large-scale load testing against shared infrastructure.
+For Lighthouse, reuse the shared version-controlled threshold and severity policy across standalone LHCI and authenticated Playwright + Lighthouse execution.
+
+Do not introduce arbitrary thresholds or change existing performance quality gates merely to make an unexplained failure pass.
+
+For k6, native threshold failures must remain failing quality signals.
+
+For Lighthouse, `error` severity policy violations must remain failing quality signals. `warn` severity violations remain diagnostic signals and must not be silently suppressed or reclassified merely to avoid investigation.
+
+Do not create a universal performance policy layer or extract native k6 thresholds merely to create structural symmetry with Lighthouse.
+
+Introduce a reusable performance abstraction only when multiple real consumers require shared behavior that the underlying performance tools do not already express cleanly.
+
+Do not expand the hosted API baseline into uncontrolled stress, spike, soak, or large-scale load testing against shared infrastructure.
 
 Performance CI is owned by the dedicated manually triggered performance workflow rather than the normal pull-request test path.
+
+The performance workflow keeps API load generation and browser-performance measurement in separate jobs appropriate to their runtime and measurement responsibilities.
 
 ## Authentication Rules
 
@@ -574,6 +675,7 @@ Do not introduce a new:
 - Component Object;
 - accessibility abstraction;
 - visual abstraction;
+- performance abstraction;
 
 for hypothetical future reuse or structural symmetry.
 
@@ -631,6 +733,17 @@ existing factory
 ```
 
 and should reuse existing framework layers when those layers already support the required state.
+
+An authenticated browser-performance addition may require:
+
+```text
+existing fixture / API setup
++ existing Page Object
++ performance spec
++ existing Lighthouse infrastructure
+```
+
+and should reuse deterministic business-state initialization rather than introduce performance-specific setup for an already supported state.
 
 Conversely, do not touch those layers when the existing implementation already supports the behavior.
 
@@ -703,19 +816,44 @@ before considering the baseline reproducible.
 
 Do not claim a visual validation passed merely because an update command generated expected images.
 
-For performance changes, run the affected k6 workload through its dedicated Docker runtime against the intended target environment.
+For API performance changes, run the affected k6 workload through its dedicated Docker runtime against the intended target environment.
 
 Verify that:
 
 ```text
 measured requests succeed
 → workload-specific metrics are populated
-→ configured thresholds are evaluated
+→ configured native k6 thresholds are evaluated
 → threshold failure produces a failing execution result
-→ the expected HTML report is generated
+→ the expected k6 HTML report is generated
 ```
 
-Do not claim performance validation passed solely because the k6 process executed; threshold evaluation and report generation are part of the validation evidence.
+For standalone Lighthouse changes, run:
+
+```bash
+npx lhci autorun --config=performance/lighthouse/lighthouseConfig.js
+```
+
+Verify that Lighthouse measurement completes, the configured quality policy is evaluated, and the expected Lighthouse report evidence is generated.
+
+For authenticated browser-performance changes, run the affected performance spec through:
+
+```bash
+npx playwright test --project=performance
+```
+
+Verify that:
+
+```text
+deterministic setup succeeds
+→ representative authenticated browser state is established
+→ required state is confirmed ready
+→ Lighthouse measurement completes
+→ shared Lighthouse policy is evaluated
+→ expected Lighthouse and Playwright evidence is generated
+```
+
+Do not claim performance validation passed solely because the measurement process executed. Quality-policy evaluation and expected report generation are part of the validation evidence.
 
 Run broader regression scope when the change affects shared framework infrastructure.
 
@@ -735,7 +873,7 @@ Update documentation when a change modifies:
 - major technology choices;
 - visual baseline ownership or approval rules;
 - visual execution boundaries.
-- performance workload, runtime, threshold, or CI ownership boundaries.
+- performance workload, browser-performance measurement, runtime, threshold, policy, or CI ownership boundaries.
 
 Do not modify architecture documentation for ordinary feature additions that already follow documented patterns.
 
@@ -768,7 +906,7 @@ accessibility policy preserved where applicable
         ↓
 visual baseline policy preserved where applicable
         ↓
-performance workload boundaries and threshold policy preserved where applicable
+performance measurement boundaries and quality policy preserved where applicable
         ↓
 formatting passes
         ↓
