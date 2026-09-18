@@ -36,12 +36,20 @@ The framework is designed around the concerns that matter in real automation sys
 ```mermaid
 flowchart TD
     A[Playwright Test Suite]
-    PERF[k6 Performance Workload]
+    PERF[Performance Testing]
+    K6[k6 API Performance]
+    LHCI[Standalone LHCI]
+    AUTHL[Authenticated Playwright + Lighthouse]
 
     A --> B[API Testing]
     A --> C[UI Testing]
     A --> D[Accessibility Testing]
     A --> E[Visual Regression Testing]
+    A --> AUTHL
+
+    PERF --> K6
+    PERF --> LHCI
+    PERF --> AUTHL
 
     B --> F[Domain API Clients]
     F --> G[TypeBox Schemas]
@@ -66,8 +74,9 @@ flowchart TD
     Q --> R[Docker]
     Q --> S[GitHub Actions]
 
-    PERF --> R
-    PERF --> S
+    K6 --> S
+    LHCI --> S
+    AUTHL --> S
 
     R --> T[Reproducible Runtime]
     R --> U[Runtime TEST_ENV]
@@ -100,13 +109,13 @@ The framework favors:
 - deterministic and isolated test data;
 - reproducible execution across local and CI environments;
 - build-once, configure-at-runtime container execution;
-- explicit CI ownership between Playwright test execution and performance workloads;
+- explicit execution ownership across Playwright testing, k6 API performance, and Lighthouse browser performance;
 - actionable diagnostics when execution fails;
 - documented architectural decisions and trade-offs.
 
 New capabilities are introduced only when they demonstrate a real testing or architectural requirement.
 
-> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, k6 API performance testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
+> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, k6 API performance testing, Lighthouse browser performance testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
 
 ## Quick Navigation
 
@@ -130,7 +139,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | UI Automation             | Playwright Browser Automation |
 | Accessibility Testing     | @axe-core/playwright          |
 | Visual Regression         | Playwright Screenshot Testing |
-| Performance Testing       | k6                            |
+| Performance Testing       | k6 + Lighthouse / LHCI        |
 | Containerization          | Docker                        |
 | Container Registry        | GitHub Container Registry     |
 | CI/CD                     | GitHub Actions                |
@@ -310,6 +319,7 @@ src/
 tests/
   accessibility/
   api/
+  performance/
   smoke/
   ui/
   visual/
@@ -606,7 +616,7 @@ docker run --rm \
   npx playwright test --project=api
 ```
 
-This keeps the container image reusable rather than creating separate images for API, accessibility, visual, and browser projects.
+This keeps the container image reusable across its supported Playwright execution responsibilities rather than creating separate images for individual test projects. Lighthouse browser-performance execution retains its dedicated Node/Chromium runtime boundary in the performance workflow.
 
 ### Container Lifecycle
 
@@ -653,11 +663,11 @@ test-results/
 
 on the host even after the container is removed.
 
-Local Docker artifact persistence and CI artifact upload are separate concerns. GitHub Actions continues to preserve CI execution evidence through its artifact upload strategy.
+Local Docker artifact persistence and CI artifact upload are separate concerns. GitHub Actions continues to preserve CI execution evidence through its artifact upload strategy.Local artifact persistence and CI artifact upload are separate concerns. Docker-based Playwright execution uses bind mounts when generated evidence must survive container removal, while GitHub Actions preserves execution evidence through workflow artifacts according to each job's runtime and reporting responsibility.
 
 ## CI Pipeline
 
-GitHub Actions provides automated quality validation and containerized test execution.
+GitHub Actions provides automated quality validation and reproducible test execution across the framework's Playwright and performance runtime boundaries.
 
 Current execution architecture:
 
@@ -882,7 +892,19 @@ Docker execution can select the same target at container runtime:
 docker run -e TEST_ENV=hosted ...
 ```
 
-The performance workflow resolves the selected environment's `apiBaseUrl` from the shared JSON configuration and supplies it to k6 as `TARGET_BASE_URL`.
+The performance workflow uses the shared environment configuration for both performance boundaries:
+
+```text
+k6 API performance
+→ apiBaseUrl
+→ supplied to the workload as TARGET_BASE_URL
+
+Lighthouse browser performance
+→ webBaseUrl
+→ used as the browser audit target
+```
+
+This keeps environment selection centralized while allowing each performance tool to consume the URL appropriate to its measurement boundary.
 
 The execution environment and test target environment are intentionally treated as separate concepts.
 
@@ -941,6 +963,8 @@ Run a browser project:
 ```bash
 npx playwright test --project=chromium
 ```
+
+Lighthouse execution requires a locally available Chrome/Chromium browser in addition to the installed Node dependencies.
 
 Run the standalone Lighthouse baseline:
 
@@ -1037,7 +1061,7 @@ TARGET_BASE_URL=$(node -e "
 Create the k6 report directory:
 
 ```bash
-mkdir -p performance-results
+mkdir -p performance-results/k6
 ```
 
 Run the current performance baseline:
@@ -1123,6 +1147,7 @@ The target provides realistic scenarios for:
 - automated accessibility testing;
 - visual regression testing;
 - controlled API performance baseline testing;
+- public and authenticated browser performance baseline testing;
 - negative testing;
 - controlled network failure scenarios.
 
