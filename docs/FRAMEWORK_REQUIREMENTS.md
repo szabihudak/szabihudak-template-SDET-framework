@@ -26,7 +26,7 @@ The framework must support:
 - HTML and machine-readable reporting
 - CI/CD execution
 - Docker-based execution
-- Separate containerized runtime ownership for Playwright test execution and k6 performance testing
+- Separate runtime ownership appropriate to Playwright test execution, k6 API performance testing, and Lighthouse browser-performance measurement
 - Accessibility testing
 - Visual regression testing
 - Version-controlled visual regression baselines
@@ -34,6 +34,9 @@ The framework must support:
 - Reproducible visual baseline generation and comparison through a canonical Docker/Linux runtime
 - Dedicated compare-only visual regression execution in CI
 - Controlled API performance baseline testing with workload-specific metrics and enforceable thresholds
+- Browser-performance baseline testing through Lighthouse / LHCI
+- Authenticated browser-performance testing through deterministic Playwright scenario setup followed by Lighthouse measurement
+- Shared Lighthouse threshold and severity policy across standalone and authenticated browser-performance execution
 - Dedicated manually triggered performance execution in CI
 - API and UI test composition
 - Mocking and network interception
@@ -58,6 +61,8 @@ The framework should minimize flaky tests and provide useful diagnostic informat
 
 Visual regression tests should establish deterministic rendered state before comparison and must not rely on automatic baseline updates to hide unstable or unexpected differences.
 
+Browser-performance coverage should reuse existing deterministic framework setup where that setup already represents the required application state rather than duplicating business-state initialization solely for performance measurement.
+
 ### Fast
 
 Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, dedicated accessibility coverage, and dedicated visual regression coverage.
@@ -74,13 +79,15 @@ The framework must run consistently in local environments, CI pipelines, and con
 
 Visual regression comparison must use committed approved baselines and a reproducible rendering environment. CI must compare against those baselines rather than generating or automatically approving replacements.
 
+Performance execution should preserve the runtime boundary appropriate to the measurement responsibility: k6 for API workload performance and Lighthouse with a Node/Chrome-or-Chromium runtime for browser-performance measurement.
+
 ### Observable
 
 Failures should provide sufficient logs, screenshots, traces, videos, reports, accessibility diagnostics, and visual comparison evidence for efficient troubleshooting.
 
 Visual regression failures should provide expected, actual, and diff evidence where available.
 
-Performance execution should preserve a human-readable HTML report as execution evidence, including the measured workload metrics and threshold results.
+Performance execution should preserve human-readable and machine-readable evidence appropriate to the measurement capability, including k6 workload results, Lighthouse browser-performance reports, and Playwright evidence for authenticated browser-performance scenarios.
 
 ### Secure
 
@@ -114,14 +121,15 @@ The application provides realistic workflows including:
 - network interception and mocking;
 - browser-rendered states suitable for automated accessibility validation;
 - deterministic browser-rendered states suitable for visual regression testing;
-- authenticated REST API operations suitable for controlled performance baseline testing.
+- authenticated REST API operations suitable for controlled performance baseline testing;
+- public and authenticated browser states suitable for Lighthouse browser-performance measurement.
 
 The application intentionally supports two authentication contexts used by the framework:
 
 - REST API authentication through Bearer JWT tokens;
 - browser authentication through an Auth.js session.
 
-This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, accessibility validation of both public and authenticated browser states, and deterministic authenticated visual regression scenarios without relying on slow UI-based setup.
+This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, accessibility validation of both public and authenticated browser states, deterministic authenticated visual regression scenarios, controlled API performance testing, and authenticated browser-performance measurement without relying on slow UI-based setup.
 
 ## Out of Scope for Initial Version
 
@@ -153,6 +161,9 @@ The framework will be considered successful when:
 - visual baseline changes require explicit review rather than automatic CI approval;
 - visual failures provide actionable comparison evidence;
 - controlled API performance baselines execute through a dedicated k6 runtime with workload-specific metrics and enforceable thresholds;
+- browser-performance baselines execute through Lighthouse / LHCI with enforceable threshold and severity semantics;
+- authenticated browser-performance coverage reuses deterministic Playwright setup and browser state before Lighthouse measurement;
+- standalone and authenticated Lighthouse execution share the same version-controlled browser-performance quality policy;
 - performance execution is owned by a dedicated manually triggered CI workflow rather than the normal pull-request test path;
-- performance execution preserves a human-readable HTML report as CI evidence;
+- performance execution preserves k6, Lighthouse, and authenticated Playwright performance evidence as appropriate to each execution path;
 - the repository can be confidently presented during a Senior QA / SDET interview.
