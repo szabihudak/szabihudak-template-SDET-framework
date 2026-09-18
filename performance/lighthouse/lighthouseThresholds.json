@@ -1,6 +1,18 @@
 {
-  "performanceScore": 0.7,
-  "cls": 0.1,
-  "tbtMs": 300,
-  "lcpMs": 6000
+  "performanceScore": {
+    "value": 0.7,
+    "severity": "error"
+  },
+  "cls": {
+    "value": 0.1,
+    "severity": "error"
+  },
+  "tbtMs": {
+    "value": 300,
+    "severity": "error"
+  },
+  "lcpMs": {
+    "value": 6000,
+    "severity": "warn"
+  }
 }

@@ -21,17 +21,20 @@ module.exports = {
     assert: {
       assertions: {
         "categories:performance": [
-          "error",
-          { minScore: thresholds.performanceScore },
+          thresholds.performanceScore.severity,
+          { minScore: thresholds.performanceScore.value },
         ],
         "cumulative-layout-shift": [
-          "error",
-          { maxNumericValue: thresholds.cls },
+          thresholds.cls.severity,
+          { maxNumericValue: thresholds.cls.value },
         ],
-        "total-blocking-time": ["error", { maxNumericValue: thresholds.tbtMs }],
+        "total-blocking-time": [
+          thresholds.tbtMs.severity,
+          { maxNumericValue: thresholds.tbtMs.value },
+        ],
         "largest-contentful-paint": [
-          "warn",
-          { maxNumericValue: thresholds.lcpMs },
+          thresholds.lcpMs.severity,
+          { maxNumericValue: thresholds.lcpMs.value },
         ],
       },
     },

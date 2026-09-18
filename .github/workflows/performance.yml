@@ -81,6 +81,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Create Lighthouse results directory
         run: mkdir -p performance-results/lighthouse
 
@@ -88,6 +91,12 @@ jobs:
         run: |
           npx lhci autorun \
             --config=performance/lighthouse/lighthouseConfig.js
+
+      - name: Run authenticated dashboard Lighthouse audit
+        run: |
+          npx playwright test \
+            tests/performance/lighthouse-dashboard.spec.ts \
+            --project=performance
 
       - name: Upload Lighthouse reports
         if: always()
@@ -97,3 +106,12 @@ jobs:
           path: performance-results/lighthouse/
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload Playwright performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-playwright
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: warn

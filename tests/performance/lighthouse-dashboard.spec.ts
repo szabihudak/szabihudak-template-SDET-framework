@@ -23,12 +23,14 @@ test.describe("Authenticated dashboard performance", () => {
       reportName: "authenticated-dashboard",
     });
 
-    await attachLighthouseReport(testInfo, result);
-
     expect(result.metrics.performanceScore).toBeGreaterThanOrEqual(
-      lighthouseThresholds.performanceScore,
+      lighthouseThresholds.performanceScore.value,
     );
-    expect(result.metrics.cls).toBeLessThanOrEqual(lighthouseThresholds.cls);
-    expect(result.metrics.tbt).toBeLessThanOrEqual(lighthouseThresholds.tbtMs);
+    expect(result.metrics.cls).toBeLessThanOrEqual(
+      lighthouseThresholds.cls.value,
+    );
+    expect(result.metrics.tbt).toBeLessThanOrEqual(
+      lighthouseThresholds.tbtMs.value,
+    );
   });
 });

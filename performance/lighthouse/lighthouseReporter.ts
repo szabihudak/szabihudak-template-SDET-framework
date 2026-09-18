@@ -1,5 +1,6 @@
 import type { TestInfo } from "@playwright/test";
 
+import lighthouseThresholds from "./lighthouseThresholds.json";
 import type { LighthouseAuditResult } from "./LighthouseRunner";
 
 export async function attachLighthouseReport(
@@ -32,4 +33,13 @@ export async function attachLighthouseReport(
     path: result.jsonReportPath,
     contentType: "application/json",
   });
+
+  if (metrics.lcp > lighthouseThresholds.lcpMs.value) {
+    testInfo.annotations.push({
+      type: "warning",
+      description: `LCP ${Math.round(
+        metrics.lcp,
+      )}ms exceeds warning threshold ${lighthouseThresholds.lcpMs.value}ms`,
+    });
+  }
 }
