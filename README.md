@@ -560,7 +560,7 @@ Factories remain independent from HTTP execution, UI interaction, assertions, an
 
 ## Docker Execution
 
-Docker provides reproducible execution environments while preserving runtime ownership between Playwright test execution and k6 performance testing.
+Docker provides reproducible execution environments while preserving the distinct runtime ownership of Playwright functional testing, k6 API performance testing, and Lighthouse browser performance testing.
 
 The test image is built from the official Playwright image matching the framework's installed Playwright version:
 
@@ -574,7 +574,11 @@ The image contains the Linux runtime and browser dependencies required for Playw
 npm ci
 ```
 
-This Playwright image owns Playwright-based API, accessibility, visual, and browser execution. Performance testing runs separately through the pinned k6 Docker image rather than extending the Playwright image with k6.
+The reusable Playwright image owns the framework's standard Playwright-based API, accessibility, visual, and browser execution.
+
+API performance testing remains separate and executes through the pinned k6 Docker image rather than extending the Playwright image with k6.
+
+Lighthouse browser performance has its own execution requirements. Standalone LHCI and the authenticated Playwright + Lighthouse scenario execute through the Node/Chromium environment used by the dedicated performance workflow rather than through the k6 container.
 
 The framework's Playwright image follows:
 
@@ -719,7 +723,7 @@ Performance execution is owned by the separate:
 
 workflow.
 
-The current hosted performance baseline is intentionally triggered through:
+The hosted performance workflow is intentionally triggered through:
 
 ```text
 workflow_dispatch
@@ -727,7 +731,34 @@ workflow_dispatch
 
 rather than normal pull-request execution.
 
-The workflow resolves the selected `TEST_ENV` through the shared environment configuration, runs the pinned k6 Docker runtime, enforces the performance thresholds, and preserves the generated HTML report as a CI artifact.
+Performance CI separates API workload performance from browser performance:
+
+```text
+Performance Tests
+├── api-performance
+│   └── k6
+│       → pinned Docker runtime
+│       → authenticated API workload
+│       → threshold enforcement
+│       → HTML execution evidence
+│
+└── browser-performance
+    ├── standalone LHCI
+    │   → repeated public-page collection
+    │   → shared Lighthouse threshold policy
+    │
+    └── authenticated Playwright + Lighthouse
+        → deterministic existing fixture setup
+        → authenticated dashboard state
+        → shared Lighthouse threshold policy
+        → HTML / JSON execution evidence
+```
+
+Both performance paths resolve the selected target through the shared environment configuration while preserving their technology-specific execution boundaries.
+
+The k6 workload executes through the pinned k6 Docker image. Lighthouse execution uses the Node/Chromium environment prepared by the browser-performance job.
+
+API and browser performance results are preserved as separate CI evidence so failures remain attributable to the measurement layer that produced them.
 
 ## Playwright Projects
 
@@ -745,6 +776,11 @@ visual
 → tests/visual/**
 → Chromium
 
+performance
+→ tests/performance/**
+→ Chromium
+→ authenticated browser-performance scenarios
+
 chromium
 firefox
 webkit
@@ -752,7 +788,11 @@ webkit
 → tests/smoke/**
 ```
 
-This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility and visual regression execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
+This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility, visual regression, and authenticated browser-performance execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
+
+The `performance` project owns Playwright-orchestrated browser-performance scenarios such as the authenticated Lighthouse dashboard audit. It establishes application state through existing framework fixtures before handing the prepared browser state to the performance measurement layer.
+
+Standalone LHCI and k6 are not Playwright projects. They retain their own execution boundaries under the dedicated performance workflow.
 
 ## Reports and Diagnostics
 
@@ -786,11 +826,25 @@ Playwright is configured to retain additional diagnostics for failed or retried 
 
 Docker-based local execution can preserve the same generated Playwright output directories through bind mounts, independently of CI artifact handling.
 
-Performance CI preserves the generated k6 HTML report separately as:
+Performance CI preserves execution evidence separately for API and browser performance.
+
+k6 produces a human-readable HTML report:
 
 ```text
-performance-report-task-read
+performance-results/k6/task-read-load.html
 ```
+
+Lighthouse produces browser-performance evidence under:
+
+```text
+performance-results/lighthouse/
+```
+
+including Lighthouse HTML and JSON reports.
+
+The authenticated Lighthouse scenario also publishes its metrics and evaluated policy result through Playwright test attachments. Warning-level policy violations are retained as test annotations, while error-level violations determine the test outcome.
+
+CI uploads k6, Lighthouse, and Playwright performance evidence separately so API workload failures, browser-performance regressions, and Playwright scenario failures remain diagnosable without conflating their responsibilities.
 
 ## Environment Configuration
 
@@ -888,6 +942,20 @@ Run a browser project:
 npx playwright test --project=chromium
 ```
 
+Run the standalone Lighthouse baseline:
+
+```bash
+npx lhci autorun --config=performance/lighthouse/lighthouseConfig.js
+```
+
+Run the authenticated dashboard Lighthouse audit:
+
+```bash
+npx playwright test \
+  tests/performance/lighthouse-dashboard.spec.ts \
+  --project=performance
+```
+
 Run formatting validation:
 
 ```bash
@@ -955,7 +1023,7 @@ docker run --rm \
   playwright-enterprise-tests
 ```
 
-### Running Performance Tests with Docker
+### Running k6 API Performance Tests with Docker
 
 Resolve the hosted API URL from the shared environment configuration:
 
@@ -966,7 +1034,7 @@ TARGET_BASE_URL=$(node -e "
 ")
 ```
 
-Create the report directory:
+Create the k6 report directory:
 
 ```bash
 mkdir -p performance-results
@@ -982,7 +1050,7 @@ docker run --rm \
   -e K6_WEB_DASHBOARD_PORT=-1 \
   -e K6_WEB_DASHBOARD_EXPORT=/reports/task-read-load.html \
   -v "$PWD/performance/k6:/scripts" \
-  -v "$PWD/performance-results:/reports" \
+  -v "$PWD/performance-results/k6:/reports" \
   grafana/k6:1.8.1 \
   run /scripts/taskReadLoad.js
 ```
@@ -990,7 +1058,7 @@ docker run --rm \
 The HTML report is written to:
 
 ```text
-performance-results/task-read-load.html
+performance-results/k6/task-read-load.html
 ```
 
 ## Engineering Standards
@@ -1029,7 +1097,12 @@ AI coding agents are instructed to:
 - select the correct Playwright execution project;
 - reuse the established accessibility scanner, WCAG policy, fixtures, formatter, and assertion pattern for accessibility coverage;
 - preserve deterministic visual setup, existing Page Object or locator ownership, and the established baseline policy for visual regression coverage;
-- preserve the separate k6 performance runtime boundary, controlled workload design, workload-specific metrics, and calibrated threshold policy for performance coverage;
+- preserve the distinct k6 API-performance and Lighthouse browser-performance execution boundaries;
+- discover and reuse existing deterministic fixtures, API setup, authentication, Page Objects, and application-state initialization before creating performance-specific setup;
+- change the measurement layer rather than duplicating business-state initialization when an existing deterministic setup already represents the required performance scenario;
+- preserve workload-specific k6 metrics and native threshold ownership where k6 is the sole consumer;
+- preserve the shared Lighthouse threshold and severity policy across standalone LHCI and authenticated Playwright + Lighthouse execution;
+- calibrate performance thresholds from repeated controlled measurements when no authoritative SLA, SLO, or approved target exists rather than deriving a quality gate from a single run;
 - validate formatting, types, and affected tests before completion.
 
 Repository-level agent behavior is defined in [`AGENTS.md`](AGENTS.md), with GitHub Copilot-specific instructions in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
@@ -1060,37 +1133,39 @@ The framework treats the target application as an external provider and models o
 Current implemented foundation:
 
 ```text
-Framework architecture         ✅
-Reusable fixtures              ✅
-Test-data factories            ✅
-API automation                 ✅
-API authentication             ✅
-Runtime contract validation    ✅
-API/UI integration             ✅
-Network mocking                ✅
-Page/Component architecture    ✅
-Programmatic browser auth      ✅
-Cross-browser execution        ✅
-Automated accessibility        ✅
-WCAG policy                    ✅
-Accessibility CI gate          ✅
-Visual regression testing      ✅
-Versioned visual baselines     ✅
-Visual CI gate                 ✅
-k6 performance testing         ✅
-Performance quality thresholds ✅
-Performance HTML reporting     ✅
-Dedicated performance CI       ✅
-Shared environment config      ✅
-Docker test execution          ✅
-Runtime container config       ✅
-Container artifact persistence ✅
-GitHub Actions CI              ✅
-GHCR image distribution        ✅
-CI quality gates               ✅
-CI artifacts                   ✅
-Browser matrix execution       ✅
-Agent engineering standards    ✅
+Framework architecture               ✅
+Reusable fixtures                    ✅
+Test-data factories                  ✅
+API automation                       ✅
+API authentication                   ✅
+Runtime contract validation          ✅
+API/UI integration                   ✅
+Network mocking                      ✅
+Page/Component architecture          ✅
+Programmatic browser auth            ✅
+Cross-browser execution              ✅
+Automated accessibility              ✅
+WCAG policy                          ✅
+Accessibility CI gate                ✅
+Visual regression testing            ✅
+Versioned visual baselines           ✅
+Visual CI gate                       ✅
+k6 API performance testing           ✅
+Lighthouse browser performance       ✅
+Authenticated Lighthouse coverage    ✅
+Calibrated performance quality gates ✅
+Performance execution evidence       ✅
+Dedicated performance CI             ✅
+Shared environment config            ✅
+Docker test execution                ✅
+Runtime container config             ✅
+Container artifact persistence.      ✅
+GitHub Actions CI                    ✅
+GHCR image distribution              ✅
+CI quality gates                     ✅
+CI artifacts                         ✅
+Browser matrix execution             ✅
+Agent engineering standards          ✅
 ```
 
 Additional Quality Engineering capabilities will be introduced as the framework evolves.
