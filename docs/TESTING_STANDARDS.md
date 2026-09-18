@@ -63,7 +63,7 @@ Before implementation, answer:
 1. What behavior is being verified?
 2. Is this primarily API, UI, accessibility, visual regression, performance, or composed behavior?
 3. Is the behavior browser-independent or browser-dependent?
-4. Does the behavior belong to a Playwright project or the separate k6 performance runtime?
+4. Does the behavior belong to a Playwright project, the k6 performance runtime, or Lighthouse browser-performance execution?
 5. Is there an existing test or workload demonstrating a similar pattern?
 6. Which existing framework components can be reused?
 7. Which components genuinely need modification?
@@ -87,6 +87,10 @@ tests/visual/**
 → visual project
 → Chromium
 
+tests/performance/**
+→ performance project
+→ Chromium
+
 tests/ui/**
 → chromium
 → firefox
@@ -99,6 +103,9 @@ tests/smoke/**
 
 performance/k6/**
 → k6 performance runtime
+
+performance/lighthouse/**
+→ Lighthouse execution, policy, and reporting infrastructure
 ```
 
 API tests are browser-independent and must execute through the dedicated `api` project.
@@ -109,7 +116,9 @@ Visual regression tests use browser-rendered application state but execute throu
 
 UI and smoke tests are browser-dependent and execute through browser projects.
 
-Performance workloads are not Playwright projects. They execute through the dedicated k6 runtime under `performance/k6/**`.
+API performance workloads are not Playwright projects. They execute through the dedicated k6 runtime under `performance/k6/**`.
+
+Authenticated browser-performance scenarios belong under `tests/performance/**` and execute through the dedicated `performance` Playwright project when Playwright-owned fixtures, Page Objects, or authenticated browser state are required to establish the representative state measured by Lighthouse.
 
 Do not allow API tests to run once per browser simply because browser projects exist.
 
@@ -152,6 +161,15 @@ When adding a new k6 performance workload:
 ```text
 place under performance/k6
 → execute through the k6 runtime
+```
+
+When adding a new authenticated Lighthouse browser-performance scenario:
+
+```text
+place under tests/performance
+→ execute with --project=performance
+→ reuse existing deterministic setup
+→ measure with Lighthouse
 ```
 
 If the test or workload behavior does not fit an existing execution boundary, review the architecture before introducing a new project or runtime boundary.
@@ -268,14 +286,24 @@ or:
 
 ```text
 New performance coverage
-→ inspect the existing k6 workload
-→ preserve the Playwright / k6 runtime boundary
+→ identify whether the target is API workload performance or browser performance
+→ inspect the analogous existing implementation
+→ preserve the existing runtime and measurement boundary
 → reuse shared environment configuration where applicable
-→ use native k6 HTTP and metrics
-→ separate setup traffic from the measured operation
+→ reuse existing deterministic setup where applicable
+→ keep setup outside the measured behavior when setup is not the target
 → calibrate thresholds from repeated baseline evidence
-→ keep execution in the k6 runtime
 ```
+
+API workload performance
+→ use native k6 HTTP and metrics
+→ keep execution in the k6 runtime
+
+Browser performance
+→ reuse existing Playwright fixtures and browser-state setup when required
+→ keep Lighthouse measurement separate from scenario setup
+→ use the shared Lighthouse threshold policy
+→ keep authenticated browser-performance scenarios in the performance Playwright project
 
 Existing implementations are reference patterns, not templates to copy blindly.
 
@@ -797,15 +825,29 @@ A visual failure must not prevent independent test jobs from producing their own
 
 ## Performance Test Standard
 
-Performance testing uses k6 through a dedicated runtime boundary and belongs under:
+Performance testing uses separate execution and measurement boundaries for API workload performance and browser-observed performance:
 
 ```text
-performance/k6/**
+API workload performance
+→ performance/k6/**
+→ k6 runtime
+
+Browser performance
+→ performance/lighthouse/**
+→ Lighthouse measurement
+
+Authenticated browser-performance scenarios
+→ tests/performance/**
+→ performance Playwright project
 ```
 
 Do not implement a k6 workload as a Playwright project merely to reuse the Playwright test runner.
 
-The current golden performance pattern separates prerequisite setup from the measured workload:
+Use the performance Playwright project only when browser-performance coverage requires Playwright-owned fixtures, Page Objects, or authenticated browser state to establish the representative state measured by Lighthouse.
+
+### API Performance Standard
+
+The current golden API performance pattern separates prerequisite setup from the measured workload:
 
 ```text
 setup
@@ -917,7 +959,15 @@ Global k6 HTTP metrics may remain useful diagnostic signals, but the primary qua
 
 ### Performance Threshold Standard
 
-Performance thresholds are executable quality boundaries.
+Performance thresholds are executable quality boundaries and should remain owned by the measurement technology that evaluates them.
+
+```text
+k6
+→ native workload thresholds
+
+Lighthouse / LHCI
+→ shared Lighthouse threshold and severity policy
+```
 
 The current calibrated thresholds are:
 
@@ -952,6 +1002,35 @@ A threshold failure must remain a failing performance quality signal.
 
 Do not use `continue-on-error` or equivalent behavior to convert a real threshold failure into a successful quality result.
 
+Lighthouse thresholds use shared values and severities because standalone LHCI and authenticated Playwright + Lighthouse execution consume the same browser-performance quality policy.
+
+```text
+error
+→ quality-gate violation
+→ failing execution
+
+warn
+→ diagnostic regression signal
+→ execution remains successful
+```
+
+When no authoritative SLA, SLO, or approved browser-performance target exists, calibrate Lighthouse thresholds from repeated measurements of the same controlled representative state.
+
+Do not introduce or relax a Lighthouse threshold because:
+
+- a single execution produced a convenient value;
+- normal run-to-run variance was not established;
+- a failing execution needs to become green.
+
+Before changing a Lighthouse threshold or severity, review:
+
+- the page and application state being measured;
+- the target environment;
+- repeated baseline evidence;
+- normal observed variance;
+- whether the measurement model changed;
+- any applicable product or service-level requirement.
+
 ### Performance Reporting Standard
 
 Performance execution must provide both an executable quality signal and human-readable evidence.
@@ -984,6 +1063,19 @@ Performance evidence should remain grouped by execution technology so independen
 performance-results/
 ├── k6/
 └── lighthouse/
+
+Lighthouse execution preserves browser-performance evidence separately from k6 workload evidence:
+
+```text
+standalone LHCI
+→ Lighthouse HTML / JSON reports
+
+authenticated Playwright + Lighthouse
+→ Lighthouse HTML / JSON reports
+→ Playwright performance report
+```
+
+Lighthouse reporting does not own the quality decision. Threshold and severity evaluation remains responsible for browser-performance PASS / FAIL semantics, while reports provide human-readable and machine-readable execution evidence.
 
 The report should make the workload result understandable without replacing threshold semantics.
 
@@ -1038,6 +1130,27 @@ These variables represent different responsibilities and should not be treated a
 
 Do not import the TypeScript environment adapter into k6 merely to reuse configuration. k6 and Playwright should share runtime-neutral environment data while retaining runtime-specific adapters and execution boundaries.
 
+Lighthouse browser-performance execution uses the same shared environment configuration:
+
+```text
+TEST_ENV
+→ config/environments/environments.json
+→ webBaseUrl
+→ Lighthouse browser audit target
+```
+
+Do not maintain a separate Lighthouse environment map or hardcode the application URL in Lighthouse configuration, runners, or performance specs.
+
+The environment responsibility remains separated by measurement target:
+
+```text
+API performance
+→ apiBaseUrl
+
+Browser performance
+→ webBaseUrl
+```
+
 ### Performance Docker Runtime Standard
 
 k6 performance execution uses its own purpose-built runtime rather than the Playwright test image.
@@ -1088,6 +1201,25 @@ The k6 image version must remain explicitly pinned so local and CI execution do 
 
 Runtime upgrades should be intentional and validated rather than obtained implicitly through a floating image tag.
 
+Browser performance does not use the k6 container.
+
+The runtime boundary follows the measurement responsibility:
+
+```text
+API workload performance
+→ pinned k6 Docker runtime
+
+Browser performance
+→ Node.js + Chrome / Chromium
+→ Lighthouse / LHCI
+
+Authenticated browser performance
+→ Playwright performance project for scenario orchestration
+→ Lighthouse for measurement
+```
+
+Do not introduce a universal performance container merely to make k6 and Lighthouse execution structurally identical. Each performance capability should use the runtime appropriate to the tool and measurement responsibility.
+
 ### Performance CI Standard
 
 The current hosted performance baseline executes through the dedicated:
@@ -1121,6 +1253,34 @@ resolve TEST_ENV
 → preserve report as CI evidence
 ```
 
+Browser-performance execution is owned by a separate job in the same performance workflow.
+
+The browser-performance responsibility is:
+
+```text
+resolve TEST_ENV
+→ read shared environment configuration
+→ resolve webBaseUrl
+→ install browser-performance runtime
+→ run standalone LHCI
+→ run authenticated Playwright + Lighthouse
+→ evaluate Lighthouse quality policy
+→ preserve Lighthouse and Playwright reports as CI evidence
+```
+
+The standalone and authenticated Lighthouse paths provide complementary coverage:
+
+```text
+standalone LHCI
+→ configured browser-performance baseline
+
+authenticated Playwright + Lighthouse
+→ deterministic authenticated application state
+→ browser-performance measurement
+```
+
+Do not merge API load generation and browser-performance measurement into one execution job merely because both belong to performance testing.
+
 Performance threshold evaluation owns the quality result.
 
 A threshold failure must fail the performance execution.
@@ -1132,6 +1292,39 @@ The current shared-hosted performance execution should avoid overlapping framewo
 Concurrency should therefore favor measurement isolation rather than maximum parallelism.
 
 The current performance workload is intentionally separate from the main Playwright workflow because its execution cadence, load-generation responsibility, and target-safety constraints differ from functional test execution.
+
+### Browser Performance Standard
+
+Browser performance uses Lighthouse to measure browser-observed page performance.
+
+Standalone LHCI may measure a configured public application state directly. Authenticated browser-performance scenarios use the dedicated `performance` Playwright project when existing framework setup is required to establish the representative state.
+
+Before introducing new browser-performance setup, inspect the existing functional coverage for deterministic initialization that already represents the required business state.
+
+```text
+discover existing deterministic setup
+→ reuse existing fixtures / API setup / Page Objects
+→ establish representative browser state
+→ confirm the state is ready
+→ begin Lighthouse measurement
+```
+
+Do not duplicate business-state initialization solely for performance coverage when the framework already provides deterministic setup for the same state.
+
+Performance coverage should change the measurement layer rather than recreate the application-state initialization layer.
+
+For the current authenticated dashboard baseline:
+
+```text
+existing authenticated fixture chain
+→ deterministic task creation
+→ dashboard navigation
+→ task visibility confirmed
+→ authentication transferred to Lighthouse browser
+→ Lighthouse audit
+```
+
+Playwright owns scenario and browser-state orchestration. Lighthouse owns browser-performance measurement.
 
 ## API/UI Composition
 
@@ -1662,12 +1855,19 @@ TEST_ENV
 environments.json
         ├── webBaseUrl
         │   → Playwright execution
+        │   → browser-performance workflow
+        │       → standalone LHCI
+        │       → authenticated Playwright + Lighthouse
         │
         └── apiBaseUrl
             → performance workflow
             → TARGET_BASE_URL
             → k6 execution
 ```
+
+Browser-performance execution resolves the selected environment's `webBaseUrl` from the same shared configuration and uses it as the Lighthouse audit target.
+
+Do not maintain separate hardcoded browser-performance target URLs when `webBaseUrl` already owns that environment-specific responsibility.
 
 Playwright consumes the shared environment data through the TypeScript environment layer.
 
@@ -1783,11 +1983,18 @@ Retention should be finite and intentional.
 Performance execution additionally preserves:
 
 ```text
-performance-report-task-read
-→ generated k6 HTML report
+performance-report-lighthouse
+→ Lighthouse HTML / JSON browser-performance evidence
+
+performance-report-playwright
+→ authenticated browser-performance Playwright evidence
 ```
 
-The performance report is human-readable execution evidence. k6 thresholds remain responsible for the performance PASS / FAIL quality signal.
+Performance reports are execution evidence and do not independently determine the quality result.
+
+For API performance, native k6 thresholds remain responsible for PASS / FAIL semantics.
+
+For browser performance, the shared Lighthouse threshold and severity policy remains responsible for quality-gate semantics, while Lighthouse and Playwright reports preserve diagnostic evidence.
 
 Version-controlled visual baselines are not CI artifacts. They are reviewed repository assets.
 
@@ -1805,6 +2012,8 @@ GitHub Actions artifacts
 → traces
 → diagnostics
 → k6 HTML performance evidence
+→ Lighthouse HTML / JSON browser-performance evidence
+→ Playwright authenticated browser-performance evidence
 
 repository
 → reviewed visual baselines
@@ -1962,7 +2171,21 @@ Introduce a reusable visual abstraction only when repeated real visual scenarios
 
 For performance testing specifically, do not wrap native k6 HTTP, metrics, scenarios, or threshold primitives merely to create structural symmetry with Playwright framework layers.
 
-Introduce a reusable performance abstraction only when repeated real performance workloads demonstrate a responsibility that native k6 primitives do not already express cleanly.
+Introduce a reusable performance abstraction only when repeated real performance workloads demonstrate a responsibility that native k6 primitives do not already express cleanly.Introduce a reusable performance abstraction only when multiple real consumers require shared behavior that the underlying performance tools do not already express cleanly.
+
+Use the measurement tool's native mechanism by default:
+
+```text
+k6
+→ native HTTP, metrics, scenarios, and thresholds
+
+Lighthouse / LHCI
+→ native Lighthouse measurement and reporting
+```
+
+A shared Lighthouse policy is justified because standalone LHCI and authenticated Playwright + Lighthouse execution consume the same threshold values and severity semantics.
+
+Do not generalize this into a universal performance policy layer or extract native k6 thresholds merely to create symmetry with Lighthouse.
 
 ## Definition of Done
 
@@ -1973,7 +2196,7 @@ Behavior implemented
         ↓
 Correct test suite or performance workload selected
         ↓
-Correct Playwright project or k6 runtime owns the test/workload
+Correct Playwright project, k6 runtime, or Lighthouse measurement boundary owns the test/workload
         ↓
 Architecture boundaries respected
         ↓
@@ -2015,22 +2238,28 @@ CI comparison remains update-free
 For performance changes, completion additionally requires when applicable:
 
 ```text
-correct k6 runtime boundary preserved
+correct measurement and runtime boundary preserved
         ↓
-setup and measured workload separated
+existing deterministic setup reused where applicable
         ↓
-workload-specific metrics defined
+setup and measured behavior separated
         ↓
-thresholds supported by baseline evidence
+measurement-specific metrics defined
+        ↓
+thresholds supported by repeated baseline evidence or authoritative requirements
         ↓
 shared environment configuration reused
         ↓
-local Docker execution verified
+technology-appropriate local execution verified
         ↓
-HTML report generated
+performance evidence generated
         ↓
-CI threshold semantics preserved
+CI threshold and severity semantics preserved
 ```
+
+For API performance, this includes verifying the pinned k6 Docker runtime and native k6 threshold behavior.
+
+For browser performance, this includes verifying Lighthouse execution and, for authenticated scenarios, the `performance` Playwright project with the representative authenticated application state established before measurement.
 
 A passing test is necessary but not sufficient.
 
@@ -2096,6 +2325,12 @@ or:
 k6 performance runtime
 ```
 
+or:
+
+```text
+performance Playwright project + Lighthouse measurement
+```
+
 before implementation.
 
 Agents must not cause browser-independent API tests to execute redundantly across browser projects.
@@ -2112,10 +2347,30 @@ Agents must not update or regenerate visual baselines merely to convert an unexp
 
 Canonical visual baselines must be generated and intentionally reviewed through the framework's approved Docker/Linux baseline workflow.
 
-Agents generating performance coverage must preserve the separate k6 runtime, use native k6 HTTP and metric primitives, reuse shared runtime-neutral environment configuration where applicable, and keep setup traffic separate from workload-specific performance metrics.
+Agents generating performance coverage must first determine whether the target is API workload performance or browser performance.
+
+For API workload performance, agents must preserve the separate k6 runtime, use native k6 HTTP and metric primitives, reuse shared runtime-neutral environment configuration where applicable, and keep setup traffic separate from workload-specific performance metrics.
+
+For browser performance, agents must reuse existing deterministic fixtures, API setup, Page Objects, and authenticated browser state where applicable rather than recreate equivalent setup for performance coverage.
+
+```text
+discover existing deterministic setup
+→ reuse it
+→ establish representative browser state
+→ confirm the state is ready
+→ begin Lighthouse measurement
+```
+
+Browser-performance coverage should change the measurement layer rather than duplicate business-state initialization.
+
+Agents must reuse the existing Lighthouse execution, shared threshold policy, and reporting capabilities rather than create parallel Lighthouse infrastructure.
 
 Agents must not introduce arbitrary performance thresholds or increase hosted workload intensity merely to create a stronger-looking performance test.
 
-Agents must not convert a real k6 threshold failure into a successful result merely to keep CI green.
+Agents must not convert a real k6 threshold failure into a successful result merely to keep CI green.Agents must not convert a real performance quality-gate failure into a successful result merely to keep CI green.
+
+For k6, native threshold failures must remain failing quality signals.
+
+For Lighthouse, `error` severity policy violations must remain failing quality signals. `warn` severity violations remain diagnostic signals and must not be silently suppressed or reclassified merely to avoid investigation.
 
 Architecture must drive generated code, not the other way around.
