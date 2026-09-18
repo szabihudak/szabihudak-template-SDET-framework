@@ -1,11 +1,12 @@
 import type { TestInfo } from "@playwright/test";
 
-import lighthouseThresholds from "./lighthouseThresholds.json";
 import type { LighthouseAuditResult } from "./LighthouseRunner";
+import type { LighthousePolicyResult } from "./lighthousePolicy";
 
 export async function attachLighthouseReport(
   testInfo: TestInfo,
   result: LighthouseAuditResult,
+  policyResult: LighthousePolicyResult,
 ): Promise<void> {
   const { metrics } = result;
 
@@ -24,6 +25,11 @@ export async function attachLighthouseReport(
     contentType: "application/json",
   });
 
+  await testInfo.attach("Lighthouse policy result", {
+    body: JSON.stringify(policyResult, null, 2),
+    contentType: "application/json",
+  });
+
   await testInfo.attach("Lighthouse HTML report", {
     path: result.htmlReportPath,
     contentType: "text/html",
@@ -34,12 +40,10 @@ export async function attachLighthouseReport(
     contentType: "application/json",
   });
 
-  if (metrics.lcp > lighthouseThresholds.lcpMs.value) {
+  for (const warning of policyResult.warnings) {
     testInfo.annotations.push({
       type: "warning",
-      description: `LCP ${Math.round(
-        metrics.lcp,
-      )}ms exceeds warning threshold ${lighthouseThresholds.lcpMs.value}ms`,
+      description: warning.message,
     });
   }
 }
