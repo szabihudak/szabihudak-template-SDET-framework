@@ -7,10 +7,10 @@ export async function attachLighthouseReport(
   testInfo: TestInfo,
   result: LighthouseAuditResult,
 ): Promise<void> {
-  const { metrics } = result;
+  const { metrics, runs } = result;
   const policyResult = evaluateLighthousePolicy(metrics);
 
-  await testInfo.attach("Lighthouse metrics", {
+  await testInfo.attach("Lighthouse aggregate metrics", {
     body: JSON.stringify(
       {
         performanceScore: Math.round(metrics.performanceScore * 100),
@@ -25,20 +25,40 @@ export async function attachLighthouseReport(
     contentType: "application/json",
   });
 
+  await testInfo.attach("Lighthouse run metrics", {
+    body: JSON.stringify(
+      runs.map((run, index) => ({
+        run: index + 1,
+        performanceScore: Math.round(run.metrics.performanceScore * 100),
+        lcpMs: Math.round(run.metrics.lcp),
+        cls: run.metrics.cls,
+        tbtMs: Math.round(run.metrics.tbt),
+        speedIndexMs: Math.round(run.metrics.speedIndex),
+      })),
+      null,
+      2,
+    ),
+    contentType: "application/json",
+  });
+
   await testInfo.attach("Lighthouse policy result", {
     body: JSON.stringify(policyResult, null, 2),
     contentType: "application/json",
   });
 
-  await testInfo.attach("Lighthouse HTML report", {
-    path: result.htmlReportPath,
-    contentType: "text/html",
-  });
+  for (const [index, run] of runs.entries()) {
+    const runNumber = index + 1;
 
-  await testInfo.attach("Lighthouse JSON report", {
-    path: result.jsonReportPath,
-    contentType: "application/json",
-  });
+    await testInfo.attach(`Lighthouse HTML report - run ${runNumber}`, {
+      path: run.htmlReportPath,
+      contentType: "text/html",
+    });
+
+    await testInfo.attach(`Lighthouse JSON report - run ${runNumber}`, {
+      path: run.jsonReportPath,
+      contentType: "application/json",
+    });
+  }
 
   for (const warning of policyResult.warnings) {
     testInfo.annotations.push({

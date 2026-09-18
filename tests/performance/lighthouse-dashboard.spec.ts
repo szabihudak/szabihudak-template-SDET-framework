@@ -4,6 +4,8 @@ import { attachLighthouseReport } from "../../performance/lighthouse/lighthouseR
 import { test, expect } from "../../src/fixtures/test-fixtures";
 import { getCurrentEnvironment } from "../../src/utils/env";
 
+const AUTHENTICATED_LIGHTHOUSE_RUNS = 3;
+
 test.describe("Authenticated dashboard performance", () => {
   test("meets the Lighthouse browser performance baseline", async ({
     tasksDashboardPage,
@@ -21,6 +23,7 @@ test.describe("Authenticated dashboard performance", () => {
       url: `${webBaseUrl}/dashboard`,
       authCookies,
       reportName: "authenticated-dashboard",
+      numberOfRuns: AUTHENTICATED_LIGHTHOUSE_RUNS,
     });
 
     await attachLighthouseReport(testInfo, result);

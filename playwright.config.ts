@@ -57,6 +57,8 @@ export default defineConfig({
     {
       name: "performance",
       testMatch: /tests\/performance\/.*\.spec\.ts/,
+      retries: 0,
+      timeout: 90_000,
       use: { ...devices["Desktop Chrome"] },
     },
     {

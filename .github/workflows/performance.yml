@@ -84,6 +84,11 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Resolve browser-performance Chromium
+        run: |
+          CHROME_PATH=$(node -e 'process.stdout.write(require("@playwright/test").chromium.executablePath())')
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+
       - name: Create Lighthouse results directory
         run: mkdir -p performance-results/lighthouse
 

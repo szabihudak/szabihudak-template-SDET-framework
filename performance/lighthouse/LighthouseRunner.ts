@@ -13,16 +13,22 @@ export type LighthouseMetrics = {
   speedIndex: number;
 };
 
-export type LighthouseAuditResult = {
+export type LighthouseAuditRun = {
   metrics: LighthouseMetrics;
   htmlReportPath: string;
   jsonReportPath: string;
+};
+
+export type LighthouseAuditResult = {
+  metrics: LighthouseMetrics;
+  runs: LighthouseAuditRun[];
 };
 
 type LighthouseAuditOptions = {
   url: string;
   authCookies: Cookie[];
   reportName: string;
+  numberOfRuns?: number;
 };
 
 function getNumericAuditValue(
@@ -40,13 +46,70 @@ function getNumericAuditValue(
   return value;
 }
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+
+  return sorted[middle];
+}
+
+function aggregateMetrics(runs: LighthouseAuditRun[]): LighthouseMetrics {
+  return {
+    performanceScore: median(runs.map((run) => run.metrics.performanceScore)),
+    lcp: median(runs.map((run) => run.metrics.lcp)),
+    cls: median(runs.map((run) => run.metrics.cls)),
+    tbt: median(runs.map((run) => run.metrics.tbt)),
+    speedIndex: median(runs.map((run) => run.metrics.speedIndex)),
+  };
+}
+
 export class LighthouseRunner {
   async audit({
     url,
     authCookies,
     reportName,
+    numberOfRuns = 1,
   }: LighthouseAuditOptions): Promise<LighthouseAuditResult> {
+    if (!Number.isInteger(numberOfRuns) || numberOfRuns < 1) {
+      throw new Error("Lighthouse numberOfRuns must be a positive integer");
+    }
+
+    const runs: LighthouseAuditRun[] = [];
+
+    for (let runNumber = 1; runNumber <= numberOfRuns; runNumber += 1) {
+      runs.push(
+        await this.runSingleAudit({
+          url,
+          authCookies,
+          reportName,
+          runNumber,
+        }),
+      );
+    }
+
+    return {
+      metrics: aggregateMetrics(runs),
+      runs,
+    };
+  }
+
+  private async runSingleAudit({
+    url,
+    authCookies,
+    reportName,
+    runNumber,
+  }: {
+    url: string;
+    authCookies: Cookie[];
+    reportName: string;
+    runNumber: number;
+  }): Promise<LighthouseAuditRun> {
     const chrome = await chromeLauncher.launch({
+      chromePath: chromium.executablePath(),
       chromeFlags: ["--headless"],
     });
 
@@ -58,7 +121,6 @@ export class LighthouseRunner {
       const context = browser.contexts()[0];
 
       await context.addCookies(authCookies);
-
       await browser.close();
 
       const result = await lighthouse(url, {
@@ -66,6 +128,7 @@ export class LighthouseRunner {
         logLevel: "info",
         output: ["html", "json"],
         onlyCategories: ["performance"],
+        disableStorageReset: true,
       });
 
       if (!result) {
@@ -103,12 +166,12 @@ export class LighthouseRunner {
 
       const htmlReportPath = path.join(
         outputDirectory,
-        `${reportName}.report.html`,
+        `${reportName}.run-${runNumber}.report.html`,
       );
 
       const jsonReportPath = path.join(
         outputDirectory,
-        `${reportName}.report.json`,
+        `${reportName}.run-${runNumber}.report.json`,
       );
 
       fs.writeFileSync(htmlReportPath, htmlReport);
