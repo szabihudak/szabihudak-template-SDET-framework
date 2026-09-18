@@ -1,14 +1,14 @@
 import type { TestInfo } from "@playwright/test";
 
 import type { LighthouseAuditResult } from "./LighthouseRunner";
-import type { LighthousePolicyResult } from "./lighthousePolicy";
+import { evaluateLighthousePolicy } from "./lighthousePolicy";
 
 export async function attachLighthouseReport(
   testInfo: TestInfo,
   result: LighthouseAuditResult,
-  policyResult: LighthousePolicyResult,
 ): Promise<void> {
   const { metrics } = result;
+  const policyResult = evaluateLighthousePolicy(metrics);
 
   await testInfo.attach("Lighthouse metrics", {
     body: JSON.stringify(

@@ -1,5 +1,6 @@
-import lighthouseThresholds from "./lighthouseThresholds.json";
+import { expect } from "@playwright/test";
 
+import lighthouseThresholds from "./lighthouseThresholds.json";
 import type { LighthouseMetrics } from "./LighthouseRunner";
 
 export type LighthousePolicySeverity = "error" | "warn";
@@ -106,4 +107,13 @@ export function evaluateLighthousePolicy(
     errors: violations.filter((violation) => violation.severity === "error"),
     warnings: violations.filter((violation) => violation.severity === "warn"),
   };
+}
+
+export function expectLighthousePolicy(metrics: LighthouseMetrics): void {
+  const { errors } = evaluateLighthousePolicy(metrics);
+
+  expect(
+    errors,
+    errors.map((violation) => violation.message).join("\n"),
+  ).toEqual([]);
 }

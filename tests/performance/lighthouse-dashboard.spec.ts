@@ -1,5 +1,5 @@
 import { LighthouseRunner } from "../../performance/lighthouse/LighthouseRunner";
-import { evaluateLighthousePolicy } from "../../performance/lighthouse/lighthousePolicy";
+import { expectLighthousePolicy } from "../../performance/lighthouse/lighthousePolicy";
 import { attachLighthouseReport } from "../../performance/lighthouse/lighthouseReporter";
 import { test, expect } from "../../src/fixtures/test-fixtures";
 import { getCurrentEnvironment } from "../../src/utils/env";
@@ -22,13 +22,8 @@ test.describe("Authenticated dashboard performance", () => {
       authCookies,
       reportName: "authenticated-dashboard",
     });
-    const policyResult = evaluateLighthousePolicy(result.metrics);
 
-    await attachLighthouseReport(testInfo, result, policyResult);
-
-    expect(
-      policyResult.errors,
-      policyResult.errors.map((violation) => violation.message).join("\n"),
-    ).toEqual([]);
+    await attachLighthouseReport(testInfo, result);
+    expectLighthousePolicy(result.metrics);
   });
 });
