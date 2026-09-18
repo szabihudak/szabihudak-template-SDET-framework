@@ -9,27 +9,27 @@
 [![GHCR](https://img.shields.io/badge/GHCR-Container%20Registry-181717?logo=github&logoColor=white)](https://ghcr.io/)
 [![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, visual regression, and API performance testing.
+A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, visual regression, API performance, and browser performance testing.
 
 The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, performance quality signals, and failure diagnostics**.
 
 ## Engineering Capabilities
 
-| Area                  | Implementation                                                                   |
-| --------------------- | -------------------------------------------------------------------------------- |
-| API Testing           | Browser-independent Playwright API tests with domain-specific clients            |
-| Contract Testing      | TypeBox schemas with AJV runtime validation                                      |
-| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                   |
-| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution       |
-| Visual Regression     | Native Playwright page and component screenshot baseline comparison              |
-| Performance Testing   | k6 API workload with workload-specific metrics and calibrated thresholds         |
-| Authentication        | Programmatic API and browser authentication                                      |
-| Test Data             | Deterministic factories with scenario-specific overrides                         |
-| Cross-Browser         | Chromium, Firefox, and WebKit execution                                          |
-| Containerization      | Reproducible Playwright execution with Docker                                    |
-| CI/CD                 | GitHub Actions with Playwright quality gates and dedicated performance execution |
-| Diagnostics           | Playwright diagnostics and k6 HTML performance reports preserved as CI evidence  |
-| Engineering Standards | Architecture documentation, testing standards, and ADRs                          |
+| Area                  | Implementation                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| API Testing           | Browser-independent Playwright API tests with domain-specific clients                                     |
+| Contract Testing      | TypeBox schemas with AJV runtime validation                                                               |
+| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                                            |
+| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution                                |
+| Visual Regression     | Native Playwright page and component screenshot baseline comparison                                       |
+| Performance Testing   | k6 API performance and Lighthouse browser performance with calibrated quality gates                       |
+| Authentication        | Programmatic API and browser authentication                                                               |
+| Test Data             | Deterministic factories with scenario-specific overrides                                                  |
+| Cross-Browser         | Chromium, Firefox, and WebKit execution                                                                   |
+| Containerization      | Reproducible Playwright execution with Docker                                                             |
+| CI/CD                 | GitHub Actions with Playwright quality gates and dedicated performance execution                          |
+| Diagnostics           | Playwright diagnostics, k6 HTML reports, and Lighthouse HTML/JSON reports preserved as execution evidence |
+| Engineering Standards | Architecture documentation, testing standards, and ADRs                                                   |
 
 ## Architecture at a Glance
 
@@ -225,43 +225,54 @@ Detailed baseline creation, review, and update rules are defined in [`docs/TESTI
 
 ### Performance flow
 
+Performance coverage separates API workload performance from browser-observed page performance.
+
 ```text
-k6 setup
-  ↓
-user registration
-  ↓
-API authentication
-  ↓
-dedicated task creation
-  ↓
-authenticated task-read workload
-  ↓
-workload-specific metrics
-  ↓
-performance thresholds
-  ↓
-k6 teardown
-  ↓
-dedicated task cleanup
-  ↓
-PASS / FAIL
+API performance
+→ k6
+→ authenticated API workload
+→ workload-specific metrics
+→ calibrated thresholds
+→ HTML execution evidence
+
+Browser performance
+→ Lighthouse
+├── standalone LHCI baseline
+└── authenticated dashboard audit
+    → existing deterministic fixture setup
+    → authenticated browser state
+    → representative page state
+    → Lighthouse metrics
+    → shared threshold policy
+    → HTML / JSON execution evidence
 ```
 
 The current k6 baseline measures authenticated task-read behavior with a controlled `2 VU / 30s` workload.
 
-The measured operation owns dedicated `task_read_duration` and `task_read_failures` metrics so setup traffic does not contaminate its performance quality gate.
+The authenticated Lighthouse baseline reuses the framework's existing deterministic application setup rather than introducing performance-specific business-state initialization. A registered and authenticated user, one deterministic task, and the authenticated dashboard state are established before browser performance is measured.
 
-Current calibrated thresholds are:
+Lighthouse currently evaluates:
 
 ```text
-task_read_duration
-→ p(95) < 500 ms
+Performance score
+→ error threshold
 
-task_read_failures
-→ rate < 1%
+Cumulative Layout Shift (CLS)
+→ error threshold
+
+Total Blocking Time (TBT)
+→ error threshold
+
+Largest Contentful Paint (LCP)
+→ warning threshold
+
+Speed Index
+→ diagnostic metric
 ```
 
-For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Performance thresholds are calibrated from repeated measurements under a controlled representative state when no externally defined SLA, SLO, or approved performance target exists. A single measurement is evidence, not sufficient justification for a new threshold.
+
+For the complete architectural rules, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For baseline calibration and implementation rules, see [`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
 
 ## Repository Structure
 
@@ -394,6 +405,40 @@ For the complete baseline lifecycle and visual testing rules, see [`docs/TESTING
 
 ## Performance Testing
 
+The framework uses complementary performance-testing boundaries for API workload behavior and browser-observed user experience.
+
+```text
+API performance
+→ k6
+
+Browser performance
+→ Lighthouse / LHCI
+```
+
+k6 measures controlled HTTP workload behavior such as latency and failure rate without introducing browser rendering into the measurement.
+
+Lighthouse measures browser-observed page performance, including loading, rendering, main-thread blocking, and layout stability.
+
+The browser performance capability currently provides two execution modes:
+
+```text
+standalone LHCI
+→ public application baseline
+→ repeated Lighthouse collection
+
+authenticated Playwright + Lighthouse
+→ existing authenticated fixture chain
+→ deterministic task state
+→ authenticated dashboard
+→ Lighthouse audit
+```
+
+The authenticated audit intentionally reuses the same deterministic setup already owned by the functional framework. Performance coverage changes the measurement layer rather than duplicating business-state initialization.
+
+When no authoritative performance target exists, thresholds are calibrated from repeated measurements of a controlled representative state rather than selected from a single run or arbitrary round number.
+
+### API Performance
+
 API performance testing uses k6 through a runtime boundary separate from Playwright.
 
 The current baseline exercises authenticated task reads against the UPEX DOJO API without creating task data during the measured workload.
@@ -441,6 +486,29 @@ performance-results/k6/task-read-load.html
 ```
 
 as human-readable execution evidence.
+
+### Browser Performance
+
+Browser performance testing uses Lighthouse.
+
+Standalone LHCI provides repeated collection against the configured public application URL.
+
+Authenticated dashboard performance is measured through a dedicated Playwright performance scenario that:
+
+```text
+reuses existing fixtures
+→ establishes authenticated application state
+→ creates one deterministic task
+→ confirms the representative dashboard state
+→ transfers browser authentication to the Lighthouse browser
+→ executes the audit
+→ evaluates the shared Lighthouse policy
+→ preserves HTML and JSON evidence
+```
+
+The Lighthouse threshold policy distinguishes hard `error` quality gates from `warn` signals. Warning-level regressions remain visible without failing the execution, while error-level violations fail the authenticated performance test.
+
+The same threshold values and severities are shared between standalone LHCI and the authenticated Lighthouse execution so both consumers interpret the browser-performance policy consistently.
 
 ## Authentication
 
