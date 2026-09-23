@@ -102,6 +102,12 @@ export const test = base.extend<AppFixtures>({
   },
 
   databaseClient: async ({}, use) => {
+    const testEnvironment = process.env.TEST_ENV;
+    if (testEnvironment !== "localDocker") {
+      throw new Error(
+        `Database tests are only allowed in the localDocker environment. Received TEST_ENV=${testEnvironment ?? "undefined"}`,
+      );
+    }
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error("DATABASE_URL is not defined");

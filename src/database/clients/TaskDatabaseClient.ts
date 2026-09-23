@@ -6,11 +6,11 @@ export interface TaskDatabaseRecord extends QueryResultRow {
   user_id: string;
   title: string;
   description: string | null;
-  status: string;
-  priority: string;
+  status: string | null;
+  priority: string | null;
   position: number | null;
-  created_at: Date;
-  updated_at: Date;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export class TaskDatabaseClient {

@@ -44,6 +44,11 @@ export default defineConfig({
       testMatch: /tests\/api\/.*\.spec\.ts/,
     },
     {
+      name: "database",
+      testMatch: /tests\/database\/.*\.spec\.ts/,
+      retries: 0,
+    },
+    {
       name: "accessibility",
       testMatch: /tests\/accessibility\/.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },

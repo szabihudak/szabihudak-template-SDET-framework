@@ -6,8 +6,8 @@ export interface UserDatabaseRecord extends QueryResultRow {
   email: string;
   password_hash: string;
   name: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export class UserDatabaseClient {
