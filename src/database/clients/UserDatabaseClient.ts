@@ -16,16 +16,16 @@ export class UserDatabaseClient {
   async findById(userId: string): Promise<UserDatabaseRecord | null> {
     const rows = await this.databaseClient.query<UserDatabaseRecord>(
       `
-SELECT
-  id,
-  email,
-  password_hash,
-  name,
-  created_at,
-  updated_at
-FROM users
-WHERE id = $1
-LIMIT 1;
+        SELECT
+          id,
+          email,
+          password_hash,
+          name,
+          created_at,
+          updated_at
+        FROM users
+        WHERE id = $1
+        LIMIT 1
       `,
       [userId],
     );
@@ -36,16 +36,16 @@ LIMIT 1;
   async findByEmail(email: string): Promise<UserDatabaseRecord | null> {
     const rows = await this.databaseClient.query<UserDatabaseRecord>(
       `
-SELECT
-  id,
-  email,
-  password_hash,
-  name,
-  created_at,
-  updated_at
-FROM users
-WHERE email = $1
-LIMIT 1;
+        SELECT
+          id,
+          email,
+          password_hash,
+          name,
+          created_at,
+          updated_at
+        FROM users
+        WHERE email = $1
+        LIMIT 1
       `,
       [email],
     );
