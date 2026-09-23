@@ -11,8 +11,10 @@ permissions:
   contents: read
 
 env:
-  TEST_ENV: hosted
   TEST_IMAGE: ghcr.io/${{ github.repository_owner }}/playwright-enterprise-tests:${{ github.sha }}
+  UPEX_IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/upex-local
+  UPEX_REPOSITORY: https://github.com/upex-galaxy/upex-dojo.git
+  UPEX_REF: staging
 
 concurrency:
   group: playwright-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -27,7 +29,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
+      - name: Checkout framework
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -45,23 +47,41 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-  build-image:
+  build-images:
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     permissions:
       contents: read
       packages: write
 
+    outputs:
+      upex_sha: ${{ steps.upex.outputs.sha }}
+      upex_image: ${{ steps.upex.outputs.image }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout framework
         uses: actions/checkout@v4
 
+      - name: Checkout UPEX target application
+        run: |
+          git clone \
+            --depth 1 \
+            --branch "$UPEX_REF" \
+            "$UPEX_REPOSITORY" \
+            ../upex-dojo
+
+      - name: Resolve UPEX image identity
+        id: upex
+        run: |
+          UPEX_SHA="$(git -C ../upex-dojo rev-parse HEAD)"
+          UPEX_IMAGE="${UPEX_IMAGE_REPOSITORY}:${UPEX_SHA}"
+
+          echo "sha=${UPEX_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=${UPEX_IMAGE}" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GHCR
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -69,81 +89,103 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
         run: docker build -t "$TEST_IMAGE" .
 
       - name: Push Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
         run: docker push "$TEST_IMAGE"
 
-  api:
-    needs: build-image
+      - name: Build UPEX application image
+        run: |
+          docker build \
+            -f Dockerfile.upex-local \
+            --build-context upex=../upex-dojo \
+            -t "${{ steps.upex.outputs.image }}" \
+            .
+
+      - name: Push UPEX application image
+        run: docker push "${{ steps.upex.outputs.image }}"
+
+  functional:
+    needs: build-images
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     permissions:
       contents: read
       packages: read
 
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - api
+          - database
+          - accessibility
+          - visual
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      UPEX_IMAGE: ${{ needs.build-images.outputs.upex_image }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout framework
         uses: actions/checkout@v4
 
       - name: Log in to GHCR
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        run: docker pull "$TEST_IMAGE"
+      - name: Generate ephemeral NextAuth secret
+        run: echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
-      - name: Build Playwright test image for fork PR
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        run: docker build -t "$TEST_IMAGE" .
-
-      - name: Run API tests
+      - name: Pull immutable test images
         run: |
-          docker run --rm \
-            -e TEST_ENV="$TEST_ENV" \
-            -v "$PWD/playwright-report:/app/playwright-report" \
-            -v "$PWD/test-results:/app/test-results" \
-            "$TEST_IMAGE" \
-            npx playwright test --project=api
+          docker pull "$TEST_IMAGE"
+          docker pull "$UPEX_IMAGE"
 
-      - name: Upload API report
+      - name: Start UPEX application
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            up -d app
+
+      - name: Run ${{ matrix.project }} tests
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            run --rm tests \
+            npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-api
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7
 
-      - name: Upload API failure diagnostics
+      - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-api
+          name: test-results-${{ matrix.project }}
           path: test-results/
           retention-days: 7
 
+      - name: Stop test environment
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            down
+
   ui:
-    needs: build-image
+    needs: build-images
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     permissions:
       contents: read
@@ -157,42 +199,43 @@ jobs:
           - firefox
           - webkit
 
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      UPEX_IMAGE: ${{ needs.build-images.outputs.upex_image }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout framework
         uses: actions/checkout@v4
 
       - name: Log in to GHCR
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        run: docker pull "$TEST_IMAGE"
+      - name: Generate ephemeral NextAuth secret
+        run: echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
-      - name: Build Playwright test image for fork PR
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        run: docker build -t "$TEST_IMAGE" .
-
-      - name: Run UI tests
+      - name: Pull immutable test images
         run: |
-          docker run --rm \
-            -e TEST_ENV="$TEST_ENV" \
-            -v "$PWD/playwright-report:/app/playwright-report" \
-            -v "$PWD/test-results:/app/test-results" \
-            "$TEST_IMAGE" \
+          docker pull "$TEST_IMAGE"
+          docker pull "$UPEX_IMAGE"
+
+      - name: Start UPEX application
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            up -d app
+
+      - name: Run ${{ matrix.browser }} tests
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            run --rm tests \
             npx playwright test --project=${{ matrix.browser }}
 
-      - name: Upload UI report
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -200,7 +243,7 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-      - name: Upload UI failure diagnostics
+      - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -208,122 +251,9 @@ jobs:
           path: test-results/
           retention-days: 7
 
-  accessibility:
-    needs: build-image
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    permissions:
-      contents: read
-      packages: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        run: docker pull "$TEST_IMAGE"
-
-      - name: Build Playwright test image for fork PR
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        run: docker build -t "$TEST_IMAGE" .
-
-      - name: Run Accessibility tests
-        run: |
-          docker run --rm \
-            -e TEST_ENV="$TEST_ENV" \
-            -v "$PWD/playwright-report:/app/playwright-report" \
-            -v "$PWD/test-results:/app/test-results" \
-            "$TEST_IMAGE" \
-            npx playwright test --project=accessibility
-
-      - name: Upload Accessibility report
+      - name: Stop test environment
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-accessibility
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload Accessibility failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-accessibility
-          path: test-results/
-          retention-days: 7
-
-  visual:
-    needs: build-image
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    permissions:
-      contents: read
-      packages: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull Playwright test image
-        if: >
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        run: docker pull "$TEST_IMAGE"
-
-      - name: Build Playwright test image for fork PR
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name != github.repository
-        run: docker build -t "$TEST_IMAGE" .
-
-      - name: Run Visual tests
         run: |
-          docker run --rm \
-            -e TEST_ENV="$TEST_ENV" \
-            -v "$PWD/playwright-report:/app/playwright-report" \
-            -v "$PWD/test-results:/app/test-results" \
-            "$TEST_IMAGE" \
-            npx playwright test --project=visual
-
-      - name: Upload Visual report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-visual
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload Visual failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-visual
-          path: test-results/
-          retention-days: 7
+          docker compose \
+            -f docker-compose.yml \
+            down

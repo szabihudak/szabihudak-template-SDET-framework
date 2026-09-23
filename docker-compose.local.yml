@@ -5,41 +5,8 @@ services:
       dockerfile: Dockerfile.upex-local
       additional_contexts:
         upex: ../upex-dojo
-    env_file:
-      - ../upex-dojo/.env.local
-    environment:
-      NEXTAUTH_URL: http://upex-local:3000
-      DATABASE_URL: ${DATABASE_URL}
-    ports:
-      - "3000:3000"
-    networks:
-      default:
-        aliases:
-          - upex-local
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "bun",
-          "-e",
-          "fetch('http://localhost:3000').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
 
   tests:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      TEST_ENV: localDocker
-      DATABASE_URL: ${DATABASE_URL}
-    depends_on:
-      app:
-        condition: service_healthy
-    volumes:
-      - ./playwright-report:/app/playwright-report
-      - ./test-results:/app/test-results
-    command: npx playwright test --project=api
