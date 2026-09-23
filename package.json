@@ -19,6 +19,7 @@
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
+    "@types/pg": "^8.23.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "chrome-launcher": "^1.2.1",
@@ -28,6 +29,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.52"
+    "@sinclair/typebox": "^0.34.52",
+    "pg": "^8.23.0"
   }
 }
