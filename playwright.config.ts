@@ -2,7 +2,6 @@ import { defineConfig, devices } from "@playwright/test";
 import { getCurrentEnvironment } from "./src/utils/env";
 
 const environment = getCurrentEnvironment();
-
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
