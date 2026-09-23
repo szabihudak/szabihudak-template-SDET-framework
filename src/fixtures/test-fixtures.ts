@@ -1,5 +1,8 @@
 import { test as base, expect, type Page } from "@playwright/test";
 
+import { DatabaseClient } from "../database/clients/DatabaseClient";
+import { TaskDatabaseClient } from "../database/clients/TaskDatabaseClient";
+import { UserDatabaseClient } from "../database/clients/UserDatabaseClient";
 import { AccessibilityScanner } from "../accessibility/utils/AccessibilityScanner";
 import { TaskApiClient } from "../api/clients/TaskApiClient";
 import { UserApiClient } from "../api/clients/UserApiClient";
@@ -20,6 +23,9 @@ type CreatedTask = {
 };
 
 type AppFixtures = {
+  databaseClient: DatabaseClient;
+  userDatabase: UserDatabaseClient;
+  taskDatabase: TaskDatabaseClient;
   homePage: HomePage;
   loginPage: LoginPage;
   registerPage: RegisterPage;
@@ -37,6 +43,24 @@ type AppFixtures = {
 };
 
 export const test = base.extend<AppFixtures>({
+  databaseClient: async ({}, use) => {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is not defined");
+    }
+    const databaseClient = new DatabaseClient(connectionString);
+    await use(databaseClient);
+    await databaseClient.close();
+  },
+
+  userDatabase: async ({ databaseClient }, use) => {
+    await use(new UserDatabaseClient(databaseClient));
+  },
+
+  taskDatabase: async ({ databaseClient }, use) => {
+    await use(new TaskDatabaseClient(databaseClient));
+  },
+
   homePage: async ({ page }, use) => {
     await use(new HomePage(page));
   },
