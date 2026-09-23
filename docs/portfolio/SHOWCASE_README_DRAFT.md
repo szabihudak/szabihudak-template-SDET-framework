@@ -42,30 +42,30 @@ The broader roadmap extends the system into **data validation, cloud foundations
 
 ## Framework Capability Map
 
-| Capability | Status | Portfolio Evidence |
-| --- | --- | --- |
-| Enterprise automation architecture | ✅ Implemented | Architecture + selected source |
-| API automation | ✅ Implemented | Source + execution evidence |
-| Runtime contract validation | ✅ Implemented | TypeBox/AJV example |
-| UI automation | ✅ Implemented | Source + execution evidence |
-| Programmatic authentication | ✅ Implemented | Architecture + selected example |
-| Deterministic test data | ✅ Implemented | Factory/fixture example |
-| Network mocking | ✅ Implemented | Selected example |
-| Cross-browser execution | ✅ Implemented | Chromium / Firefox / WebKit evidence |
-| Accessibility testing | ✅ Implemented | Architecture + execution evidence |
-| Visual regression | ✅ Implemented | Architecture + visual evidence |
-| API performance testing | ✅ Implemented | k6 execution evidence |
-| Browser performance testing | ✅ Implemented | Lighthouse execution evidence |
-| Docker execution | ✅ Implemented | Architecture |
-| GitHub Actions CI/CD | ✅ Implemented | Pipeline architecture + evidence |
-| GHCR image reuse | ✅ Implemented | CI/CD architecture |
-| SQL / advanced data validation | ◇ Planned | Framework roadmap |
-| AWS / cloud foundations | ◇ Planned | Framework roadmap |
-| AI-assisted QA workflow | ◇ Planned | Framework roadmap |
-| AI QA platform evaluation | ◇ Planned | Framework roadmap |
-| QE strategy & leadership | ◇ Planned | Framework roadmap |
-| System design & security | ◇ Planned | Framework roadmap |
-| Observability foundations | ◇ Planned | Framework roadmap |
+| Capability                         | Status         | Portfolio Evidence                   |
+| ---------------------------------- | -------------- | ------------------------------------ |
+| Enterprise automation architecture | ✅ Implemented | Architecture + selected source       |
+| API automation                     | ✅ Implemented | Source + execution evidence          |
+| Runtime contract validation        | ✅ Implemented | TypeBox/AJV example                  |
+| UI automation                      | ✅ Implemented | Source + execution evidence          |
+| Programmatic authentication        | ✅ Implemented | Architecture + selected example      |
+| Deterministic test data            | ✅ Implemented | Factory/fixture example              |
+| Network mocking                    | ✅ Implemented | Selected example                     |
+| Cross-browser execution            | ✅ Implemented | Chromium / Firefox / WebKit evidence |
+| Accessibility testing              | ✅ Implemented | Architecture + execution evidence    |
+| Visual regression                  | ✅ Implemented | Architecture + visual evidence       |
+| API performance testing            | ✅ Implemented | k6 execution evidence                |
+| Browser performance testing        | ✅ Implemented | Lighthouse execution evidence        |
+| Docker execution                   | ✅ Implemented | Architecture                         |
+| GitHub Actions CI/CD               | ✅ Implemented | Pipeline architecture + evidence     |
+| GHCR image reuse                   | ✅ Implemented | CI/CD architecture                   |
+| SQL / advanced data validation     | ◇ Planned      | Framework roadmap                    |
+| AWS / cloud foundations            | ◇ Planned      | Framework roadmap                    |
+| AI-assisted QA workflow            | ◇ Planned      | Framework roadmap                    |
+| AI QA platform evaluation          | ◇ Planned      | Framework roadmap                    |
+| QE strategy & leadership           | ◇ Planned      | Framework roadmap                    |
+| System design & security           | ◇ Planned      | Framework roadmap                    |
+| Observability foundations          | ◇ Planned      | Framework roadmap                    |
 
 > **Status rule:** a capability is marked as implemented only when it exists in the canonical private framework and can be supported by real implementation or execution evidence. Planned capabilities describe the roadmap and are not presented as completed work.
 
@@ -279,6 +279,7 @@ Publication follows the private portfolio publication matrix. The goal is **arch
 ### ✅ Implemented
 
 **Core Architecture**
+
 - Playwright project architecture;
 - fixtures;
 - Page / Component Objects;
@@ -287,6 +288,7 @@ Publication follows the private portfolio publication matrix. The goal is **arch
 - deterministic test-data strategy.
 
 **API & Contract**
+
 - REST API testing;
 - authentication;
 - runtime response validation;
@@ -295,6 +297,7 @@ Publication follows the private portfolio publication matrix. The goal is **arch
 - network mocking.
 
 **CI/CD & Containers**
+
 - GitHub Actions;
 - responsibility-based execution;
 - browser matrix;
@@ -303,6 +306,7 @@ Publication follows the private portfolio publication matrix. The goal is **arch
 - execution artifacts and diagnostics.
 
 **Modern Quality Engineering**
+
 - automated accessibility testing;
 - visual regression;
 - k6 API performance;
