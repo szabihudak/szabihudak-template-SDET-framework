@@ -10,5 +10,9 @@
   "ci": {
     "webBaseUrl": "http://localhost:3000",
     "apiBaseUrl": "http://localhost:3000/api"
+  },
+  "localDocker": {
+    "webBaseUrl": "http://upex-local:3000",
+    "apiBaseUrl": "http://upex-local:3000/api"
   }
 }
