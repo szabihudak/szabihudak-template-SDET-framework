@@ -1,8 +1,10 @@
 services:
   app:
     build:
-      context: ../upex-dojo
-      dockerfile: Dockerfile.local
+      context: .
+      dockerfile: Dockerfile.upex-local
+      additional_contexts:
+        upex: ../upex-dojo
     env_file:
       - ../upex-dojo/.env.local
     environment:
