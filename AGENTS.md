@@ -309,7 +309,7 @@ explicit reset
 → verify baseline state
 ```
 
-Use the existing `db:test:reset` workflow rather than introducing ad hoc destructive SQL or selective cleanup helpers.
+Use the existing `npm run db:test:reset` command rather than introducing ad hoc destructive SQL or selective cleanup helpers.
 
 The reset workflow is valid only for the dedicated disposable test database. Preserve all destructive-operation guards, including explicit environment selection and confirmation.
 
