@@ -836,9 +836,6 @@ ADR-004
 
 ADR-005
 → database validation and test data lifecycle
-
-ADR-006
-→ localDocker and functional CI execution architecture
 ```
 
 ---
