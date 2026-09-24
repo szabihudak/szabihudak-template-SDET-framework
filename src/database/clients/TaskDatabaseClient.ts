@@ -1,4 +1,6 @@
 import type { QueryResultRow } from "pg";
+
+import type { TaskPriority, TaskStatus } from "../../api/constants/task";
 import { DatabaseClient } from "./DatabaseClient";
 
 export interface TaskDatabaseRecord extends QueryResultRow {
@@ -6,8 +8,8 @@ export interface TaskDatabaseRecord extends QueryResultRow {
   user_id: string;
   title: string;
   description: string | null;
-  status: string | null;
-  priority: string | null;
+  status: TaskStatus | null;
+  priority: TaskPriority | null;
   position: number | null;
   created_at: Date | null;
   updated_at: Date | null;
@@ -64,15 +66,5 @@ export class TaskDatabaseClient {
     );
 
     return rows[0] ?? null;
-  }
-
-  async deleteById(taskId: string): Promise<void> {
-    await this.databaseClient.query(
-      `
-        DELETE FROM tasks
-        WHERE id = $1
-      `,
-      [taskId],
-    );
   }
 }

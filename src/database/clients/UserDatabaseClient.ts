@@ -1,4 +1,5 @@
 import type { QueryResultRow } from "pg";
+
 import { DatabaseClient } from "./DatabaseClient";
 
 export interface UserDatabaseRecord extends QueryResultRow {
@@ -51,15 +52,5 @@ export class UserDatabaseClient {
     );
 
     return rows[0] ?? null;
-  }
-
-  async deleteById(userId: string): Promise<void> {
-    await this.databaseClient.query(
-      `
-        DELETE FROM users
-        WHERE id = $1
-      `,
-      [userId],
-    );
   }
 }
