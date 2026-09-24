@@ -522,6 +522,12 @@ It must not be generalized to a shared, non-test, staging, or production databas
 
 Normal test execution must not invoke the reset automatically.
 
+When an explicit clean baseline is required, use the framework-owned reset command:
+
+```bash
+npm run db:test:reset
+```
+
 The application remains the owner of schema and seed restoration. The framework reset utility orchestrates the reset but does not duplicate the application's schema definition or seed logic.
 
 ## Schema Standard
