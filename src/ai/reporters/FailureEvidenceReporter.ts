@@ -12,10 +12,7 @@ import type {
   FailureArtifact,
   FailureEvidence,
 } from "../models/FailureEvidence";
-import {
-  sanitizePath,
-  sanitizeText,
-} from "../utils/failureEvidenceSanitizer";
+import { sanitizePath, sanitizeText } from "../utils/failureEvidenceSanitizer";
 
 export default class FailureEvidenceReporter implements Reporter {
   onTestEnd(test: TestCase, result: TestResult): void {
