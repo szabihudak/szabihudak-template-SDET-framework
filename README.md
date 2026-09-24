@@ -28,7 +28,7 @@ The framework is designed around the concerns that matter in real automation sys
 | Test Data             | Deterministic factories with scenario-specific overrides                                                  |
 | Cross-Browser         | Chromium, Firefox, and WebKit execution                                                                   |
 | Containerization      | Reproducible Playwright and UPEX local execution with Docker Compose                                      |
-| CI/CD                 | GitHub Actions with immutable test/app images, localDocker functional jobs, and dedicated performance CI |
+| CI/CD                 | GitHub Actions with immutable test/app images, localDocker functional jobs, and dedicated performance CI  |
 | Diagnostics           | Playwright diagnostics, k6 HTML reports, and Lighthouse HTML/JSON reports preserved as execution evidence |
 | Engineering Standards | Architecture documentation, testing standards, and ADRs                                                   |
 
@@ -136,7 +136,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | Test Framework            | Playwright                    |
 | Language                  | TypeScript                    |
 | API Testing               | Playwright APIRequestContext  |
-| Database Testing          | PostgreSQL + pg + Neon       |
+| Database Testing          | PostgreSQL + pg + Neon        |
 | Runtime Schema Validation | TypeBox + AJV                 |
 | UI Automation             | Playwright Browser Automation |
 | Accessibility Testing     | @axe-core/playwright          |
