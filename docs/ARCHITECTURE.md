@@ -422,6 +422,12 @@ dedicated Neon test database
 
 The database is intentionally not represented by a local PostgreSQL container. The current architecture uses a dedicated Neon PostgreSQL test database while application and Playwright execution are containerized locally.
 
+The localDocker topology, separate application and test image ownership, and functional CI execution model are documented in:
+
+```text
+docs/adr/ADR-006-localdocker-and-ci-execution-architecture.md
+```
+
 For visual regression, Docker additionally provides the canonical rendering boundary used for approved baseline generation and CI comparison.
 
 Performance execution uses the official pinned k6 runtime separately from the Playwright test image:
@@ -1311,6 +1317,12 @@ db:seed
 Post-reset verification confirms that the expected protected baseline users exist and that their seeded task state has been restored.
 
 This reset model replaces per-test deletion for the dedicated disposable database. It preserves failed or completed test state for investigation while still providing a deterministic path back to the application-owned baseline.
+
+The database validation architecture, test-data lifecycle, and destructive reset decision are documented in:
+
+```text
+docs/adr/ADR-005-database-validation-and-test-data-lifecycle.md
+```
 
 ### Schemas
 
