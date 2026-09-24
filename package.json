@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",
+    "openai": "^7.23.0",
     "pg": "^8.23.0"
   }
 }

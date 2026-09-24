@@ -28,6 +28,7 @@ export default defineConfig({
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
     ["json", { outputFile: "test-results/results.json" }],
+    ["./src/ai/reporters/FailureEvidenceReporter.ts"],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -46,6 +47,11 @@ export default defineConfig({
     {
       name: "database",
       testMatch: /tests\/database\/.*\.spec\.ts/,
+      retries: 0,
+    },
+    {
+      name: "ai",
+      testMatch: /tests\/ai\/.*\.spec\.ts/,
       retries: 0,
     },
     {
