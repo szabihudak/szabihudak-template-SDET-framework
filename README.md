@@ -9,7 +9,7 @@
 [![GHCR](https://img.shields.io/badge/GHCR-Container%20Registry-181717?logo=github&logoColor=white)](https://ghcr.io/)
 [![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, browser, contract, automated accessibility, visual regression, API performance, and browser performance testing.
+A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, database, browser, contract, automated accessibility, visual regression, API performance, and browser performance testing.
 
 The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, performance quality signals, and failure diagnostics**.
 
@@ -18,6 +18,7 @@ The framework is designed around the concerns that matter in real automation sys
 | Area                  | Implementation                                                                                            |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | API Testing           | Browser-independent Playwright API tests with domain-specific clients                                     |
+| Database Testing      | Typed PostgreSQL persistence validation through domain database clients                                   |
 | Contract Testing      | TypeBox schemas with AJV runtime validation                                                               |
 | UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                                            |
 | Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution                                |
@@ -26,8 +27,8 @@ The framework is designed around the concerns that matter in real automation sys
 | Authentication        | Programmatic API and browser authentication                                                               |
 | Test Data             | Deterministic factories with scenario-specific overrides                                                  |
 | Cross-Browser         | Chromium, Firefox, and WebKit execution                                                                   |
-| Containerization      | Reproducible Playwright execution with Docker                                                             |
-| CI/CD                 | GitHub Actions with Playwright quality gates and dedicated performance execution                          |
+| Containerization      | Reproducible Playwright and UPEX local execution with Docker Compose                                      |
+| CI/CD                 | GitHub Actions with immutable test/app images, localDocker functional jobs, and dedicated performance CI |
 | Diagnostics           | Playwright diagnostics, k6 HTML reports, and Lighthouse HTML/JSON reports preserved as execution evidence |
 | Engineering Standards | Architecture documentation, testing standards, and ADRs                                                   |
 
@@ -115,7 +116,7 @@ The framework favors:
 
 New capabilities are introduced only when they demonstrate a real testing or architectural requirement.
 
-> **Project status:** Active development. The current foundation includes API/UI automation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, k6 API performance testing, Lighthouse browser performance testing, Dockerized execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
+> **Project status:** Active development. The current foundation includes API/UI automation, database persistence validation, contract validation, programmatic authentication, automated WCAG accessibility testing, native Playwright visual regression testing, k6 API performance testing, Lighthouse browser performance testing, Docker Compose local execution, cross-browser testing, and GitHub Actions CI. Additional Quality Engineering capabilities are introduced incrementally as the framework evolves.
 
 ## Quick Navigation
 
@@ -135,6 +136,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | Test Framework            | Playwright                    |
 | Language                  | TypeScript                    |
 | API Testing               | Playwright APIRequestContext  |
+| Database Testing          | PostgreSQL + pg + Neon       |
 | Runtime Schema Validation | TypeBox + AJV                 |
 | UI Automation             | Playwright Browser Automation |
 | Accessibility Testing     | @axe-core/playwright          |
@@ -173,6 +175,24 @@ Business assertions
 ```
 
 Successful provider responses are validated at runtime before their data is trusted by the test.
+
+### Database flow
+
+```text
+Spec
+  ↓
+Fixture
+  ↓
+Domain Database Client
+  ↓
+DatabaseClient
+  ↓
+PostgreSQL / Neon
+  ↓
+Business assertions
+```
+
+Database tests validate persisted application state through typed domain database clients. SQL remains inside the database client layer, connection lifecycle is fixture-managed, and assertions remain in the spec. Database execution is restricted to the dedicated `localDocker` test environment.
 
 ### UI flow
 
@@ -309,6 +329,9 @@ src/
     models/
     schemas/
     utils/
+  database/
+    clients/
+    utils/
   components/
   data/
   fixtures/
@@ -321,6 +344,7 @@ src/
 tests/
   accessibility/
   api/
+  database/
   performance/
   smoke/
   ui/
@@ -354,6 +378,28 @@ TypeBox schemas provide both compile-time TypeScript types and runtime contracts
 This prevents provider responses from being trusted through TypeScript casting alone.
 
 API clients remain responsible for HTTP interaction, while assertions remain in the test layer.
+
+## Database Testing
+
+Database tests validate persistence across application and database boundaries without leaking SQL or PostgreSQL transport concerns into specs.
+
+The canonical flow is:
+
+```text
+API / fixture setup
+→ application behavior
+→ domain database client
+→ persisted PostgreSQL state
+→ spec assertions
+```
+
+`DatabaseClient` owns PostgreSQL transport and connection lifecycle primitives. `UserDatabaseClient` and `TaskDatabaseClient` own domain-specific SQL and query semantics. Fixtures provide these clients to specs and close the shared pool after execution.
+
+The dedicated `database` Playwright project executes only in `localDocker` and uses `retries: 0` so persistent test state remains clear and duplicate retry-created datasets are avoided. Test factories generate unique data to reduce collisions.
+
+Normal test execution does not automatically delete persisted data. The dedicated Neon database is disposable and test-owned, so state remains available for debugging until an explicit guarded reset is requested.
+
+The reset workflow requires `TEST_ENV=localDocker`, `CONFIRM_DB_RESET=true`, and `DATABASE_URL`, recreates the public schema, restores the UPEX schema through `db:push`, reseeds the application baseline, and verifies that the expected baseline data exists.
 
 ## UI Testing
 
@@ -572,158 +618,113 @@ Factories remain independent from HTTP execution, UI interaction, assertions, an
 
 ## Docker Execution
 
-Docker provides reproducible execution environments while preserving the distinct runtime ownership of Playwright functional testing, k6 API performance testing, and Lighthouse browser performance testing.
+Docker provides the canonical reproducible runtime for Playwright functional testing and the local UPEX application while preserving the separate k6 and Lighthouse performance boundaries.
 
-The test image is built from the official Playwright image matching the framework's installed Playwright version:
+The Playwright test image is built from:
 
 ```text
 mcr.microsoft.com/playwright:v1.62.1-noble
 ```
 
-The image contains the Linux runtime and browser dependencies required for Playwright execution, while project dependencies are installed reproducibly through:
+and installs project dependencies reproducibly through:
 
 ```text
 npm ci
 ```
 
-The reusable Playwright image owns the framework's standard Playwright-based API, accessibility, visual, and browser execution.
+Local Docker execution uses Docker Compose with two services:
 
-API performance testing remains separate and executes through the pinned k6 Docker image rather than extending the Playwright image with k6.
+```text
+app
+→ UPEX DOJO application
+→ http://upex-local:3000
+→ dedicated Neon test database
 
-Lighthouse browser performance has its own execution requirements. Standalone LHCI and the authenticated Playwright + Lighthouse scenario execute through the Node/Chromium environment used by the dedicated performance workflow rather than through the k6 container.
+tests
+→ reusable Playwright test image
+→ TEST_ENV=localDocker
+→ reaches UPEX through the Compose service alias
+```
 
-The framework's Playwright image follows:
+The base `docker-compose.yml` defines the runtime contract. `docker-compose.local.yml` adds local build behavior: the framework builds its Playwright image and builds UPEX from the sibling `../upex-dojo` source through `Dockerfile.upex-local`.
+
+PostgreSQL is not started as a local container. The UPEX application and database tests use the dedicated external Neon test database supplied through `DATABASE_URL`.
+
+The framework follows:
 
 ```text
 build once
 → configure at runtime
 ```
 
-Target environment selection is therefore not baked into the Playwright image.
-
-For example:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests
-```
-
-The same image can execute a specific Playwright project by overriding the default container command:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=api
-```
-
-This keeps the container image reusable across its supported Playwright execution responsibilities rather than creating separate images for individual test projects. Lighthouse browser-performance execution retains its dedicated Node/Chromium runtime boundary in the performance workflow.
+Target environment selection and credentials are supplied at runtime rather than baked into either image.
 
 ### Container Lifecycle
 
-Test containers are treated as ephemeral execution environments.
+The local application is started through Compose and must become healthy before the test container executes. Test containers remain ephemeral, while the application container can remain available for the duration of the selected local test run.
 
 ```text
-Docker image
-    ↓
-container starts
-    ↓
-Playwright executes
-    ↓
-process returns exit code
-    ↓
-container stops
-    ↓
-container removed
+Compose starts UPEX
+→ healthcheck passes
+→ Playwright test container starts
+→ selected project executes
+→ process returns exit code
+→ test container is removed
 ```
 
-`--rm` removes the stopped container automatically after execution.
-
-The container exit code represents the test-process result and can therefore be consumed by the calling execution environment.
+The Playwright process exit code represents the test result.
 
 ### Docker Artifacts
 
-Container filesystems are ephemeral, so test outputs that must survive container removal are persisted outside the container lifecycle.
-
-For local Docker execution, Playwright reports and test results can be bind-mounted to the host:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  -v "$(pwd)/playwright-report:/app/playwright-report" \
-  -v "$(pwd)/test-results:/app/test-results" \
-  playwright-enterprise-tests
-```
-
-This preserves:
+The base Compose configuration bind-mounts:
 
 ```text
 playwright-report/
 test-results/
 ```
 
-on the host even after the container is removed.
+from the Playwright container to the host so reports and diagnostics survive ephemeral test-container removal.
 
-Local Docker artifact persistence and CI artifact upload are separate concerns. GitHub Actions continues to preserve CI execution evidence through its artifact upload strategy.Local artifact persistence and CI artifact upload are separate concerns. Docker-based Playwright execution uses bind mounts when generated evidence must survive container removal, while GitHub Actions preserves execution evidence through workflow artifacts according to each job's runtime and reporting responsibility.
+Local Docker artifact persistence and CI artifact upload are separate concerns. Docker Compose uses bind mounts for local evidence, while GitHub Actions preserves execution evidence through workflow artifacts according to each job's responsibility.
 
 ## CI Pipeline
 
-GitHub Actions provides automated quality validation and reproducible test execution across the framework's Playwright and performance runtime boundaries.
+GitHub Actions provides automated quality validation and reproducible functional execution against an ephemeral Dockerized UPEX application.
 
-Current execution architecture:
+Current main Playwright CI architecture:
 
 ```text
 quality
 ├── Prettier
 └── TypeScript typecheck
         ↓
-build-image
-├── docker build once
-├── image tag = github.sha
-└── push to GitHub Container Registry
+build-images
+├── Playwright test image → framework github.sha
+└── UPEX app image → resolved upstream UPEX commit SHA
         ↓
         ├── api
-        │   └── pull same SHA image → --project=api
-        │
+        ├── database
         ├── accessibility
-        │   └── pull same SHA image → --project=accessibility
-        │
         ├── visual
-        │   └── pull same SHA image → --project=visual
-        │
         └── ui matrix
-            ├── pull same SHA image → chromium
-            ├── pull same SHA image → firefox
-            └── pull same SHA image → webkit
+            ├── chromium
+            ├── firefox
+            └── webkit
 ```
 
-The quality gate currently validates:
+After quality validation succeeds, CI builds and publishes two immutable GHCR images once: the Playwright test image tagged with the framework commit SHA and the UPEX application image tagged with the resolved upstream UPEX commit SHA.
 
-```text
-Prettier
-→ TypeScript typecheck
-```
+Each functional job pulls those exact images, starts the UPEX application through the base Compose runtime, waits for the application healthcheck, and executes the selected Playwright project through the `tests` service with `TEST_ENV=localDocker`.
 
-After quality validation succeeds, CI builds the reusable Playwright test image once.
+API and database tests execute once because they are browser-independent. Database retries are disabled. Accessibility and visual regression each execute once through their dedicated Chromium-based projects. UI and smoke tests execute through the Chromium, Firefox, and WebKit matrix.
 
-The image is tagged with the current commit SHA, published to GitHub Container Registry, and reused by the API, accessibility, visual, and UI jobs.
+The API, database, accessibility, visual, and UI jobs are independent after `build-images`, so one capability failure does not prevent the others from producing their own quality signals.
 
-API tests execute once because they are browser-independent.
+Visual CI compares current rendering against committed Docker/Linux baselines without updating them.
 
-Accessibility tests execute once through the dedicated Chromium-based accessibility project.
+Reports and failure diagnostics are bind-mounted from the test container to the runner and preserved through the CI artifact strategy. Application logs are surfaced on test failure for additional diagnostics.
 
-Visual regression tests execute once through the dedicated Chromium-based visual project and compare current rendering against committed baselines without updating them.
-
-UI and smoke tests execute through browser-specific Playwright projects using a GitHub Actions matrix.
-
-The API, accessibility, visual, and UI jobs pull and execute the same previously built SHA-tagged Docker image rather than installing project dependencies or Playwright browsers independently on their runners.
-
-Test containers are ephemeral and execute with `--rm`.
-
-Playwright report and test-result directories are bind-mounted from the containers to the GitHub Actions runners so CI can upload them as workflow artifacts after container execution.
-
-Executable Playwright images are distributed through GitHub Container Registry; GitHub Actions artifacts remain reserved for reports and failure diagnostics.
+Performance execution remains separate and continues to target the hosted environment through its dedicated workflow.
 
 ### Performance CI
 
@@ -780,6 +781,11 @@ The current project ownership is:
 api
 → tests/api/**
 
+database
+→ tests/database/**
+→ localDocker only
+→ retries disabled
+
 accessibility
 → tests/accessibility/**
 → Chromium
@@ -800,7 +806,7 @@ webkit
 → tests/smoke/**
 ```
 
-This prevents HTTP-only API tests from being redundantly executed once per browser, keeps automated accessibility, visual regression, and authenticated browser-performance execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
+This prevents browser-independent API and database tests from being redundantly executed once per browser, keeps database, automated accessibility, visual regression, and authenticated browser-performance execution explicit and non-duplicated, and preserves cross-browser coverage where browser behavior matters.
 
 The `performance` project owns Playwright-orchestrated browser-performance scenarios such as the authenticated Lighthouse dashboard audit. It establishes application state through existing framework fixtures before handing the prepared browser state to the performance measurement layer.
 
@@ -832,6 +838,13 @@ Visual regression CI evidence is preserved separately through:
 ```text
 playwright-report-visual
 test-results-visual
+```
+
+Database CI evidence is preserved separately through:
+
+```text
+playwright-report-database
+test-results-database
 ```
 
 Playwright is configured to retain additional diagnostics for failed or retried execution, including screenshots, video, and traces according to the configured policy.
@@ -868,6 +881,7 @@ Current environment definitions include:
 hosted
 local
 ci
+localDocker
 ```
 
 Environment URLs are defined in:
@@ -882,19 +896,24 @@ The TypeScript environment adapter consumes the same configuration through:
 config/environments/environment.ts
 ```
 
-The GitHub Actions workflows explicitly target:
+Local native execution uses:
 
 ```text
-TEST_ENV=hosted
+TEST_ENV=local
+→ http://localhost:3000
 ```
 
-Docker execution can select the same target at container runtime:
+The main Playwright CI and Docker Compose functional execution use:
 
 ```text
-docker run -e TEST_ENV=hosted ...
+TEST_ENV=localDocker
+→ http://upex-local:3000
+→ http://upex-local:3000/api
 ```
 
-The performance workflow uses the shared environment configuration for both performance boundaries:
+`DATABASE_URL` remains runtime configuration and is not stored in `environments.json`. Database access is guarded so framework database fixtures execute only when `TEST_ENV=localDocker`.
+
+The dedicated performance workflow remains hosted and uses the shared environment configuration for both performance boundaries:
 
 ```text
 k6 API performance
@@ -906,21 +925,7 @@ Lighthouse browser performance
 → used as the browser audit target
 ```
 
-This keeps environment selection centralized while allowing each performance tool to consume the URL appropriate to its measurement boundary.
-
-The execution environment and test target environment are intentionally treated as separate concepts.
-
-For example:
-
-```text
-execution environment
-→ local machine
-→ Docker container
-→ GitHub Actions runner
-
-test target environment
-→ selected through TEST_ENV
-```
+The execution environment and test target environment remain separate concepts.
 
 ## Running Locally
 
@@ -936,51 +941,13 @@ Install Playwright browsers:
 npx playwright install
 ```
 
-Run the complete configured test suite:
+For native local execution, start UPEX separately on `localhost:3000`, then select the local target:
 
 ```bash
-npm test
+TEST_ENV=local npx playwright test --project=api
 ```
 
-Run API tests only:
-
-```bash
-npx playwright test --project=api
-```
-
-Run accessibility tests only:
-
-```bash
-npx playwright test --project=accessibility
-```
-
-Run visual tests only:
-
-```bash
-npx playwright test --project=visual
-```
-
-Run a browser project:
-
-```bash
-npx playwright test --project=chromium
-```
-
-Lighthouse execution uses the Playwright-managed Chromium runtime when available, keeping standalone and authenticated browser-performance execution aligned to the same browser ownership model.
-
-Run the standalone Lighthouse baseline:
-
-```bash
-npx lhci autorun --config=performance/lighthouse/lighthouseConfig.js
-```
-
-Run the authenticated dashboard Lighthouse audit:
-
-```bash
-npx playwright test \
-  tests/performance/lighthouse-dashboard.spec.ts \
-  --project=performance
-```
+The same `TEST_ENV=local` target can be used for local browser debugging against the locally running application.
 
 Run formatting validation:
 
@@ -994,60 +961,53 @@ Run TypeScript validation:
 npm run typecheck
 ```
 
-### Running with Docker
+### Running with Docker Compose
 
-Build the reusable Playwright test image:
+The canonical functional Docker runtime uses the framework-owned base Compose file plus the local build override. The UPEX source is expected in the sibling `../upex-dojo` repository.
 
-```bash
-docker build -t playwright-enterprise-tests .
-```
-
-Run the complete configured suite against the hosted target:
+Start the local UPEX application:
 
 ```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.local.yml \
+  up -d app
 ```
 
-Run only the API project:
+Run the API project:
 
 ```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=api
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.local.yml \
+  run --rm tests npx playwright test --project=api
 ```
 
-Run only the accessibility project:
+Run the database project:
 
 ```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=accessibility
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.local.yml \
+  run --rm tests npx playwright test --project=database
 ```
 
-Run only the visual project against the committed baselines:
+Run accessibility, visual, or a browser project by selecting the corresponding Playwright project through the same `tests` service.
+
+Database-capable localDocker execution requires `DATABASE_URL` to be supplied at runtime. Do not commit the connection string.
+
+### Resetting the Dedicated Test Database
+
+The dedicated Neon test database is not reset automatically after normal test runs. To explicitly restore the application-owned baseline, run the guarded reset with all required safety inputs:
 
 ```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  -v "$(pwd)/playwright-report:/app/playwright-report" \
-  -v "$(pwd)/test-results:/app/test-results" \
-  playwright-enterprise-tests \
-  npx playwright test --project=visual
+TEST_ENV=localDocker \
+CONFIRM_DB_RESET=true \
+DATABASE_URL="<dedicated-test-database-url>" \
+npm run db:test:reset
 ```
 
-Run the complete suite while preserving reports and test results on the host:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  -v "$(pwd)/playwright-report:/app/playwright-report" \
-  -v "$(pwd)/test-results:/app/test-results" \
-  playwright-enterprise-tests
-```
+The reset recreates the public schema, runs the UPEX-owned `db:push` and `db:seed` commands through Docker Compose, and verifies the seeded baseline before completing. Use this only against the dedicated disposable test database.
 
 ### Running k6 API Performance Tests with Docker
 
@@ -1119,6 +1079,7 @@ AI coding agents are instructed to:
 - use equivalent implementations as golden references;
 - reuse or extend existing abstractions before creating new ones;
 - preserve schema-first API contracts;
+- preserve the database client boundary, keeping SQL out of specs and database fixtures restricted to `localDocker`;
 - preserve authentication and fixture boundaries;
 - select the correct Playwright execution project;
 - reuse the established accessibility scanner, WCAG policy, fixtures, formatter, and assertion pattern for accessibility coverage;
@@ -1146,6 +1107,7 @@ The target provides realistic scenarios for:
 - task management;
 - API contract testing;
 - API/UI integration;
+- API-to-database persistence validation;
 - automated accessibility testing;
 - visual regression testing;
 - controlled API performance baseline testing;
@@ -1164,6 +1126,10 @@ Framework architecture               ✅
 Reusable fixtures                    ✅
 Test-data factories                  ✅
 API automation                       ✅
+Database persistence validation      ✅
+Typed database client layer          ✅
+Dedicated database project           ✅
+Guarded database reset workflow      ✅
 API authentication                   ✅
 Runtime contract validation          ✅
 API/UI integration                   ✅
@@ -1185,10 +1151,12 @@ Performance execution evidence       ✅
 Dedicated performance CI             ✅
 Shared environment config            ✅
 Docker test execution                ✅
+Docker Compose local UPEX runtime     ✅
 Runtime container config             ✅
 Container artifact persistence.      ✅
 GitHub Actions CI                    ✅
 GHCR image distribution              ✅
+Immutable test/app CI images          ✅
 CI quality gates                     ✅
 CI artifacts                         ✅
 Browser matrix execution             ✅

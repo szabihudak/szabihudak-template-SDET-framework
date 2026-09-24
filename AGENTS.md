@@ -65,6 +65,7 @@ Depending on the task, inspect the applicable:
 
 - spec;
 - API client;
+- database client;
 - schema;
 - constants;
 - factory;
@@ -106,6 +107,13 @@ Task API behavior
 → taskFactory
 → task fixtures
 → task API specs
+
+Database validation behavior
+→ existing API / fixture setup
+→ DatabaseClient
+→ UserDatabaseClient / TaskDatabaseClient
+→ database fixtures
+→ database Playwright project
 
 Authenticated UI behavior
 → authenticatedPage
@@ -168,6 +176,12 @@ Schema
 
 API Client
 → HTTP interaction
+
+DatabaseClient
+→ PostgreSQL transport and connection lifecycle
+
+Domain Database Client
+→ domain-specific SQL and database record mapping
 
 Factory
 → test data generation
@@ -236,6 +250,70 @@ Negative responses should not be forced through successful-response schemas.
 API clients must not contain test assertions.
 
 Do not introduce a generic `BaseApiClient` without demonstrated architectural need.
+
+## Database Rules
+
+Database validation tests belong under:
+
+```text
+tests/database/**
+```
+
+and execute through:
+
+```text
+--project=database
+```
+
+Preserve the golden flow:
+
+```text
+Spec
+→ Fixture
+→ Domain Database Client
+→ DatabaseClient
+→ PostgreSQL / Neon
+```
+
+Keep database assertions in specs.
+
+Use `DatabaseClient` for PostgreSQL transport and connection lifecycle. Use domain database clients such as `UserDatabaseClient` and `TaskDatabaseClient` for domain-specific SQL and record mapping.
+
+Do not place raw SQL directly in specs when an established domain database client owns the operation.
+
+Use parameterized SQL queries.
+
+Database access is restricted to the dedicated `localDocker` test environment. Preserve the fixture safety guard requiring:
+
+```text
+TEST_ENV=localDocker
+```
+
+and obtain the connection string from the runtime `DATABASE_URL` environment variable. Do not store database credentials in repository configuration or log the connection string.
+
+The database Playwright project keeps retries disabled. Database tests create persistent state that remains available after execution for debugging and forensic inspection.
+
+Do not add automatic per-test database cleanup merely to keep the database empty.
+
+The dedicated test database uses an explicit destructive reset workflow:
+
+```text
+normal test run
+→ preserve state
+
+explicit reset
+→ validate safety guards
+→ recreate public schema
+→ restore application schema
+→ seed baseline
+→ verify baseline state
+```
+
+Use the existing `db:test:reset` workflow rather than introducing ad hoc destructive SQL or selective cleanup helpers.
+
+The reset workflow is valid only for the dedicated disposable test database. Preserve all destructive-operation guards, including explicit environment selection and confirmation.
+
+Database schema ownership remains with UPEX DOJO. The framework must not duplicate or independently maintain the application schema.
 
 ## UI Rules
 
@@ -678,6 +756,7 @@ Use UI login only when login behavior itself is under test.
 Do not introduce a new:
 
 - base client;
+- database abstraction beyond the established transport/domain-client boundary;
 - service layer;
 - generic factory;
 - generic mock service;
@@ -725,6 +804,17 @@ schema
 ```
 
 if the behavior genuinely crosses those layers.
+
+A database validation addition may require:
+
+```text
+existing API / fixture setup
++ existing DatabaseClient
++ existing domain database client
++ database spec
+```
+
+and should keep SQL ownership in the domain database client while keeping assertions in the spec.
 
 An accessibility addition may require:
 
@@ -794,6 +884,16 @@ npm run typecheck
 ```
 
 Run the affected Playwright tests.
+
+For database changes, run the database project through the guarded `localDocker` execution path with the dedicated test database:
+
+```text
+--project=database
+```
+
+Verify that the database connection lifecycle closes cleanly, persistence assertions pass, and no database credential is exposed in output.
+
+For reset-workflow changes, validate the destructive guards before executing the happy path. Do not run the reset workflow against a shared, hosted, production, or otherwise non-test-owned database.
 
 For accessibility changes, run:
 
@@ -884,6 +984,9 @@ Update documentation when a change modifies:
 - dependency direction;
 - framework-wide implementation standards;
 - major technology choices;
+- database access, cleanup, reset, or execution ownership boundaries;
+- localDocker application/runtime ownership;
+- functional CI image or execution architecture;
 - visual baseline ownership or approval rules;
 - visual execution boundaries.
 - performance workload, browser-performance measurement, runtime, threshold, policy, or CI ownership boundaries.
@@ -914,6 +1017,8 @@ no unnecessary abstraction introduced
 provider contracts validated correctly where applicable
         ↓
 authentication boundaries preserved
+        ↓
+database ownership, safety guards, and cleanup strategy preserved where applicable
         ↓
 accessibility policy preserved where applicable
         ↓

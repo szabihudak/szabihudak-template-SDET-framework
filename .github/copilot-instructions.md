@@ -19,7 +19,7 @@ reuse
 → create
 ```
 
-Do not create a new client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, visual abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
+Do not create a new client, database client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, visual abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
 
 Do not treat "add a test" as a request to modify only the spec file.
 
@@ -31,12 +31,15 @@ Preserve:
 - runtime validation before trusting provider data;
 - domain types where available;
 - fixture dependency boundaries;
+- database transport and domain database client responsibility boundaries;
+- database connection lifecycle and destructive reset safety boundaries;
 - API vs browser authentication separation;
 - Page Object and Component Object responsibility boundaries;
 - accessibility scanner and WCAG policy ownership;
 - visual comparison policy and baseline ownership;
 - API performance workload and k6 runtime ownership;
 - browser-performance measurement and Lighthouse policy ownership;
+- localDocker functional execution ownership;
 - semantic test structure;
 - existing formatting and naming conventions.
 
@@ -66,6 +69,38 @@ request
 Do not trust provider response data through TypeScript casting before runtime validation.
 
 Do not duplicate schema-owned provider contracts with separate TypeScript interfaces.
+
+For database work:
+
+- place database tests under `tests/database/**`;
+- execute them through the dedicated `database` Playwright project;
+- preserve the established flow:
+
+```text
+Spec
+→ Fixture
+→ Domain Database Client
+→ DatabaseClient
+→ PostgreSQL / Neon
+```
+
+- keep `DatabaseClient` responsible for PostgreSQL transport and connection lifecycle;
+- keep `UserDatabaseClient` and `TaskDatabaseClient` responsible for domain-specific SQL and database record mapping;
+- keep database assertions in specs;
+- use parameterized SQL;
+- do not place raw SQL in specs when an existing domain database client owns that responsibility;
+- reuse API clients, factories, and fixtures to establish application state when persistence is the behavior under validation;
+- execute database validation only with `TEST_ENV=localDocker`;
+- provide `DATABASE_URL` at runtime and never store it in environment configuration or log the connection string;
+- keep retries disabled for the `database` project so persistent database state remains diagnostically clear;
+- use unique generated test data and preserve test-created state after normal runs for debugging;
+- do not introduce automatic per-test database cleanup;
+- use the existing `npm run db:test:reset` command when an explicit clean database state is required;
+- keep destructive reset guarded by `TEST_ENV=localDocker`, a valid `DATABASE_URL`, `CONFIRM_DB_RESET=true`, and Docker availability;
+- preserve the reset flow: recreate the `public` schema → restore the UPEX schema through `db:push` → restore seed data through `db:seed` → verify the known baseline;
+- run destructive reset only against the dedicated disposable test database;
+- treat the UPEX application as the owner of the database schema;
+- do not introduce a local PostgreSQL container unless a separate requirement explicitly changes the database architecture.
 
 For UI work:
 
@@ -331,7 +366,7 @@ Do not treat API authentication and browser authentication as interchangeable.
 
 Use UI login only when login behavior itself is under test.
 
-Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, accessibility abstraction, visual abstraction, or performance abstraction unless demonstrated reuse or complexity justifies them.
+Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, database abstraction beyond the established transport/domain-client boundary, accessibility abstraction, visual abstraction, or performance abstraction unless demonstrated reuse or complexity justifies them.
 
 Prefer the smallest architecturally complete change.
 
@@ -349,6 +384,17 @@ schema
 → mock
 → spec
 ```
+
+A database validation change may require:
+
+```text
+existing API / fixture setup
+→ existing DatabaseClient
+→ existing domain database client
+→ database spec
+```
+
+and should keep persistence assertions in the spec rather than introducing SQL directly into the test.
 
 An accessibility change may require:
 
@@ -401,6 +447,12 @@ npm run typecheck
 ```
 
 Run the affected Playwright tests.
+
+For database work, run the canonical database project through the localDocker runtime.
+
+Database validation must target the dedicated test database through runtime `DATABASE_URL`.
+
+When validating the reset utility, preserve all destructive-operation guards and never point reset execution at a shared or non-test database.
 
 For accessibility work, run:
 
@@ -468,6 +520,9 @@ Update documentation when a change modifies:
 - dependency direction;
 - framework-wide implementation standards;
 - major technology choices;
+- database access, reset, or execution ownership;
+- localDocker runtime ownership;
+- functional CI image or execution architecture;
 - visual baseline ownership;
 - visual approval workflow;
 - visual execution boundaries;

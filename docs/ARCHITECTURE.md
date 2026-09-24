@@ -41,7 +41,10 @@ The framework follows these principles:
 
 ```text
 Dockerfile
+Dockerfile.upex-local
 .dockerignore
+docker-compose.yml
+docker-compose.local.yml
 
 config/
   environments/
@@ -65,6 +68,9 @@ src/
     utils/
   components/
   data/
+  database/
+    clients/
+    utils/
   fixtures/
   mocks/
   pages/
@@ -75,6 +81,7 @@ src/
 tests/
   accessibility/
   api/
+  database/
   performance/
   smoke/
   ui/
@@ -117,6 +124,24 @@ Schema validation
   ↓
 Business assertions
 ```
+
+A typical database validation flow is:
+
+```text
+Spec
+  ↓
+Fixture
+  ↓
+Domain Database Client
+  ↓
+DatabaseClient
+  ↓
+PostgreSQL / Neon
+  ↓
+Persistence assertions
+```
+
+Database tests validate persisted application state after behavior has been exercised through the supported application boundary. Domain database clients own domain-specific queries, while `DatabaseClient` owns PostgreSQL transport and connection lifecycle.
 
 A typical UI flow is:
 
@@ -224,7 +249,7 @@ Visual regression tests may use the same API-driven or programmatic setup bounda
 
 ## Test Execution Architecture
 
-The framework separates browser-independent API execution, browser-dependent UI execution, automated accessibility execution, visual regression execution, API performance execution, and browser performance execution.
+The framework separates browser-independent API execution, browser-independent database validation, browser-dependent UI execution, automated accessibility execution, visual regression execution, API performance execution, and browser performance execution.
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
@@ -234,6 +259,13 @@ Current project boundaries:
 api
 → tests/api/**
 → browser-independent
+→ executed once
+
+database
+→ tests/database/**
+→ browser-independent persistence validation
+→ localDocker execution
+→ retries disabled
 → executed once
 
 accessibility
@@ -267,13 +299,17 @@ webkit
 
 API tests use Playwright's HTTP capabilities and do not validate browser-engine behavior. They must therefore not be multiplied across Chromium, Firefox, and WebKit projects.
 
+Database tests validate persisted application state directly against the dedicated test database. They execute once through the dedicated `database` project and are not multiplied across browser projects. Database execution requires the isolated `localDocker` environment because direct database access and destructive reset operations must not target the shared hosted application environment.
+
+Database project retries remain disabled. A failed persistence validation should preserve the original database state for investigation rather than automatically creating another set of persistent test data through a retry.
+
 Accessibility tests use browser-rendered application state but have a dedicated execution responsibility. The current automated accessibility gate executes through Chromium rather than being multiplied across the full UI browser matrix.
 
 Visual regression tests also use browser-rendered application state but have a dedicated execution responsibility. The current visual gate executes through Chromium in the canonical Docker/Linux runtime so the framework compares against one controlled baseline environment rather than maintaining equivalent baselines across every browser engine.
 
 UI and smoke tests validate browser-visible behavior and may run across multiple browser projects because rendering, interaction, and browser behavior can differ.
 
-This separation avoids redundant API, accessibility, and visual execution while preserving cross-browser UI coverage.
+This separation avoids redundant API, database, accessibility, and visual execution while preserving cross-browser UI coverage.
 
 Additional browser-specific visual execution should be introduced only when a concrete browser-specific visual requirement demonstrates value.
 
@@ -296,7 +332,7 @@ Authenticated browser performance uses a dedicated Playwright project when exist
 
 ## Docker Execution Architecture
 
-Docker provides an additional reproducible execution boundary for the Playwright framework.
+Docker provides the reproducible execution boundary for the containerized Playwright framework and the local UPEX application runtime used by `localDocker` execution.
 
 The current test image uses the official Playwright runtime matching the project's installed Playwright version:
 
@@ -322,6 +358,7 @@ one test image
 runtime command
     ├── complete suite
     ├── api
+    ├── database
     ├── accessibility
     ├── visual
     ├── chromium
@@ -329,9 +366,61 @@ runtime command
     └── webkit
 ```
 
-Separate Docker images should not be introduced merely because the framework contains separate Playwright projects.
+Separate Playwright Docker images should not be introduced merely because the framework contains separate Playwright projects.
 
 The execution project remains a Playwright responsibility. Docker provides the execution environment.
+
+The framework also owns the Docker definition required to build UPEX as the local application under test.
+
+```text
+Dockerfile.upex-local
+        ↓
+UPEX source
+        ↓
+production build
+        ↓
+UPEX application image
+```
+
+The UPEX repository remains the source of the application code. The framework owns the test execution environment and therefore owns the Docker runtime definition used to build and execute that source for local framework validation.
+
+Docker Compose connects the application and test execution boundaries:
+
+```text
+docker-compose.yml
+→ shared runtime contract
+
+docker-compose.local.yml
+→ local source-build override
+```
+
+The base Compose definition describes how the application and test images execute together. The local override builds those images from the local framework and sibling UPEX source repositories.
+
+The resulting localDocker topology is:
+
+```text
+Playwright test container
+        │
+        │ http://upex-local:3000
+        ▼
+UPEX application container
+        │
+        │ DATABASE_URL
+        ▼
+dedicated Neon test database
+```
+
+The test container receives the same dedicated test-database connection boundary when direct persistence validation is required:
+
+```text
+Playwright database test
+        │
+        │ DATABASE_URL
+        ▼
+dedicated Neon test database
+```
+
+The database is intentionally not represented by a local PostgreSQL container. The current architecture uses a dedicated Neon PostgreSQL test database while application and Playwright execution are containerized locally.
 
 For visual regression, Docker additionally provides the canonical rendering boundary used for approved baseline generation and CI comparison.
 
@@ -360,24 +449,36 @@ The framework does not force both performance technologies into one universal co
 
 ### Docker Image and Container Boundary
 
-A Docker image represents the reusable execution environment.
+A Docker image represents a reusable execution environment.
 
-A container represents a runtime instance of that image.
+A container represents a runtime instance of an image.
 
 ```text
-Dockerfile
+Playwright Dockerfile
     ↓
 docker build
     ↓
-image
+Playwright test image
     ↓
-docker run
-    ↓
-container
+test container
     ↓
 Playwright process
     ↓
 exit code
+```
+
+The local UPEX application follows the same image/container separation:
+
+```text
+Dockerfile.upex-local
+    ↓
+docker build
+    ↓
+UPEX application image
+    ↓
+application container
+    ↓
+production UPEX process
 ```
 
 The lifetime of a test container follows the lifetime of its main process.
@@ -394,7 +495,7 @@ The container exit code communicates the result of the test process to the calli
 
 ### Docker Environment Model
 
-The Docker image must remain independent from the selected test target.
+The Playwright Docker image must remain independent from the selected test target.
 
 The framework follows:
 
@@ -405,17 +506,41 @@ build once
 
 `TEST_ENV` is therefore supplied when the container executes rather than baked into the image.
 
-For example:
+The framework distinguishes native local execution from containerized local execution:
 
 ```text
-Docker container
-→ execution environment
+native developer execution
+→ TEST_ENV=local
+→ http://localhost:3000
 
-TEST_ENV=hosted
-→ test target environment
+containerized local execution
+→ TEST_ENV=localDocker
+→ http://upex-local:3000
 ```
 
-This preserves the same distinction already used by CI:
+In native local execution, Playwright runs directly on the developer machine and reaches a locally running UPEX application through `localhost:3000`.
+
+In `localDocker` execution, Playwright runs inside the Compose network. `localhost` inside the Playwright container refers to the Playwright container itself rather than the UPEX application container. The application is therefore reached through the Compose network alias:
+
+```text
+upex-local
+```
+
+The same `localDocker` execution model is used by the main Playwright CI workflow:
+
+```text
+developer localDocker
+→ Docker Compose
+→ UPEX application container
+→ Playwright test container
+
+GitHub Actions
+→ Docker Compose
+→ UPEX application container
+→ Playwright test container
+```
+
+This preserves the distinction:
 
 ```text
 execution context
@@ -423,7 +548,27 @@ execution context
 test target environment
 ```
 
-A reusable image should not need to be rebuilt merely to select another supported test target.
+The supported target configuration remains owned by `config/environments/environments.json`.
+
+The current execution intent is:
+
+```text
+hosted
+→ deployed UPEX application
+
+local
+→ developer-native localhost execution
+
+localDocker
+→ Docker Compose UPEX execution
+→ used for reproducible local functional validation
+→ used by the main Playwright CI workflow
+
+performance execution
+→ hosted target
+```
+
+A reusable Playwright image should not need to be rebuilt merely to select another supported test target.
 
 ### Docker Artifact Boundary
 
@@ -488,7 +633,7 @@ tests/visual/**-snapshots/
 
 ### Docker Build Boundary
 
-The Docker build context is the repository root.
+The Playwright Docker build context is the framework repository root.
 
 The Dockerfile copies dependency metadata before the remaining source:
 
@@ -502,15 +647,33 @@ remaining repository source
 
 This ordering creates a dependency installation layer that can remain reusable when project source changes without dependency metadata changing.
 
+The local UPEX image is built through `Dockerfile.upex-local` using the UPEX source as an additional Docker build context.
+
+```text
+framework repository
+→ Dockerfile.upex-local
+
+sibling UPEX repository
+→ additional build context
+→ application source
+
+Docker build
+→ UPEX production image
+```
+
+This keeps ownership explicit: UPEX owns the application source, while the framework owns the reproducible application-under-test runtime required by the automation environment.
+
 `.dockerignore` prevents local or sensitive files that do not belong in the image from entering the build context.
 
 Current exclusions include local dependency directories, generated reports, Git metadata, and environment files.
 
 Secrets must not be copied into an image. Removing a secret in a later Dockerfile instruction does not make its presence in an earlier image layer acceptable.
 
+Runtime credentials such as `DATABASE_URL` and application authentication configuration are supplied when containers execute rather than embedded into reusable images.
+
 ## CI Execution Architecture
 
-CI execution is organized by responsibility while using the Docker image as the reusable Playwright execution environment.
+CI execution is organized by testing responsibility while using immutable Docker images for both the Playwright framework and the local UPEX application under test.
 
 The current GitHub Actions dependency model is:
 
@@ -519,42 +682,63 @@ quality
 ├── formatting
 └── typecheck
         ↓
-build-image
-├── docker build once
-├── image tag = github.sha
-└── push image to GHCR
+build-images
+├── build Playwright test image
+│   └── image tag = framework github.sha
+├── resolve UPEX staging commit SHA
+├── build UPEX application image
+│   └── image tag = resolved UPEX commit SHA
+└── push both images to GHCR
         ↓
         ├── api
-        │   └── pull same SHA image → API tests once
+        │   └── start UPEX → API tests once
+        │
+        ├── database
+        │   └── start UPEX → database tests once
         │
         ├── accessibility
-        │   └── pull same SHA image → automated accessibility tests once
+        │   └── start UPEX → automated accessibility tests once
         │
         ├── visual
-        │   └── pull same SHA image → visual regression tests once
+        │   └── start UPEX → visual regression tests once
         │
         └── ui matrix
-            ├── pull same SHA image → chromium
-            ├── pull same SHA image → firefox
-            └── pull same SHA image → webkit
+            ├── start UPEX → chromium
+            ├── start UPEX → firefox
+            └── start UPEX → webkit
 ```
 
-The `build-image` job depends on the successful completion of the `quality` job.
+The `build-images` job depends on the successful completion of the `quality` job.
 
-The `api`, `accessibility`, `visual`, and `ui` jobs depend on `build-image` but do not depend on one another.
+The `api`, `database`, `accessibility`, `visual`, and `ui` jobs depend on `build-images` but do not depend on one another.
 
-This allows API, accessibility, visual, and UI execution to proceed independently and in parallel after the reusable test image has been built.
+This allows API, database, accessibility, visual, and UI execution to proceed independently and in parallel after the reusable test and application images have been built.
 
-The Docker image is built once per trusted workflow execution and tagged with the current commit SHA.
+The Playwright image is built once per workflow execution and tagged with the current framework commit SHA.
 
-The built image is published to GitHub Container Registry and reused by downstream jobs through the same immutable SHA tag:
+The UPEX application image is built from the resolved upstream UPEX source revision and tagged with that exact UPEX commit SHA.
 
 ```text
-docker build
-→ docker push to GHCR
-→ docker pull exact SHA
-→ docker run
+framework commit
+→ Playwright image
+→ framework SHA tag
+
+resolved UPEX staging commit
+→ UPEX application image
+→ UPEX SHA tag
 ```
+
+Both images are published to GitHub Container Registry and downstream jobs pull the exact immutable image versions selected by the build job.
+
+```text
+build images
+→ push to GHCR
+→ pull exact image versions
+→ Docker Compose
+→ execute tests
+```
+
+This prevents downstream capability jobs from independently rebuilding application or framework source and gives all functional jobs the same build artifacts for a workflow execution.
 
 GHCR image retention is managed separately from test execution.
 
@@ -578,15 +762,33 @@ The Playwright CI workflow does not delete the image at the end of a test run. T
 
 Registry lifecycle management is treated as a separate maintenance responsibility from functional test execution.
 
-For fork pull requests where registry write access is not appropriate, downstream jobs build the image locally rather than requiring package write access.
+Each functional job starts the UPEX application through the shared Compose runtime and executes its Playwright project against that isolated local application instance.
 
-API, accessibility, visual, and browser execution use the same image.
+```text
+GitHub Actions runner
+        ↓
+Docker Compose
+        ├── UPEX application container
+        │       ↓
+        │   dedicated Neon test database
+        │
+        └── Playwright test container
+                ↓
+           TEST_ENV=localDocker
+                ↓
+           http://upex-local:3000
+```
+
+API, database, accessibility, visual, and browser execution use the same Playwright image and the same localDocker application architecture.
 
 Playwright project selection remains responsible for execution scope:
 
 ```text
 api
 → --project=api
+
+database
+→ --project=database
 
 accessibility
 → --project=accessibility
@@ -620,13 +822,15 @@ CI therefore does not run:
 --update-snapshots
 ```
 
-CI does not create separate images for individual Playwright projects.
+CI does not create separate Playwright images for individual Playwright projects.
 
 Test containers are ephemeral and return the Playwright process exit code to GitHub Actions.
 
 Generated Playwright output is bind-mounted to the runner before GitHub Actions uploads the required reports and diagnostics as workflow artifacts.
 
-This preserves a single reusable execution environment while retaining explicit API, accessibility, visual, and browser execution ownership.
+Application logs are surfaced when functional execution fails so failures in the application-under-test boundary remain diagnosable alongside Playwright evidence.
+
+This preserves a single reusable Playwright execution environment, a reproducible local application target, and explicit API, database, accessibility, visual, and browser execution ownership.
 
 ### Performance CI Execution
 
@@ -733,20 +937,23 @@ Current limits are:
 quality
 → 5 minutes
 
-build-image
-→ 15 minutes
+build-images
+→ 20 minutes
 
 api
-→ 10 minutes
+→ 15 minutes
+
+database
+→ 15 minutes
 
 accessibility
-→ 10 minutes
+→ 15 minutes
 
 visual
-→ 10 minutes
+→ 15 minutes
 
 ui matrix job
-→ 10 minutes per browser
+→ 15 minutes per browser
 ```
 
 These limits are safety boundaries rather than expected execution durations.
@@ -775,13 +982,31 @@ Test target environment
 → selected through TEST_ENV
 ```
 
-The current CI workflow explicitly targets:
+The main Playwright CI workflow explicitly targets:
 
 ```text
-TEST_ENV=hosted
+TEST_ENV=localDocker
 ```
 
-This makes CI intent explicit rather than relying on the framework's default environment.
+The application under test is started on each functional job's GitHub Actions runner through Docker Compose and is reached from the Playwright container through:
+
+```text
+http://upex-local:3000
+```
+
+This makes CI intent explicit rather than relying on the framework's default environment and ensures that API, database, accessibility, visual, and UI validation use the reproducible local application runtime.
+
+Performance execution remains a separate boundary and targets the hosted application through the dedicated performance workflow.
+
+```text
+main Playwright CI
+→ localDocker
+→ ephemeral UPEX application runtime
+
+performance workflow
+→ hosted
+→ deployed UPEX application
+```
 
 A future change to the default test environment must not silently redirect CI execution to another target.
 
@@ -822,7 +1047,7 @@ The image-publishing job additionally requires:
 packages: write
 ```
 
-because it publishes the SHA-tagged Playwright image to GitHub Container Registry.
+because it publishes the SHA-tagged Playwright and UPEX images to GitHub Container Registry.
 
 Downstream test jobs require:
 
@@ -830,13 +1055,15 @@ Downstream test jobs require:
 packages: read
 ```
 
-to pull the published image.
+to pull the published images.
 
 Package permissions are scoped to the jobs that require them rather than granted workflow-wide.
 
 Additional permissions should be introduced only when a workflow capability demonstrates a concrete need.
 
 Secrets must not be introduced merely to demonstrate secret support. Sensitive values should be stored in an appropriate secret store only when a real runtime credential requirement exists.
+
+The dedicated test database connection is supplied to the runtime through `DATABASE_URL`. It must not be committed to repository configuration or embedded into either Docker image.
 
 ## CI Artifact Strategy
 
@@ -858,6 +1085,7 @@ Examples:
 
 ```text
 playwright-report-api
+playwright-report-database
 playwright-report-accessibility
 playwright-report-visual
 
@@ -866,6 +1094,7 @@ playwright-report-firefox
 playwright-report-webkit
 
 test-results-api
+test-results-database
 test-results-accessibility
 test-results-visual
 
@@ -907,12 +1136,13 @@ They should:
 - use fixtures for reusable setup and state;
 - use Page Objects and Component Objects for UI interaction;
 - use API clients for API interaction;
+- use domain database clients for direct persistence validation;
 - contain HTTP and business assertions;
 - validate successful API responses against runtime schemas;
 - contain native screenshot assertions for visual contracts;
 - avoid duplicating framework infrastructure.
 
-Specs should not become containers for reusable setup logic, raw locator implementation, or repeated HTTP mechanics.
+Specs should not become containers for reusable setup logic, raw locator implementation, repeated HTTP mechanics, or raw database connection management.
 
 Visual specs may contain explicit deterministic setup when the setup is scenario-specific and does not justify a new abstraction.
 
@@ -924,15 +1154,19 @@ Typical responsibilities include:
 
 - constructing Page Objects and Component Objects;
 - constructing API clients;
+- constructing database clients;
 - generating test users;
 - registering or authenticating users;
 - creating reusable domain prerequisites;
 - creating authenticated browser contexts;
+- managing database connection lifecycle;
 - cleaning up owned resources when required.
 
 Fixture dependencies should represent the actual setup flow.
 
 A fixture should not be introduced merely to hide a single line of code. It should provide meaningful reuse, lifecycle management, state composition, or dependency management.
+
+The database fixture owns creation and closure of the shared database transport for a test and prevents direct database execution outside the supported `localDocker` environment.
 
 Visual regression does not create a separate fixture responsibility merely because screenshot testing exists.
 
@@ -977,6 +1211,106 @@ Setup helpers may fail fast when their contract requires successful setup.
 The framework intentionally does not use a generic `BaseApiClient`. Shared abstractions should only be introduced when real duplication demonstrates a need.
 
 Visual regression specs may reuse domain API clients to establish deterministic application state when the browser behavior under verification is the rendered result rather than the setup operation.
+
+### Database Clients
+
+Database clients provide focused access to persisted application state for database validation.
+
+The infrastructure boundary is:
+
+```text
+Domain Database Client
+        ↓
+DatabaseClient
+        ↓
+PostgreSQL / Neon
+```
+
+`DatabaseClient` owns PostgreSQL transport and connection pooling.
+
+Domain database clients own domain-specific queries and map persisted records into typed database records.
+
+Current domain ownership includes:
+
+```text
+UserDatabaseClient
+→ user persistence queries
+
+TaskDatabaseClient
+→ task persistence queries
+```
+
+Database clients do not own test assertions.
+
+Specs remain responsible for comparing persisted state with the behavior or data that produced it.
+
+Raw SQL should remain inside the database layer rather than being scattered through test specs.
+
+The database layer is intentionally focused on validation requirements demonstrated by the test suite. A repository or service layer should not be introduced merely to add structural symmetry with application architecture.
+
+### Database Reset
+
+The dedicated Neon database is a disposable test-owned environment. Normal test execution intentionally does not perform automatic database cleanup.
+
+```text
+normal test execution
+→ preserve resulting state
+→ retain evidence for debugging
+```
+
+Database restoration is an explicit administrative operation:
+
+```text
+explicit reset request
+        ↓
+environment validation
+        ↓
+explicit destructive confirmation
+        ↓
+Docker availability validation
+        ↓
+reset public schema
+        ↓
+UPEX db:push
+        ↓
+UPEX db:seed
+        ↓
+baseline verification
+```
+
+The reset utility is owned by:
+
+```text
+src/database/utils/resetTestDatabase.ts
+```
+
+and is exposed through the framework package command:
+
+```text
+npm run db:test:reset
+```
+
+The reset operation is intentionally destructive and must execute only against the dedicated `localDocker` test-database boundary.
+
+It requires explicit environment and confirmation guards before schema destruction is allowed.
+
+Application schema and baseline seed ownership remain with UPEX. The framework orchestrates the reset but does not duplicate the application's schema definition or seed implementation.
+
+The current UPEX source owns schema restoration through:
+
+```text
+db:push
+```
+
+and baseline restoration through:
+
+```text
+db:seed
+```
+
+Post-reset verification confirms that the expected protected baseline users exist and that their seeded task state has been restored.
+
+This reset model replaces per-test deletion for the dedicated disposable database. It preserves failed or completed test state for investigation while still providing a deterministic path back to the application-owned baseline.
 
 ### Schemas
 
@@ -1592,6 +1926,10 @@ Use:
 tests/api/**
 → API project
 
+tests/database/**
+→ database project
+→ localDocker execution
+
 tests/accessibility/**
 → accessibility project
 
@@ -1613,10 +1951,15 @@ performance/k6/**
 
 performance/lighthouse/**
 → Lighthouse execution, policy, and reporting infrastructure
+```
 
 Do not place browser-dependent behavior under the API suite.
 
 Do not place browser-independent API contract tests under UI or smoke suites merely to force execution through browser projects.
+
+Database validation should remain under the dedicated database project rather than being mixed into API or UI specs. Application behavior may be created through an API client or fixture, but direct persistence queries belong to the database layer and persistence assertions remain in the database spec.
+
+Database validation must use the dedicated `localDocker` test environment and must not be redirected to the shared hosted environment.
 
 Accessibility tests should remain under the dedicated accessibility project rather than being added to the standard UI browser matrix solely for structural symmetry.
 
@@ -1681,4 +2024,3 @@ A future move to an external visual-testing platform or materially different bas
 When implementation and documentation disagree, the discrepancy should be resolved rather than allowing the documentation to become stale.
 
 Architecture documentation should evolve together with meaningful framework changes.
-```

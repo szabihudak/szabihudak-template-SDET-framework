@@ -61,7 +61,7 @@ Review architecture impact
 Before implementation, answer:
 
 1. What behavior is being verified?
-2. Is this primarily API, UI, accessibility, visual regression, performance, or composed behavior?
+2. Is this primarily API, database, UI, accessibility, visual regression, performance, or composed behavior?
 3. Is the behavior browser-independent or browser-dependent?
 4. Does the behavior belong to a Playwright project, the k6 performance runtime, or Lighthouse browser-performance execution?
 5. Is there an existing test or workload demonstrating a similar pattern?
@@ -78,6 +78,10 @@ Current ownership:
 ```text
 tests/api/**
 → api project
+
+tests/database/**
+→ database project
+→ localDocker
 
 tests/accessibility/**
 → accessibility project
@@ -110,6 +114,8 @@ performance/lighthouse/**
 
 API tests are browser-independent and must execute through the dedicated `api` project.
 
+Database tests are browser-independent persistence validations and must execute through the dedicated `database` project against the `localDocker` environment. The database project executes once with retries disabled rather than being multiplied across browser projects.
+
 Accessibility tests use browser-rendered application state but execute through the dedicated `accessibility` project. The current automated accessibility gate runs once through Chromium rather than being multiplied across the full UI browser matrix.
 
 Visual regression tests use browser-rendered application state but execute through the dedicated `visual` project. The current visual gate runs once through Chromium in the canonical Docker/Linux runtime rather than maintaining equivalent baselines across the full UI browser matrix.
@@ -133,6 +139,14 @@ When adding a new API test:
 ```text
 place under tests/api
 → execute with --project=api
+```
+
+When adding a new database test:
+
+```text
+place under tests/database
+→ execute with --project=database
+→ execute against localDocker
 ```
 
 When adding a new accessibility test:
@@ -184,6 +198,15 @@ Need to call a new API endpoint?
 
 Need to define or change a provider request/response contract?
 → Schema
+
+Need direct persistence validation?
+→ Domain Database Client
+
+Need PostgreSQL transport or connection lifecycle?
+→ DatabaseClient
+
+Need to restore the dedicated test database baseline?
+→ explicit database reset utility
 
 Need reusable stable domain values?
 → Constants
@@ -251,6 +274,18 @@ New user API behavior
 → inspect relevant fixtures
 → inspect existing user API specs
 → keep execution in the api project
+```
+
+or:
+
+```text
+New database validation
+→ inspect existing database specs
+→ inspect relevant API setup and factory
+→ reuse fixture-provided domain database client
+→ keep SQL inside the database client layer
+→ keep assertions in the spec
+→ keep execution in the database project
 ```
 
 or:
@@ -406,6 +441,89 @@ Setup helpers may provide stronger guarantees when repeated successful setup is 
 
 Do not introduce a generic base client unless demonstrated duplication justifies it.
 
+## Database Test Standard
+
+Database validation belongs under:
+
+```text
+tests/database/**
+```
+
+and executes through the dedicated `database` Playwright project.
+
+The canonical database validation flow is:
+
+```text
+prerequisite / API behavior
+        ↓
+fixture-provided domain database client
+        ↓
+DatabaseClient
+        ↓
+PostgreSQL / Neon
+        ↓
+persistence assertions in the spec
+```
+
+Database tests should validate persisted application state across the API-to-database boundary rather than duplicate API response assertions.
+
+Use API clients and existing fixtures to create application behavior when the behavior under test is persistence. Query the resulting state through the relevant domain database client.
+
+Do not place raw SQL or direct `pg` usage in database specs.
+
+`DatabaseClient` owns PostgreSQL transport and connection lifecycle primitives.
+
+Domain database clients own domain-specific SQL and query semantics.
+
+Database record types must reflect the persisted database representation, including actual column naming, domain values, and nullability.
+
+Database queries must use parameterized values rather than interpolating test data into SQL.
+
+Database fixtures own client construction and cleanup. The underlying connection pool must be closed after fixture use.
+
+Database execution is guarded to:
+
+```text
+TEST_ENV=localDocker
+```
+
+Do not run the database project against `hosted`, `local`, or another environment merely because a database connection string is available.
+
+Database tests use unique generated data so independent executions do not rely on shared mutable records.
+
+The database project executes with:
+
+```text
+retries: 0
+```
+
+Persistent state is intentionally retained after a normal database test run for debugging and forensic inspection. Do not add per-test destructive cleanup merely to make the database appear clean after every execution.
+
+### Database Reset Standard
+
+The dedicated test database may be restored through the explicit reset workflow when a known baseline is required.
+
+The reset responsibility is:
+
+```text
+validate localDocker environment
+→ require explicit destructive-operation confirmation
+→ validate database connection configuration
+→ verify Docker availability
+→ recreate public schema
+→ restore application schema with db:push
+→ restore application seed data
+→ verify baseline state
+```
+
+The reset workflow is destructive and is valid only for the dedicated disposable test-owned database.
+
+It must not be generalized to a shared, non-test, staging, or production database.
+
+Normal test execution must not invoke the reset automatically.
+
+The application remains the owner of schema and seed restoration. The framework reset utility orchestrates the reset but does not duplicate the application's schema definition or seed logic.
+
 ## Schema Standard
 
 Provider API contracts use TypeBox as the source of truth.
@@ -486,6 +604,10 @@ When adding a fixture:
 3. keep its responsibility focused;
 4. clean up owned resources when required;
 5. preserve authentication boundaries.
+
+Database fixtures additionally must preserve the database execution boundary, reuse the shared `DatabaseClient`, and close the owned connection pool after use.
+
+A fixture must not bypass the `localDocker` database safety guard merely to make a database test executable in another environment.
 
 ## Authentication Standard
 
@@ -1407,11 +1529,28 @@ same test ownership
 same framework behavior
 ```
 
+The framework supports two distinct local execution modes:
+
+```text
+native local
+→ TEST_ENV=local
+→ application available at localhost:3000
+
+localDocker
+→ Docker Compose
+→ UPEX application container
+→ Playwright test container
+→ TEST_ENV=localDocker
+→ application available to tests at upex-local:3000
+```
+
+The dedicated PostgreSQL / Neon test database remains external to the Compose stack. Do not introduce a local PostgreSQL container merely to make `localDocker` self-contained.
+
 ### Image Standard
 
 Use the official Playwright image matching the Playwright version installed by the project lockfile.
 
-The current image is:
+The current Playwright base image is:
 
 ```text
 mcr.microsoft.com/playwright:v1.62.1-noble
@@ -1429,19 +1568,13 @@ npm ci
 
 Copy package metadata before the remaining source so dependency installation can use Docker layer caching when dependency metadata has not changed.
 
+The local UPEX application image is built separately from the UPEX source repository through `Dockerfile.upex-local`.
+
+Do not combine the application runtime and Playwright runtime into one universal image.
+
 ### Runtime Configuration Standard
 
-Environment-specific test configuration must be supplied at container runtime rather than baked into the image.
-
-Prefer:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests
-```
-
-Do not encode the selected `TEST_ENV` into the Docker image.
+Environment-specific configuration must be supplied at container runtime rather than baked into an image.
 
 The framework follows:
 
@@ -1452,54 +1585,60 @@ build once
 
 Container execution environment and test target environment are separate concerns.
 
+Native local execution selects:
+
+```text
+TEST_ENV=local
+→ http://localhost:3000
+```
+
+Compose-based functional execution selects:
+
+```text
+TEST_ENV=localDocker
+→ http://upex-local:3000
+```
+
+Database credentials must be supplied at runtime through `DATABASE_URL`. They must not be stored in `config/environments/environments.json`, committed files, or image layers.
+
 ### Project Execution Standard
 
-Use one reusable test image across the existing Playwright projects.
+Use one reusable Playwright test image across the existing Playwright projects.
 
-To execute a specific project, override the default container command:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=api
-```
-
-The same pattern applies to accessibility execution:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=accessibility
-```
-
-The same image also owns canonical visual execution:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  playwright-enterprise-tests \
-  npx playwright test --project=visual
-```
-
-Do not create separate Docker images for API, accessibility, visual, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
+The `localDocker` Compose runtime owns application startup, health validation, shared networking, runtime configuration, and Playwright execution.
 
 Project selection remains a Playwright execution concern.
+
+The functional project ownership is:
+
+```text
+api
+→ --project=api
+
+database
+→ --project=database
+
+accessibility
+→ --project=accessibility
+
+visual
+→ --project=visual
+
+UI
+→ --project=chromium
+→ --project=firefox
+→ --project=webkit
+```
+
+Do not create separate Docker images for API, database, accessibility, visual, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
+
+The database project must execute only through the `localDocker` target because its fixture safety guard intentionally rejects other framework environments.
 
 ### Container Lifecycle Standard
 
 Automated test containers should normally be ephemeral.
 
-Use:
-
-```text
---rm
-```
-
-when the stopped container itself is not required for post-execution debugging.
-
-The Playwright process is the main container process. Its exit code represents the execution result:
+The Playwright process exit code represents the execution result:
 
 ```text
 0
@@ -1511,30 +1650,18 @@ non-zero
 
 Do not treat a successfully started container as evidence that the test execution succeeded.
 
+The application container should be stopped after the job completes, including when test execution fails.
+
 ### Artifact Persistence Standard
 
 Do not rely on an ephemeral container filesystem for artifacts that must survive execution.
 
-For local Docker execution, persist Playwright outputs through bind mounts when the generated reports or diagnostics are required after container removal.
-
-Example:
-
-```bash
-docker run --rm \
-  -e TEST_ENV=hosted \
-  -v "$(pwd)/playwright-report:/app/playwright-report" \
-  -v "$(pwd)/test-results:/app/test-results" \
-  playwright-enterprise-tests
-```
-
-This preserves:
+For local Docker execution, the Compose configuration persists Playwright outputs through bind mounts:
 
 ```text
 playwright-report/
 test-results/
 ```
-
-outside the container lifecycle.
 
 Visual baseline generation additionally requires the owning snapshot path to persist outside the container lifecycle.
 
@@ -1576,7 +1703,7 @@ test-results
 .env.*
 ```
 
-Secrets must not be copied into the Docker image.
+Secrets must not be copied into Docker images.
 
 Do not:
 
@@ -1590,48 +1717,56 @@ and assume the secret has been removed safely.
 
 Data introduced into an earlier image layer may remain recoverable from the image history.
 
-Runtime credentials, when genuinely required, must be supplied through an appropriate runtime secret mechanism rather than embedded into the image.
+Runtime credentials, including `DATABASE_URL`, must be supplied through an appropriate runtime secret mechanism rather than embedded into an image.
 
 ### Docker and CI Standard
 
-The current GitHub Actions pipeline uses Docker as the Playwright test execution environment.
+The current GitHub Actions pipeline uses Docker Compose as the functional Playwright execution boundary.
 
-CI must preserve the same execution principles used by local Docker execution:
+CI builds two executable image types:
 
 ```text
-one reusable image
-→ runtime configuration
-→ Playwright project selection
-→ ephemeral container execution
-→ durable external artifacts
+Playwright framework image
+→ tagged with the framework commit SHA
+
+UPEX local application image
+→ tagged with the resolved UPEX upstream commit SHA
 ```
 
-The test image must be built once per trusted workflow execution and reused across API, accessibility, visual, and browser jobs.
+Both images are built once in `build-images`, published to GitHub Container Registry, and reused by the functional test jobs.
 
-Do not independently rebuild an equivalent image in every trusted test job unless a demonstrated isolation or performance requirement justifies it.
-
-The current trusted CI image flow is:
+The current CI image flow is:
 
 ```text
 quality
-→ build image once
-→ tag with github.sha
-→ push to GHCR
-→ pull exact SHA in test job
-→ docker run
+→ build-images
+→ build and publish immutable Playwright image
+→ build and publish immutable UPEX image
+→ functional jobs pull exact image revisions
+→ Docker Compose starts UPEX
+→ tests execute with TEST_ENV=localDocker
 ```
 
-Fork pull requests where registry write access is not appropriate may build the image locally in the consuming test jobs instead of requiring package write access.
+The functional CI capabilities are intentionally separate:
 
-Trusted API, accessibility, visual, and UI jobs must pull and execute the same SHA-tagged image revision for a workflow execution.
+```text
+api
+database
+accessibility
+visual
+ui matrix
+```
 
-Fork pull-request jobs using the local-build fallback must build from the same checked-out workflow revision and preserve the same Playwright image contract without requiring GHCR publication.
+API, database, accessibility, visual, and UI jobs must remain independent after `build-images` unless a genuine runtime dependency is introduced.
 
 Playwright remains responsible for selecting the execution project:
 
 ```text
 API job
 → --project=api
+
+Database job
+→ --project=database
 
 Accessibility job
 → --project=accessibility
@@ -1655,19 +1790,18 @@ It must not execute:
 
 CI is a verification boundary, not a baseline approval boundary.
 
-Docker must not introduce separate images merely to mirror Playwright project boundaries.
-
-Containerized CI execution should remain ephemeral through `--rm`.
+Docker must not introduce separate Playwright images merely to mirror Playwright project boundaries.
 
 Reports and diagnostics that must survive the container lifecycle must be mounted to the GitHub Actions runner and then preserved using the existing CI artifact strategy.
 
-Executable Playwright Docker images must be distributed through the container registry rather than uploaded as test-report artifacts.
+Executable Docker images must be distributed through the container registry rather than uploaded as test-report artifacts.
 
 The ownership boundary is:
 
 ```text
 GitHub Container Registry
-→ executable Playwright runtime image
+→ executable Playwright framework image
+→ executable UPEX application image
 
 GitHub Actions artifacts
 → HTML reports
@@ -1677,6 +1811,8 @@ GitHub Actions artifacts
 ```
 
 Container images and test evidence solve different persistence problems and must not be treated as interchangeable artifact types.
+
+Performance execution remains separate from this functional `localDocker` pipeline and continues to target the hosted environment through the dedicated performance workflow.
 
 When evolving the containerized CI model, evaluate:
 
@@ -1697,9 +1833,10 @@ The current CI dependency model is:
 ```text
 quality
     ↓
-build-image
+build-images
     ↓
     ├── api
+    ├── database
     ├── accessibility
     ├── visual
     └── ui matrix
@@ -1708,11 +1845,11 @@ build-image
         └── webkit
 ```
 
-The `build-image` job should depend on successful quality validation.
+The `build-images` job depends on successful quality validation.
 
-The `api`, `accessibility`, `visual`, and `ui` jobs should depend on the successfully built image rather than directly on the quality job.
+The `api`, `database`, `accessibility`, `visual`, and `ui` jobs depend on the successfully built immutable images rather than directly on the quality job.
 
-API, accessibility, visual, and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
+API, database, accessibility, visual, and UI jobs must remain independent from one another unless a genuine runtime dependency is introduced.
 
 Do not serialize independent jobs merely because they belong to the same workflow.
 
@@ -1761,20 +1898,23 @@ Current limits:
 quality
 → 5 minutes
 
-build-image
-→ 15 minutes
+build-images
+→ 20 minutes
 
 api
-→ 10 minutes
+→ 15 minutes
+
+database
+→ 15 minutes
 
 accessibility
-→ 10 minutes
+→ 15 minutes
 
 visual
-→ 10 minutes
+→ 15 minutes
 
 ui
-→ 10 minutes per browser matrix job
+→ 15 minutes per browser matrix job
 
 performance
 → 5 minutes
@@ -1803,6 +1943,8 @@ first attempt fails
 ```
 
 A test that repeatedly requires retries must not be treated as equivalent to a consistently passing test.
+
+Database persistence tests execute with retries disabled. A failed database validation must remain attributable to the original persisted state rather than creating additional persistent test datasets through automatic retry.
 
 Performance quality gates must not rely on Playwright retries to recover from a failed threshold evaluation.
 
@@ -1833,6 +1975,14 @@ API job:
 use the workflow's reusable test image
 → no browser execution required
 → execute --project=api
+```
+
+Database job:
+
+```text
+use the same reusable test image
+→ no browser execution required
+→ execute --project=database
 ```
 
 Accessibility job:
@@ -1874,7 +2024,7 @@ The browser-performance job must not assume that the reusable Playwright Docker 
 
 Lighthouse requires a Node/Chrome-or-Chromium runtime appropriate to browser-performance measurement, while the `performance` Playwright project is used only for authenticated scenario orchestration before Lighthouse measurement.
 
-Do not reinstall Playwright browsers independently in API, accessibility, visual, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
+Do not reinstall Playwright browsers independently in API, database, accessibility, visual, or UI test jobs when the required browser binaries and operating-system dependencies are already provided by the shared image.
 
 Do not create browser-specific Docker images merely to match the browser matrix.
 
@@ -1882,11 +2032,15 @@ Do not create browser-specific Docker images merely to match the browser matrix.
 
 CI execution must explicitly select the intended test target.
 
-Current CI target:
+The main functional CI target is:
 
 ```text
-TEST_ENV=hosted
+TEST_ENV=localDocker
 ```
+
+The functional jobs execute against the UPEX application container on the Compose network rather than against the hosted deployment.
+
+The dedicated performance workflow remains hosted because its execution cadence, measurement model, and target-safety constraints are separate from the functional pipeline.
 
 Do not rely on an implicit default environment for CI behavior when the intended target can be stated explicitly.
 
@@ -1926,6 +2080,8 @@ environments.json
             → k6 execution
 ```
 
+For `localDocker`, Playwright resolves the application through the Compose network alias `upex-local`.
+
 Browser-performance execution resolves the selected environment's `webBaseUrl` from the same shared configuration and uses it as the Lighthouse audit target.
 
 Do not maintain separate hardcoded browser-performance target URLs when `webBaseUrl` already owns that environment-specific responsibility.
@@ -1964,9 +2120,9 @@ The image-publishing job may additionally receive:
 packages: write
 ```
 
-because it publishes the SHA-tagged Playwright image to GitHub Container Registry.
+because it publishes the SHA-tagged Playwright framework image and resolved-SHA-tagged UPEX application image to GitHub Container Registry.
 
-Jobs that only consume the published image should receive:
+Jobs that only consume the published images should receive:
 
 ```text
 packages: read
@@ -1976,11 +2132,9 @@ rather than package write access.
 
 Package permissions should be scoped to the jobs that require them rather than granted workflow-wide.
 
-Fork pull-request execution must not depend on package write access when the workflow uses the local-build fallback instead of publishing an image.
-
 Sensitive values must not be hardcoded in workflow YAML.
 
-Do not introduce placeholder or demonstration secrets when the framework has no real secret requirement.
+The functional `localDocker` CI runtime requires `DATABASE_URL` for the dedicated test database. It must be supplied through the workflow secret mechanism and must never be logged or embedded into either image.
 
 When secrets are required:
 
@@ -2009,6 +2163,7 @@ Examples:
 
 ```text
 playwright-report-api
+playwright-report-database
 playwright-report-accessibility
 playwright-report-visual
 playwright-report-chromium
@@ -2016,6 +2171,7 @@ playwright-report-firefox
 playwright-report-webkit
 
 test-results-api
+test-results-database
 test-results-accessibility
 test-results-visual
 test-results-chromium
@@ -2062,13 +2218,14 @@ For browser performance, the shared Lighthouse threshold and severity policy rem
 
 Version-controlled visual baselines are not CI artifacts. They are reviewed repository assets.
 
-Executable Playwright Docker images are not CI report artifacts. They belong in GitHub Container Registry.
+Executable Playwright and UPEX application Docker images are not CI report artifacts. They belong in GitHub Container Registry.
 
 The artifact strategy therefore separates:
 
 ```text
 GitHub Container Registry
 → executable Playwright runtime image
+→ executable UPEX application image
 
 GitHub Actions artifacts
 → test reports
@@ -2114,6 +2271,8 @@ GitHub Actions matrix
 
 Do not introduce a matrix when a single execution would provide equivalent coverage.
 
+The database project intentionally executes once because persistence validation is browser-independent and therefore does not require a CI matrix.
+
 The accessibility project intentionally uses a single Chromium execution and therefore does not require a CI matrix.
 
 The visual project also intentionally uses a single Chromium execution in the canonical Docker/Linux runtime and therefore does not require a CI browser matrix.
@@ -2141,6 +2300,9 @@ Prefer:
 ```text
 UserApiClient
 TaskApiClient
+DatabaseClient
+UserDatabaseClient
+TaskDatabaseClient
 TasksDashboardPage
 createTestUser
 createTask
@@ -2195,6 +2357,7 @@ Avoid generic AAA comments when the structure is already clear.
 Before creating a new:
 
 - client;
+- database client;
 - schema;
 - constant collection;
 - factory;
@@ -2260,7 +2423,7 @@ Behavior implemented
         ↓
 Correct test suite or performance workload selected
         ↓
-Correct Playwright project, k6 runtime, or Lighthouse measurement boundary owns the test/workload
+Correct Playwright project, database boundary, k6 runtime, or Lighthouse measurement boundary owns the test/workload
         ↓
 Architecture boundaries respected
         ↓
@@ -2279,6 +2442,24 @@ Relevant project, workload, or regression scope passes when appropriate
 CI execution remains valid when shared execution config changes
         ↓
 Documentation updated if architecture or standards changed
+```
+
+For database changes, completion additionally requires when applicable:
+
+```text
+database execution remains restricted to localDocker
+        ↓
+fixture-managed database lifecycle preserved
+        ↓
+SQL remains inside database client layer
+        ↓
+cross-layer persistence behavior validated
+        ↓
+database project executes with retries disabled
+        ↓
+normal execution preserves state for debugging
+        ↓
+destructive reset remains explicit and guarded
 ```
 
 For visual regression changes, completion additionally requires when applicable:
@@ -2346,6 +2527,7 @@ may legitimately require changes to:
 ```text
 schema
 → client
+→ database client
 → constants
 → factory
 → fixture
@@ -2363,6 +2545,12 @@ When generating a new test or performance workload, an agent must determine whet
 
 ```text
 api project
+```
+
+or:
+
+```text
+database project
 ```
 
 or:
@@ -2398,6 +2586,14 @@ performance Playwright project + Lighthouse measurement
 before implementation.
 
 Agents must not cause browser-independent API tests to execute redundantly across browser projects.
+
+Agents generating database validation must reuse the existing database fixtures, `DatabaseClient`, and domain database clients rather than placing raw SQL or direct PostgreSQL transport in specs.
+
+Agents must keep database assertions in specs, preserve parameterized query usage, execute database tests only through the `database` project against `localDocker`, and preserve the project's zero-retry behavior.
+
+Agents must not introduce per-test database cleanup or automatically invoke the destructive database reset when the canonical strategy intentionally preserves state for debugging. The explicit reset workflow must retain its environment and confirmation guards.
+
+Agents must not cause browser-independent database tests to execute redundantly across browser projects.
 
 Agents must not cause accessibility tests to execute redundantly across the browser matrix without a demonstrated browser-specific requirement.
 

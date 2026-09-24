@@ -4,7 +4,7 @@
 
 The framework is designed to demonstrate enterprise-level Quality Engineering practices using Playwright and TypeScript against a production-like web application.
 
-The framework should be scalable, maintainable, CI-friendly, and suitable for UI, API, accessibility, visual, and performance testing.
+The framework should be scalable, maintainable, CI-friendly, and suitable for UI, API, database, accessibility, visual, and performance testing.
 
 ## Functional Requirements
 
@@ -12,6 +12,7 @@ The framework must support:
 
 - UI end-to-end testing
 - API testing
+- Direct database validation against a dedicated test database
 - Authentication and session reuse
 - Multiple user roles
 - Cross-browser execution
@@ -26,6 +27,7 @@ The framework must support:
 - HTML and machine-readable reporting
 - CI/CD execution
 - Docker-based execution
+- Reproducible local application execution through Docker Compose for `localDocker`
 - Separate runtime ownership appropriate to Playwright test execution, k6 API performance testing, and Lighthouse browser-performance measurement
 - Accessibility testing
 - Visual regression testing
@@ -42,6 +44,8 @@ The framework must support:
 - Mocking and network interception
 - Secrets management
 - Multiple deployment environments
+- Explicit guarded reset of the dedicated test database to the application-owned seeded baseline
+- Immutable CI container images for the Playwright framework and local UPEX application runtime
 
 ## Non-Functional Requirements
 
@@ -59,13 +63,15 @@ The architecture should remain manageable as the test suite grows to hundreds or
 
 The framework should minimize flaky tests and provide useful diagnostic information when failures occur.
 
+Database validation should use a dedicated disposable test database and preserve resulting test state during normal execution so failed persistence behavior remains inspectable. Destructive reset must be explicit, guarded, and restore the application-owned schema and baseline seed state.
+
 Visual regression tests should establish deterministic rendered state before comparison and must not rely on automatic baseline updates to hide unstable or unexpected differences.
 
 Browser-performance coverage should reuse existing deterministic framework setup where that setup already represents the required application state rather than duplicating business-state initialization solely for performance measurement.
 
 ### Fast
 
-Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, dedicated accessibility coverage, and dedicated visual regression coverage.
+Tests should support parallel execution, efficient authentication, and appropriate separation between UI, API, database, dedicated accessibility coverage, and dedicated visual regression coverage.
 
 ### Reusable
 
@@ -77,13 +83,15 @@ New abstractions should only be introduced where they provide demonstrated reuse
 
 The framework must run consistently in local environments, CI pipelines, and containers.
 
+The main Playwright CI workflow should execute API, database, accessibility, visual, and browser projects against a reproducible local UPEX application runtime started through Docker Compose, while performance execution remains a separate hosted-target workflow.
+
 Visual regression comparison must use committed approved baselines and a reproducible rendering environment. CI must compare against those baselines rather than generating or automatically approving replacements.
 
 Performance execution should preserve the runtime boundary appropriate to the measurement responsibility: k6 for API workload performance and Lighthouse with a Node/Chrome-or-Chromium runtime for browser-performance measurement.
 
 ### Observable
 
-Failures should provide sufficient logs, screenshots, traces, videos, reports, accessibility diagnostics, and visual comparison evidence for efficient troubleshooting.
+Failures should provide sufficient logs, screenshots, traces, videos, reports, accessibility diagnostics, visual comparison evidence, application logs, and database validation evidence for efficient troubleshooting.
 
 Visual regression failures should provide expected, actual, and diff evidence where available.
 
@@ -91,7 +99,9 @@ Performance execution should preserve human-readable and machine-readable eviden
 
 ### Secure
 
-Credentials, tokens, and other sensitive information must never be committed to source control.
+Credentials, tokens, database connection strings, and other sensitive information must never be committed to source control.
+
+Destructive database operations must be restricted to the dedicated test-owned `localDocker` database boundary and require explicit safety confirmation.
 
 ### Extensible
 
@@ -99,7 +109,7 @@ New testing capabilities should be addable without requiring major redesign of t
 
 ## Target Test Application
 
-The framework currently targets UPEX DOJO, a production-like web application used to demonstrate enterprise Quality Engineering practices across UI and API layers.
+The framework currently targets UPEX DOJO, a production-like web application used to demonstrate enterprise Quality Engineering practices across UI, API, and persistence layers.
 
 Application:
 
@@ -118,6 +128,7 @@ The application provides realistic workflows including:
 - token-based API authentication;
 - browser session authentication;
 - API and UI workflow composition;
+- persisted user and task state suitable for direct database validation;
 - network interception and mocking;
 - browser-rendered states suitable for automated accessibility validation;
 - deterministic browser-rendered states suitable for visual regression testing;
@@ -129,7 +140,7 @@ The application intentionally supports two authentication contexts used by the f
 - REST API authentication through Bearer JWT tokens;
 - browser authentication through an Auth.js session.
 
-This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, accessibility validation of both public and authenticated browser states, deterministic authenticated visual regression scenarios, controlled API performance testing, and authenticated browser-performance measurement without relying on slow UI-based setup.
+This distinction allows the framework to demonstrate realistic API setup, programmatic browser authentication, authenticated UI testing, API/UI composition, database persistence validation, accessibility validation of both public and authenticated browser states, deterministic authenticated visual regression scenarios, controlled API performance testing, and authenticated browser-performance measurement without relying on slow UI-based setup.
 
 ## Out of Scope for Initial Version
 
@@ -148,12 +159,18 @@ These areas may be introduced later if they provide clear portfolio or market va
 The framework will be considered successful when:
 
 - tests can run locally and in CI;
-- UI and API layers are both covered;
+- UI, API, and database persistence layers are covered;
 - test architecture is clearly documented;
 - failures are easy to diagnose;
 - tests can execute in parallel;
 - environments and secrets are handled cleanly;
 - Docker execution is supported;
+- local native execution and `localDocker` execution are both explicit and documented;
+- the main Playwright CI workflow runs against a reproducible Docker Compose UPEX runtime rather than the shared hosted application;
+- API, database, accessibility, visual, and browser jobs reuse immutable Playwright and UPEX images for a workflow execution;
+- database validation uses typed domain clients and fixture-managed connection lifecycle;
+- database tests execute through a dedicated browser-independent Playwright project with retries disabled;
+- destructive test-database reset is explicit, guarded, restores the UPEX-owned schema and seed state, and verifies the baseline after restoration;
 - automated accessibility checks are integrated through a dedicated Playwright project and CI quality gate;
 - accessibility failures remain visible as real quality signals rather than being suppressed for pipeline success;
 - visual regression checks are integrated through a dedicated Playwright project and CI quality gate;
