@@ -3,8 +3,12 @@ import path from "node:path";
 
 import OpenAI from "openai";
 
+import { validateSchema } from "../../api/utils/SchemaValidator";
 import { OpenAIFailureAnalyzer } from "../analyzers/OpenAIFailureAnalyzer";
-import type { FailureEvidence } from "../models/FailureEvidence";
+import {
+  FailureEvidenceSchema,
+  type FailureEvidence,
+} from "../schemas/FailureEvidenceSchema";
 
 async function main(): Promise<void> {
   const evidencePath = process.argv[2];
@@ -14,17 +18,17 @@ async function main(): Promise<void> {
       "Usage: npm run ai:analyze-failure -- <failure-evidence.json>",
     );
   }
-
   const absoluteEvidencePath = path.resolve(evidencePath);
-
   if (!fs.existsSync(absoluteEvidencePath)) {
     throw new Error(`Failure evidence file not found: ${evidencePath}`);
   }
+  const rawEvidence = fs.readFileSync(absoluteEvidencePath, "utf8");
+  const parsed: unknown = JSON.parse(rawEvidence);
+  validateSchema(FailureEvidenceSchema, parsed);
+  const evidence: FailureEvidence = parsed;
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is required.");
   }
-  const rawEvidence = fs.readFileSync(absoluteEvidencePath, "utf8");
-  const evidence = JSON.parse(rawEvidence) as FailureEvidence;
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });

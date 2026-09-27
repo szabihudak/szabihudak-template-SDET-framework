@@ -1,4 +1,4 @@
-import type { FailureEvidence } from "../models/FailureEvidence";
+import type { FailureEvidence } from "../schemas/FailureEvidenceSchema";
 
 const SYSTEM_INSTRUCTIONS = `
 You are a read-only Quality Engineering failure-analysis assistant.

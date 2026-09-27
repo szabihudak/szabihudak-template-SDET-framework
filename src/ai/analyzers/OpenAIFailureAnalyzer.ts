@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 
-import type { FailureEvidence } from "../models/FailureEvidence";
+import { validateSchema } from "../../api/utils/SchemaValidator";
 import { buildFailureAnalysisPrompt } from "../prompts/buildFailureAnalysisPrompt";
 import {
   FailureAnalysisSchema,
   type FailureAnalysis,
 } from "../schemas/FailureAnalysisSchema";
-import { validateSchema } from "../../api/utils/SchemaValidator";
+import type { FailureEvidence } from "../schemas/FailureEvidenceSchema";
 import type { FailureAnalyzer } from "./FailureAnalyzer";
 
 export class OpenAIFailureAnalyzer implements FailureAnalyzer {
@@ -35,11 +35,8 @@ export class OpenAIFailureAnalyzer implements FailureAnalyzer {
     if (!response.output_text) {
       throw new Error("OpenAI failure analysis returned no output.");
     }
-
     const parsed: unknown = JSON.parse(response.output_text);
-
     validateSchema(FailureAnalysisSchema, parsed);
-
     return parsed;
   }
 }

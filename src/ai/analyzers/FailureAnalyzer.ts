@@ -1,4 +1,4 @@
-import type { FailureEvidence } from "../models/FailureEvidence";
+import type { FailureEvidence } from "../schemas/FailureEvidenceSchema";
 import type { FailureAnalysis } from "../schemas/FailureAnalysisSchema";
 
 export interface FailureAnalyzer {
