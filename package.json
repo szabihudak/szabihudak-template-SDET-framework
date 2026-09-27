@@ -10,6 +10,7 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "db:test:reset": "tsx src/database/utils/resetTestDatabase.ts",
+    "ai:analyze-failure": "tsx src/ai/cli/analyzeFailure.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
