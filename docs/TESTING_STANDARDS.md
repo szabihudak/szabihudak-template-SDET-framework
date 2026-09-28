@@ -567,8 +567,6 @@ Domain unions should derive from canonical constant arrays when appropriate.
 
 ## Factory Standard
 
-## Factory Standard
-
 Factories should generate valid test data by default.
 
 Preferred pattern:
