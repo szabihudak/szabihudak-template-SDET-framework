@@ -368,6 +368,24 @@ Use UI login only when login behavior itself is under test.
 
 Do not introduce new abstractions such as a generic base client, service layer, generic factory, generic mock service, helper wrapper, fixture, database abstraction beyond the established transport/domain-client boundary, accessibility abstraction, visual abstraction, or performance abstraction unless demonstrated reuse or complexity justifies them.
 
+For test-data factories, preserve the canonical pattern:
+
+```text
+createX()
+→ complete domain-valid data
+
+createXPayload()
+→ controlled request-payload variation
+→ may omit fields
+→ may return Partial<RequestType>
+```
+
+Use normal typed factory overrides for business-invalid values that are still valid TypeScript values.
+
+Do not widen domain types or shared factory option types merely to generate malformed runtime values.
+
+When a negative API scenario requires a value rejected by the domain type itself, keep that malformed value explicit and local to the owning negative test unless demonstrated reuse justifies a dedicated abstraction.
+
 Prefer the smallest architecturally complete change.
 
 This does not mean changing the fewest files.

@@ -567,6 +567,8 @@ Domain unions should derive from canonical constant arrays when appropriate.
 
 ## Factory Standard
 
+## Factory Standard
+
 Factories should generate valid test data by default.
 
 Preferred pattern:
@@ -580,6 +582,67 @@ scenario-specific data
 ```
 
 Factories may additionally support intentionally partial or invalid data when negative testing requires it.
+
+### Canonical Factory and Payload Pattern
+
+Use the following responsibility split for domain test-data construction:
+
+```text
+createX()
+→ complete domain-valid object
+→ strong domain types
+→ valid defaults with explicit scenario overrides
+
+createXPayload()
+→ request-payload variation
+→ starts from createX()
+→ may intentionally omit request fields
+→ may return Partial<RequestType>
+```
+
+Examples:
+
+```text
+createTestUser()
+→ complete valid TestUser
+
+createTestUserPayload()
+→ controlled partial user request payload
+
+createTask()
+→ complete valid task request
+
+createTaskPayload()
+→ controlled partial task request payload
+```
+
+Business-invalid values that are still valid according to the TypeScript type may be supplied through normal factory overrides.
+
+Examples:
+
+```text
+password: "12345"
+email: ""
+```
+
+Do not weaken strong domain types merely to allow values that are intentionally invalid at runtime.
+
+For values rejected by the TypeScript/domain type itself, construct the malformed value explicitly and locally in the negative test that owns the scenario.
+
+Example:
+
+```text
+TaskPriority
+→ "low" | "medium" | "high"
+
+unsupported runtime value
+→ explicit negative-test payload
+→ do not widen TaskPriority to string
+```
+
+Prefer the smallest explicit negative-test escape from the type system.
+
+Do not introduce generic invalid-data factories or weaken shared domain types solely to support malformed runtime inputs.
 
 Factories must not:
 

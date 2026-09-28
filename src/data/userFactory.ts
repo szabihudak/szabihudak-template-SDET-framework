@@ -6,7 +6,7 @@ type CreateTestUserOptions = {
   password?: string;
 };
 
-type CreateInvalidTestUserOptions = CreateTestUserOptions & {
+type CreateTestUserPayloadOptions = CreateTestUserOptions & {
   missingFields?: (keyof TestUser)[];
 };
 
@@ -20,8 +20,8 @@ export function createTestUser(options: CreateTestUserOptions = {}): TestUser {
   };
 }
 
-export function createInvalidTestUser(
-  options: CreateInvalidTestUserOptions = {},
+export function createTestUserPayload(
+  options: CreateTestUserPayloadOptions = {},
 ): Partial<TestUser> {
   const user: Partial<TestUser> = createTestUser(options);
 

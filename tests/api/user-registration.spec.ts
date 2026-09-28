@@ -6,7 +6,7 @@ import { userRegistrationSchema } from "../../src/api/schemas/UserRegistrationSc
 import { validateSchema } from "../../src/api/utils/SchemaValidator";
 import {
   createTestUser,
-  createInvalidTestUser,
+  createTestUserPayload,
 } from "../../src/data/userFactory";
 import { API_MESSAGES } from "../../src/api/constants/apiMessages";
 
@@ -134,7 +134,7 @@ test.describe("User Registration API", () => {
 
   for (const scenario of missingFieldScenarios) {
     test(scenario.name, async ({ userApi }) => {
-      const userData = createInvalidTestUser({
+      const userData = createTestUserPayload({
         missingFields: [scenario.missingField],
       });
 
