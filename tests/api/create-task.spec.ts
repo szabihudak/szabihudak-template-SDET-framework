@@ -140,6 +140,24 @@ test.describe("Create a Task API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
+  test("rejects task with unsupported priority", async ({
+    taskApi,
+    authenticatedTestUser,
+  }) => {
+    const user = authenticatedTestUser;
+    const taskData = {
+      ...createTask(),
+      priority: "critical" as TaskRequest["priority"],
+    };
+
+    const response = await taskApi.createTask(taskData, user.accessToken);
+    expect(response.status()).toBe(HTTP_STATUS.BAD_REQUEST);
+
+    const body = await response.json();
+
+    expect(body.error).toBe(API_ERRORS.VALIDATION_FAILED);
+  });
+
   for (const scenario of missingTaskFieldScenarios) {
     test(scenario.name, async ({ taskApi, authenticatedTestUser }) => {
       const user = authenticatedTestUser;
