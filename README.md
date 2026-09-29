@@ -9,9 +9,9 @@
 [![GHCR](https://img.shields.io/badge/GHCR-Container%20Registry-181717?logo=github&logoColor=white)](https://ghcr.io/)
 [![CI](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml/badge.svg)](https://github.com/szabihudak/playwright-enterprise-framework-private/actions/workflows/playwright.yml)
 
-A production-oriented **Playwright + TypeScript test automation framework** demonstrating scalable Quality Engineering practices across API, database, browser, contract, automated accessibility, visual regression, API performance, and browser performance testing.
+A production-oriented **Playwright + TypeScript Quality Engineering framework** demonstrating scalable practices across API, database, browser, contract, automated accessibility, visual regression, performance testing, framework-owned AI analysis and test design, and AI-assisted engineering.
 
-The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, performance quality signals, and failure diagnostics**.
+The framework is designed around the concerns that matter in real automation systems: **maintainability, reproducibility, execution ownership, runtime contract validation, deterministic test setup, CI efficiency, accessibility quality signals, visual regression signals, performance quality signals, failure diagnostics, structured AI output validation, evidence-grounded AI assistance, and mandatory human review**.
 
 ## Engineering Capabilities
 
@@ -47,6 +47,12 @@ flowchart TD
     AIFA[AI Failure Analysis]
     AITD[AI Test Design]
     HUMAN[Human Review]
+    AIE[AI-Assisted Engineering]
+    COPILOT[GitHub Copilot]
+    CONTEXT[Repository Context + Golden Templates]
+    MCP[OpenAPI MCP + Playwright MCP]
+    PROPOSAL[Engineering / Test Proposal]
+    VALIDATE[Deterministic Validation]
 
     A --> B[API Testing]
     A --> C[UI Testing]
@@ -109,6 +115,13 @@ flowchart TD
     AIFA --> HUMAN
 
     AITD --> HUMAN
+
+    AIE --> COPILOT
+    CONTEXT --> COPILOT
+    MCP --> COPILOT
+    COPILOT --> PROPOSAL
+    PROPOSAL --> HUMAN
+    HUMAN --> VALIDATE
 ```
 
 ## Engineering Approach
@@ -162,6 +175,9 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 | CI/CD                     | GitHub Actions                |
 | Formatting                | Prettier                      |
 | Target Application        | UPEX DOJO                     |
+| Framework-Owned AI        | OpenAI Responses API          |
+| AI-Assisted Engineering   | GitHub Copilot                |
+| External AI Evidence      | OpenAPI MCP + Playwright MCP  |
 
 ## Architecture
 
@@ -1096,6 +1112,24 @@ New abstractions are introduced only when demonstrated responsibility, reuse, or
 
 The repository is structured to support AI-assisted engineering without allowing generated code to define the architecture.
 
+Week 9 validates this model through GitHub Copilot-assisted test generation and engineering tasks, repository-aware Golden Template discovery, OpenAPI MCP contract discovery, and Playwright MCP browser exploration.
+
+The validated engineering boundary is:
+
+```text
+repository context + authoritative evidence
+→ AI proposal
+→ human review
+→ targeted feedback
+→ implementation
+→ deterministic validation
+→ human approval
+```
+
+Framework-owned AI capabilities additionally provide structured failure analysis and test scenario generation through the OpenAI Responses API. These outputs remain advisory and require human review.
+
+The complete validated workflow, evidence boundaries, capability status, and documented limitations are maintained in [`docs/AI_ASSISTED_QA_WORKFLOW.md`](docs/AI_ASSISTED_QA_WORKFLOW.md).
+
 AI coding agents are instructed to:
 
 - inspect existing implementations before generating code;
@@ -1185,6 +1219,13 @@ CI quality gates                     ✅
 CI artifacts                         ✅
 Browser matrix execution             ✅
 Agent engineering standards          ✅
+AI Failure Analysis                  ✅
+AI Test Scenario Generation          ✅
+Copilot-assisted test generation     ✅
+Copilot Agent engineering workflow   ✅
+OpenAPI MCP contract discovery       ✅
+Playwright MCP browser exploration   ✅
+Golden Template AI guidance          ✅
 ```
 
 Additional Quality Engineering capabilities will be introduced as the framework evolves.
