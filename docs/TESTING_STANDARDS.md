@@ -2700,4 +2700,71 @@ For k6, native threshold failures must remain failing quality signals.
 
 For Lighthouse, `error` severity policy violations must remain failing quality signals. `warn` severity violations remain diagnostic signals and must not be silently suppressed or reclassified merely to avoid investigation.
 
+AI-assisted engineering must distinguish between repository evidence, provider-contract evidence, and runtime browser evidence.
+
+```text
+repository evidence
+→ architecture, ownership, existing abstractions, Golden Templates
+
+provider-contract evidence
+→ authoritative API behavior and contract discovery
+
+runtime browser evidence
+→ observable rendered state and browser behavior
+```
+
+OpenAPI MCP may be used to discover provider contracts, and Playwright MCP may be used to explore runtime browser behavior. Neither source overrides repository architecture or implementation ownership.
+
+AI-generated tests and implementation proposals must follow the closest validated repository implementation as a Golden Template.
+
+Golden Template consistency includes:
+
+```text
+behavioral consistency
++ architectural consistency
++ structural consistency
++ stylistic consistency
+```
+
+Similarity alone is not sufficient if the reference does not represent the same responsibility or execution boundary.
+
+AI-assisted changes must follow the review sequence:
+
+```text
+proposal
+→ human review
+→ targeted feedback
+→ implementation
+→ deterministic validation
+→ human approval
+```
+
+Generated code must not be considered validated merely because it was produced by an AI agent or because the generated implementation appears plausible.
+
+Validation must use the deterministic checks appropriate to the affected scope, such as formatting, type checking, targeted Playwright execution, or other repository-owned quality gates.
+
+Framework-owned AI capabilities must validate structured inputs and outputs against their runtime schemas.
+
+Missing output, refusal, incomplete provider responses, invalid JSON, and schema-invalid output must be treated as explicit failures rather than silently accepted or coerced.
+
+Failure evidence sent to an AI provider must be sanitized before submission.
+
+Artifact metadata may be included as evidence, but the existence of a screenshot, trace, or video path must not be interpreted as evidence that the AI inspected the artifact contents.
+
+AI-generated failure analysis and test design are advisory outputs.
+
+They must not autonomously:
+
+- modify repository files;
+- weaken assertions;
+- update visual baselines;
+- invent unsupported provider contracts or application behavior;
+- convert uncertain evidence into a confirmed defect classification;
+- bypass deterministic validation;
+- approve their own implementation.
+
+Human review remains required before AI-generated analysis, test design, or implementation proposals are accepted as engineering decisions.
+
+The complete validated AI-assisted QA workflow and current capability boundaries are documented in [`AI_ASSISTED_QA_WORKFLOW.md`](AI_ASSISTED_QA_WORKFLOW.md).
+
 Architecture must drive generated code, not the other way around.
