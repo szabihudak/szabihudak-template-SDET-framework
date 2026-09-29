@@ -55,6 +55,17 @@ jobs:
             "$K6_IMAGE" \
             run /scripts/taskReadLoad.js
 
+      - name: Publish k6 performance summary
+        if: always()
+        run: |
+          if [ -f performance-results/k6/github-summary.md ]; then
+            cat performance-results/k6/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## K6 API Performance - Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No k6 performance summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload k6 performance report
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,6 +113,28 @@ jobs:
           npx playwright test \
             tests/performance/lighthouse-dashboard.spec.ts \
             --project=performance
+
+      - name: Publish Lighthouse performance summary
+        if: always()
+        run: |
+          if [ -f performance-results/lighthouse/github-summary.md ]; then
+            cat performance-results/lighthouse/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Lighthouse - Performance Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No Lighthouse performance summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publish Playwright performance test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Performance - Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No Playwright performance test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Lighthouse reports
         if: always()
