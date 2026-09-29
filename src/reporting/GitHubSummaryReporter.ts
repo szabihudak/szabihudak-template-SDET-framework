@@ -84,7 +84,8 @@ export default class GitHubSummaryReporter implements Reporter {
     }
 
     const durationMs = Date.now() - this.startedAt;
-    const markdown = this.buildMarkdown(
+
+    const summary = this.buildSummary(
       result,
       counts,
       this.toFileSummaries(testSummaries),
@@ -95,7 +96,7 @@ export default class GitHubSummaryReporter implements Reporter {
     const outputPath = path.resolve("test-results", "github-summary.md");
 
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-    fs.writeFileSync(outputPath, markdown, "utf8");
+    fs.writeFileSync(outputPath, summary, "utf8");
   }
 
   private toTestOutcome(
@@ -173,7 +174,7 @@ export default class GitHubSummaryReporter implements Reporter {
     };
   }
 
-  private buildMarkdown(
+  private buildSummary(
     result: FullResult,
     counts: {
       passed: number;
@@ -187,61 +188,84 @@ export default class GitHubSummaryReporter implements Reporter {
   ): string {
     const runOutcome: TestOutcome =
       result.status === "passed" ? "passed" : "failed";
+
     const runIcon = this.outcomeIcon(runOutcome);
     const durationSeconds = (durationMs / 1000).toFixed(1);
-    const displayProjectName = this.formatProjectName(this.projectName);
+    const displayProjectName = this.escapeHtml(
+      this.formatProjectName(this.projectName),
+    );
 
     const lines = [
       "<details>",
       `<summary><strong>${displayProjectName} - Test Summary ${runIcon}</strong></summary>`,
       "",
-      `**Run status:** ${result.status}`,
+      "<br>",
       "",
-      "| Result | Count |",
-      "| --- | ---: |",
-      `| ✅ Passed | ${counts.passed} |`,
-      `| ❌ Failed | ${counts.failed} |`,
-      `| ⚠️ Flaky | ${counts.flaky} |`,
-      `| ⏭ Skipped | ${counts.skipped} |`,
+      `<p><strong>Run status:</strong> ${this.escapeHtml(result.status)}</p>`,
       "",
-      `**Duration:** ${durationSeconds}s`,
+      "<table>",
+      "<thead>",
+      "<tr>",
+      "<th>Result</th>",
+      '<th align="right">Count</th>',
+      "</tr>",
+      "</thead>",
+      "<tbody>",
+      `<tr><td>✅ Passed</td><td align="right">${counts.passed}</td></tr>`,
+      `<tr><td>❌ Failed</td><td align="right">${counts.failed}</td></tr>`,
+      `<tr><td>⚠️ Flaky</td><td align="right">${counts.flaky}</td></tr>`,
+      `<tr><td>⏭ Skipped</td><td align="right">${counts.skipped}</td></tr>`,
+      "</tbody>",
+      "</table>",
       "",
-      "### Files and Tests",
+      `<p><strong>Duration:</strong> ${durationSeconds}s</p>`,
+      "",
+      "<h3>Files and Tests</h3>",
       "",
     ];
 
+    if (files.length === 0) {
+      lines.push("<p>No test results were recorded.</p>", "");
+    }
+
     for (const file of files) {
-      lines.push(`#### ${this.outcomeIcon(file.outcome)} \`${file.file}\``, "");
+      lines.push(
+        `<h4>${this.outcomeIcon(file.outcome)} <code>${this.escapeHtml(file.file)}</code></h4>`,
+        "<ul>",
+      );
 
       for (const test of file.tests) {
         lines.push(
-          `- ${this.outcomeIcon(test.outcome)} ${this.escapeMarkdown(test.title)}`,
+          `<li>${this.outcomeIcon(test.outcome)} ${this.escapeHtml(test.title)}</li>`,
         );
       }
 
-      lines.push("");
+      lines.push("</ul>", "");
     }
 
     if (failedTests.length > 0) {
-      lines.push("### Failed Test Details", "");
+      lines.push("<h3>Failed Test Details</h3>", "");
 
       for (const failedTest of failedTests) {
         lines.push(
           "<details>",
-          `<summary>❌ ${this.escapeMarkdown(failedTest.title)}</summary>`,
+          `<summary>❌ ${this.escapeHtml(failedTest.title)}</summary>`,
           "",
-          `**Location:** \`${failedTest.file}:${failedTest.line}\`  `,
-          `**Retry:** ${failedTest.retry}`,
+          "<br>",
           "",
-          "```text",
-          this.escapeCodeBlock(failedTest.errorMessage),
-          "```",
+          `<p><strong>Location:</strong> <code>${this.escapeHtml(
+            `${failedTest.file}:${failedTest.line}`,
+          )}</code><br>`,
+          `<strong>Retry:</strong> ${failedTest.retry}</p>`,
           "",
-          "**Diagnostics**",
+          `<pre><code>${this.escapeHtml(failedTest.errorMessage)}</code></pre>`,
           "",
-          `- ${failedTest.hasScreenshot ? "✅" : "➖"} Screenshot`,
-          `- ${failedTest.hasTrace ? "✅" : "➖"} Trace`,
-          `- ${failedTest.hasVideo ? "✅" : "➖"} Video`,
+          "<p><strong>Diagnostics</strong></p>",
+          "<ul>",
+          `<li>${failedTest.hasScreenshot ? "✅" : "➖"} Screenshot</li>`,
+          `<li>${failedTest.hasTrace ? "✅" : "➖"} Trace</li>`,
+          `<li>${failedTest.hasVideo ? "✅" : "➖"} Video</li>`,
+          "</ul>",
           "",
           "</details>",
           "",
@@ -250,7 +274,7 @@ export default class GitHubSummaryReporter implements Reporter {
     }
 
     lines.push(
-      "> Full Playwright HTML reports and diagnostic artifacts remain separate CI evidence when artifact upload is available.",
+      "<blockquote>Full Playwright HTML reports and diagnostic artifacts remain separate CI evidence when artifact upload is available.</blockquote>",
       "",
       "</details>",
       "",
@@ -293,14 +317,10 @@ export default class GitHubSummaryReporter implements Reporter {
     return path.basename(filePath);
   }
 
-  private escapeMarkdown(value: string): string {
+  private escapeHtml(value: string): string {
     return value
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
-  }
-
-  private escapeCodeBlock(value: string): string {
-    return value.replaceAll("```", "'''");
   }
 }

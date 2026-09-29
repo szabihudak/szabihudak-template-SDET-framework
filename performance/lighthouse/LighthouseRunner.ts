@@ -110,7 +110,7 @@ export class LighthouseRunner {
   }): Promise<LighthouseAuditRun> {
     const chrome = await chromeLauncher.launch({
       chromePath: chromium.executablePath(),
-      chromeFlags: ["--headless"],
+      chromeFlags: ["--headless", "--no-sandbox"],
     });
 
     try {
