@@ -148,6 +148,17 @@ jobs:
           docker compose -f docker-compose.yml run --rm tests \
             npx playwright test --project=api
 
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🧪 Playwright Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Show UPEX logs on failure
         if: failure()
         run: docker compose -f docker-compose.yml logs app
@@ -211,6 +222,17 @@ jobs:
         run: |
           docker compose -f docker-compose.yml run --rm tests \
             npx playwright test --project=database
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🧪 Playwright Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Show UPEX logs on failure
         if: failure()
@@ -276,6 +298,17 @@ jobs:
           docker compose -f docker-compose.yml run --rm tests \
             npx playwright test --project=accessibility
 
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🧪 Playwright Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Show UPEX logs on failure
         if: failure()
         run: docker compose -f docker-compose.yml logs app
@@ -339,6 +372,17 @@ jobs:
         run: |
           docker compose -f docker-compose.yml run --rm tests \
             npx playwright test --project=visual
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🧪 Playwright Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Show UPEX logs on failure
         if: failure()
@@ -411,6 +455,17 @@ jobs:
         run: |
           docker compose -f docker-compose.yml run --rm tests \
             npx playwright test --project=${{ matrix.browser }}
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/github-summary.md ]; then
+            cat test-results/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🧪 Playwright Test Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No test summary was generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Show UPEX logs on failure
         if: failure()
