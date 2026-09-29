@@ -33,14 +33,6 @@ reuse
 → create
 ```
 
-Prefer:
-
-```text
-reuse
-→ extend
-→ create
-```
-
 When using repository context or external evidence, preserve the evidence boundary:
 
 ```text
@@ -511,6 +503,8 @@ format
 → typecheck
 → run affected tests
 → review architecture impact
+→ human review
+→ human approval
 ```
 
 At minimum, run:
