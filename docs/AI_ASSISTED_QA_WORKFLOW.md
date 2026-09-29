@@ -271,61 +271,33 @@ The human engineer reviews the structured analysis and decides whether engineeri
 
 ## Validated Workflow
 
-The capability has been locally validated end-to-end using a controlled real Playwright failure and a live OpenAI API call.
+The capability has been validated through a live OpenAI API execution.
 
-The validated flow was:
+The validated flow is:
 
 ```text
-controlled real Playwright failure
-→ FailureEvidenceReporter
-→ structured failure evidence
-→ schema validation
-→ defense-in-depth sanitization
+requirement input
+→ input schema validation
+→ prompt construction
 → OpenAI Responses API
-→ structured failure analysis
+→ structured TestDesign
 → output schema validation
 → human review
 ```
 
-The runtime validation confirmed that the reporter produced separate evidence files across Playwright retries and preserved the relevant test identity, failure message, stack, retry number, and available diagnostic artifacts.
+The live validation confirmed that the generator can produce structured risks and test scenarios while preserving uncertainty when provider-contract information is unavailable.
 
-Screenshot artifact mapping was confirmed.
+The validated output did not invent unsupported status codes, error fields, error messages, or validation semantics.
 
-Trace artifact mapping was confirmed on the retry where a trace was produced.
-
-Video artifact mapping was not confirmed and remains outside the validated evidence.
-
-The real AI analysis classified the controlled failure as:
+Therefore:
 
 ```text
-classification
-→ unknown
-
-confidence
-→ low
+AI Test Scenario Generation
+→ IMPLEMENTED
+→ LOCAL LIVE VALIDATION COMPLETE
 ```
 
-because the supplied structured evidence did not establish whether the observed behavior represented a product defect, test issue, or another execution condition.
-
-This conservative result is consistent with the failure-analysis guardrails:
-
-```text
-insufficient evidence
-→ report uncertainty
-→ do not invent root cause
-→ preserve human review
-```
-
-The original intentionally failing assertion was subsequently restored and the Chromium task-dashboard regression passed:
-
-```text
-task-dashboard.spec.ts / Chromium
-→ 3 passed
-```
-
-Therefore the local reporter-to-analysis workflow is validated end-to-end.
-
-This validation does not establish end-to-end execution of the separate GitHub Actions AI Failure Analysis workflow.
+The capability remains advisory and does not directly modify repository files or autonomously implement generated scenarios.
 
 ## Current Limitations and Remaining Hardening
 
@@ -2113,15 +2085,6 @@ AI Failure Analysis
 AI Test Scenario Generation
 → IMPLEMENTED
 → LOCAL LIVE VALIDATION COMPLETE
-
-AI Failure Analysis
-→ IMPLEMENTED
-→ LOCAL LIVE VALIDATION COMPLETE
-
-AI Test Scenario Generation
-→ IMPLEMENTED
-→ LOCAL LIVE VALIDATION COMPLETE
-
 
 AI-Assisted Engineering
 
