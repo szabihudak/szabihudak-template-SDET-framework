@@ -9,6 +9,14 @@ import type {
   TestResult,
 } from "@playwright/test/reporter";
 
+type TestOutcome = "passed" | "failed" | "flaky" | "skipped";
+
+interface TestSummary {
+  title: string;
+  file: string;
+  outcome: TestOutcome;
+}
+
 interface FailedTestSummary {
   title: string;
   file: string;
@@ -18,6 +26,12 @@ interface FailedTestSummary {
   hasScreenshot: boolean;
   hasTrace: boolean;
   hasVideo: boolean;
+}
+
+interface FileSummary {
+  file: string;
+  outcome: TestOutcome;
+  tests: TestSummary[];
 }
 
 export default class GitHubSummaryReporter implements Reporter {
@@ -49,41 +63,23 @@ export default class GitHubSummaryReporter implements Reporter {
       skipped: 0,
     };
 
+    const testSummaries: TestSummary[] = [];
     const failedTests: FailedTestSummary[] = [];
 
     for (const test of this.tests.values()) {
-      const outcome = test.outcome();
+      const latestResult = this.latestResults.get(test.id);
+      const outcome = this.toTestOutcome(test, latestResult);
 
-      if (outcome === "expected") {
-        const latestResult = this.latestResults.get(test.id);
+      counts[outcome] += 1;
 
-        if (latestResult?.status === "skipped") {
-          counts.skipped += 1;
-        } else {
-          counts.passed += 1;
-        }
+      testSummaries.push({
+        title: test.title,
+        file: this.toRepositoryRelativePath(test.location.file),
+        outcome,
+      });
 
-        continue;
-      }
-
-      if (outcome === "flaky") {
-        counts.flaky += 1;
-        continue;
-      }
-
-      if (outcome === "skipped") {
-        counts.skipped += 1;
-        continue;
-      }
-
-      if (outcome === "unexpected") {
-        counts.failed += 1;
-
-        const latestResult = this.latestResults.get(test.id);
-
-        if (latestResult) {
-          failedTests.push(this.toFailedTestSummary(test, latestResult));
-        }
+      if (outcome === "failed" && latestResult) {
+        failedTests.push(this.toFailedTestSummary(test, latestResult));
       }
     }
 
@@ -91,6 +87,7 @@ export default class GitHubSummaryReporter implements Reporter {
     const markdown = this.buildMarkdown(
       result,
       counts,
+      this.toFileSummaries(testSummaries),
       failedTests,
       durationMs,
     );
@@ -99,6 +96,61 @@ export default class GitHubSummaryReporter implements Reporter {
 
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, markdown, "utf8");
+  }
+
+  private toTestOutcome(
+    test: TestCase,
+    latestResult: TestResult | undefined,
+  ): TestOutcome {
+    const outcome = test.outcome();
+
+    if (outcome === "flaky") {
+      return "flaky";
+    }
+
+    if (outcome === "skipped" || latestResult?.status === "skipped") {
+      return "skipped";
+    }
+
+    if (outcome === "unexpected") {
+      return "failed";
+    }
+
+    return "passed";
+  }
+
+  private toFileSummaries(tests: TestSummary[]): FileSummary[] {
+    const grouped = new Map<string, TestSummary[]>();
+
+    for (const test of tests) {
+      const existing = grouped.get(test.file) ?? [];
+      existing.push(test);
+      grouped.set(test.file, existing);
+    }
+
+    return [...grouped.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([file, fileTests]) => ({
+        file,
+        outcome: this.aggregateOutcome(fileTests.map((test) => test.outcome)),
+        tests: fileTests,
+      }));
+  }
+
+  private aggregateOutcome(outcomes: TestOutcome[]): TestOutcome {
+    if (outcomes.includes("failed")) {
+      return "failed";
+    }
+
+    if (outcomes.includes("flaky")) {
+      return "flaky";
+    }
+
+    if (outcomes.every((outcome) => outcome === "skipped")) {
+      return "skipped";
+    }
+
+    return "passed";
   }
 
   private toFailedTestSummary(
@@ -129,16 +181,20 @@ export default class GitHubSummaryReporter implements Reporter {
       flaky: number;
       skipped: number;
     },
+    files: FileSummary[],
     failedTests: FailedTestSummary[],
     durationMs: number,
   ): string {
-    const statusIcon = result.status === "passed" ? "✅" : "❌";
+    const runOutcome: TestOutcome = result.status === "passed" ? "passed" : "failed";
+    const runIcon = this.outcomeIcon(runOutcome);
     const durationSeconds = (durationMs / 1000).toFixed(1);
+    const displayProjectName = this.formatProjectName(this.projectName);
 
     const lines = [
-      `## 🧪 Playwright Test Summary — ${this.projectName}`,
+      "<details>",
+      `<summary><strong>${displayProjectName} - Test Summary ${runIcon}</strong></summary>`,
       "",
-      `${statusIcon} **Run status:** ${result.status}`,
+      `**Run status:** ${result.status}`,
       "",
       "| Result | Count |",
       "| --- | ---: |",
@@ -148,15 +204,33 @@ export default class GitHubSummaryReporter implements Reporter {
       `| ⏭ Skipped | ${counts.skipped} |`,
       "",
       `**Duration:** ${durationSeconds}s`,
+      "",
+      "### Files and Tests",
+      "",
     ];
 
+    for (const file of files) {
+      lines.push(
+        `#### ${this.outcomeIcon(file.outcome)} \`${file.file}\``,
+        "",
+      );
+
+      for (const test of file.tests) {
+        lines.push(
+          `- ${this.outcomeIcon(test.outcome)} ${this.escapeMarkdown(test.title)}`,
+        );
+      }
+
+      lines.push("");
+    }
+
     if (failedTests.length > 0) {
-      lines.push("", "### ❌ Failed Tests", "");
+      lines.push("### Failed Test Details", "");
 
       for (const failedTest of failedTests) {
         lines.push(
-          `<details>`,
-          `<summary>${this.escapeMarkdown(failedTest.title)}</summary>`,
+          "<details>",
+          `<summary>❌ ${this.escapeMarkdown(failedTest.title)}</summary>`,
           "",
           `**Location:** \`${failedTest.file}:${failedTest.line}\`  `,
           `**Retry:** ${failedTest.retry}`,
@@ -178,12 +252,37 @@ export default class GitHubSummaryReporter implements Reporter {
     }
 
     lines.push(
-      "",
       "> Full Playwright HTML reports and diagnostic artifacts remain separate CI evidence when artifact upload is available.",
+      "",
+      "</details>",
       "",
     );
 
     return lines.join("\n");
+  }
+
+  private outcomeIcon(outcome: TestOutcome): string {
+    if (outcome === "failed") {
+      return "❌";
+    }
+
+    if (outcome === "flaky") {
+      return "⚠️";
+    }
+
+    if (outcome === "skipped") {
+      return "⏭";
+    }
+
+    return "✅";
+  }
+
+  private formatProjectName(projectName: string): string {
+    return projectName
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   }
 
   private toRepositoryRelativePath(filePath: string): string {
