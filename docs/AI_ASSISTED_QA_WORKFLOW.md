@@ -271,33 +271,41 @@ The human engineer reviews the structured analysis and decides whether engineeri
 
 ## Validated Workflow
 
-The capability has been validated through a live OpenAI API execution.
+The local AI Failure Analysis workflow has been validated end-to-end through a controlled real Playwright failure and a live OpenAI API execution.
 
 The validated flow is:
 
 ```text
-requirement input
+controlled Playwright failure
+→ FailureEvidenceReporter
+→ structured failure evidence
 → input schema validation
-→ prompt construction
+→ defense-in-depth sanitization
 → OpenAI Responses API
-→ structured TestDesign
+→ structured failure analysis
 → output schema validation
 → human review
 ```
 
-The live validation confirmed that the generator can produce structured risks and test scenarios while preserving uncertainty when provider-contract information is unavailable.
+The controlled validation confirmed:
 
-The validated output did not invent unsupported status codes, error fields, error messages, or validation semantics.
+- unique failure-evidence files across Playwright retries;
+- full test identity through `titlePath`;
+- screenshot artifact mapping;
+- trace artifact mapping;
+- CLI defense-in-depth sanitization;
+- structured OpenAI analysis of real Playwright failure evidence;
+- conservative `unknown` / `low` classification when the supplied evidence was insufficient to establish root cause.
 
 Therefore:
 
 ```text
-AI Test Scenario Generation
+AI Failure Analysis
 → IMPLEMENTED
-→ LOCAL LIVE VALIDATION COMPLETE
+→ LOCAL END-TO-END VALIDATED
 ```
 
-The capability remains advisory and does not directly modify repository files or autonomously implement generated scenarios.
+The capability remains advisory and does not autonomously modify framework code, test expectations, or CI behavior.
 
 ## Current Limitations and Remaining Hardening
 
