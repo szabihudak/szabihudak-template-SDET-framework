@@ -60,6 +60,14 @@ src/
   accessibility/
     constants/
     utils/
+  ai/
+    analyzers/
+    cli/
+    generators/
+    prompts/
+    reporters/
+    schemas/
+    utils/
   api/
     clients/
     constants/
@@ -80,6 +88,7 @@ src/
 
 tests/
   accessibility/
+  ai/
   api/
   database/
   performance/
@@ -89,6 +98,7 @@ tests/
 
 .github/
   workflows/
+    ai-failure-analysis.yml
     ghcr-cleanup.yml
     playwright.yml
     performance.yml
@@ -242,6 +252,54 @@ HTML / JSON evidence
 Authenticated browser performance reuses the existing Playwright fixture and Page Object boundaries to establish representative application state, while Lighthouse owns browser performance measurement.
 
 Performance workloads use the k6 runtime independently from Playwright clients and fixtures. Shared configuration may be reused where it is runtime-neutral, while HTTP transport remains native to the execution technology.
+
+The framework also contains two framework-owned AI flows.
+
+A typical AI Failure Analysis flow is:
+
+```text
+Playwright failure
+  ↓
+FailureEvidenceReporter
+  ↓
+structured failure evidence
+  ↓
+schema validation
+  ↓
+defense-in-depth sanitization
+  ↓
+OpenAI Responses API
+  ↓
+structured failure analysis
+  ↓
+output schema validation
+  ↓
+human review
+```
+
+A typical AI Test Scenario Generation flow is:
+
+```text
+requirement / user story
+  ↓
+input schema validation
+  ↓
+prompt construction
+  ↓
+OpenAI Responses API
+  ↓
+structured TestDesign
+  ↓
+output schema validation
+  ↓
+human review
+```
+
+Both capabilities are advisory.
+
+AI output does not replace deterministic validation or human engineering judgment.
+
+The detailed AI-assisted engineering workflow, evidence boundaries, validated capabilities, and remaining limitations are defined in [`AI_ASSISTED_QA_WORKFLOW.md`](AI_ASSISTED_QA_WORKFLOW.md).
 
 API and UI flows may be composed when API setup provides faster or more reliable prerequisites for UI behavior.
 
@@ -1927,6 +1985,96 @@ performance spec
 ```
 
 This shared policy is specific to Lighthouse's multiple consumers. k6 retains its native workload thresholds rather than introducing a framework-wide performance policy abstraction solely for structural symmetry.
+
+## AI-Assisted QA Architecture
+
+The framework separates framework-owned AI capabilities from external AI-assisted engineering.
+
+Framework-owned AI capabilities are implemented inside:
+
+```text
+src/ai/
+```
+
+Current framework-owned capabilities are:
+
+```text
+AI Failure Analysis
+AI Test Scenario Generation
+```
+
+These capabilities use bounded inputs, explicit schemas, structured outputs, and mandatory human review.
+
+The architectural boundary is:
+
+```text
+deterministic or human-provided input
+        ↓
+schema validation
+        ↓
+sanitization where required
+        ↓
+AI provider
+        ↓
+structured output
+        ↓
+runtime schema validation
+        ↓
+human review
+```
+
+AI output is advisory and must not be treated as deterministic execution evidence.
+
+Failure analysis receives sanitized structured evidence. Artifact metadata may identify available screenshots, traces, or videos, but artifact existence does not imply that the AI inspected their binary, visual, or internal contents.
+
+External AI-assisted engineering follows a separate boundary:
+
+```text
+repository instructions
++ architecture
++ testing standards
++ Golden Templates
++ authoritative external evidence where applicable
+        ↓
+AI engineering proposal
+        ↓
+human review
+        ↓
+approved implementation
+        ↓
+deterministic validation
+        ↓
+human approval
+```
+
+Authoritative external evidence may include:
+
+```text
+OpenAPI MCP
+→ provider contract discovery
+
+Playwright MCP
+→ runtime browser evidence
+```
+
+External evidence does not override repository architecture.
+
+Repository standards and validated Golden Templates determine implementation ownership and structure.
+
+The standard AI-assisted engineering sequence is:
+
+```text
+proposal
+→ human review
+→ targeted feedback
+→ implementation
+→ deterministic validation
+→ human approval
+```
+
+AI agents must not weaken assertions, alter baselines, invent provider behavior, bypass architectural ownership, or treat generated output as validation evidence merely to obtain a passing result.
+
+For the complete workflow, validated capability status, prompt-engineering rules, evidence boundaries, and documented limitations, see [`AI_ASSISTED_QA_WORKFLOW.md`](AI_ASSISTED_QA_WORKFLOW.md).
 
 ## Execution Boundary Rules
 
