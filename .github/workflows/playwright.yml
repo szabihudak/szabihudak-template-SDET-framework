@@ -165,6 +165,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-api
@@ -173,6 +174,7 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-api
@@ -240,6 +242,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-database
@@ -248,6 +251,7 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-database
@@ -315,6 +319,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-accessibility
@@ -323,6 +328,7 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-accessibility
@@ -390,6 +396,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-visual
@@ -398,6 +405,7 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-visual
@@ -473,6 +481,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.browser }}
@@ -481,6 +490,7 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.browser }}
