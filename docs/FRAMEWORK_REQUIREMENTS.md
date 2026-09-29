@@ -4,7 +4,7 @@
 
 The framework is designed to demonstrate enterprise-level Quality Engineering practices using Playwright and TypeScript against a production-like web application.
 
-The framework should be scalable, maintainable, CI-friendly, and suitable for UI, API, database, accessibility, visual, and performance testing.
+The framework should be scalable, maintainable, CI-friendly, and suitable for UI, API, database, accessibility, visual, performance, and AI-assisted Quality Engineering workflows.
 
 ## Functional Requirements
 
@@ -46,6 +46,13 @@ The framework must support:
 - Multiple deployment environments
 - Explicit guarded reset of the dedicated test database to the application-owned seeded baseline
 - Immutable CI container images for the Playwright framework and local UPEX application runtime
+- Structured AI-assisted failure analysis based on sanitized Playwright failure evidence
+- Structured AI-assisted test scenario generation from explicit requirement context
+- Runtime schema validation for framework-owned AI inputs and outputs
+- Mandatory human review of framework-owned AI output before engineering decisions or implementation changes
+- Repository-aware AI-assisted engineering using documented architecture, testing standards, and validated Golden Templates
+- Separation of repository evidence, provider-contract evidence, and runtime browser evidence during AI-assisted engineering
+- Deterministic validation of AI-assisted implementation changes before human approval
 
 ## Non-Functional Requirements
 
@@ -68,6 +75,10 @@ Database validation should use a dedicated disposable test database and preserve
 Visual regression tests should establish deterministic rendered state before comparison and must not rely on automatic baseline updates to hide unstable or unexpected differences.
 
 Browser-performance coverage should reuse existing deterministic framework setup where that setup already represents the required application state rather than duplicating business-state initialization solely for performance measurement.
+
+Framework-owned AI capabilities must fail explicitly when provider output is missing, refused, incomplete, invalid JSON, or incompatible with the expected runtime schema.
+
+AI-generated analysis and test design must remain advisory and must not replace deterministic execution evidence or human review.
 
 ### Fast
 
@@ -103,9 +114,15 @@ Credentials, tokens, database connection strings, and other sensitive informatio
 
 Destructive database operations must be restricted to the dedicated test-owned `localDocker` database boundary and require explicit safety confirmation.
 
+AI-bound failure evidence must be sanitized before provider submission. Binary or visual artifact contents must not be assumed to be AI-visible merely because artifact metadata or paths are included in the evidence.
+
+Secrets and credentials used by AI integrations must remain outside source control.
+
 ### Extensible
 
 New testing capabilities should be addable without requiring major redesign of the framework.
+
+AI capabilities should preserve explicit provider, schema, validation, and human-review boundaries so that future AI-assisted workflows can be added without coupling test execution directly to non-deterministic model output.
 
 ## Target Test Application
 
@@ -183,4 +200,6 @@ The framework will be considered successful when:
 - standalone and authenticated Lighthouse execution share the same version-controlled browser-performance quality policy;
 - performance execution is owned by a dedicated manually triggered CI workflow rather than the normal pull-request test path;
 - performance execution preserves k6, Lighthouse, and authenticated Playwright performance evidence as appropriate to each execution path;
-- the repository can be confidently presented during a Senior QA / SDET interview.
+- the repository can be confidently presented during a Senior QA / SDET interview;
+- framework-owned AI failure analysis produces schema-validated advisory output from sanitized structured Playwright failure evidence and requires human review;
+- framework-owned AI test scenario generation produces schema-validated structured test design from explicit requirement context and requires human review;
