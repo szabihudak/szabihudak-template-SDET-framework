@@ -271,38 +271,91 @@ The human engineer reviews the structured analysis and decides whether engineeri
 
 ## Validated Workflow
 
-The capability has been locally validated end-to-end using a live OpenAI API call:
+The capability has been locally validated end-to-end using a controlled real Playwright failure and a live OpenAI API call.
+
+The validated flow was:
 
 ```text
-failure evidence
+controlled real Playwright failure
+→ FailureEvidenceReporter
+→ structured failure evidence
 → schema validation
-→ sanitization
-→ prompt construction
+→ defense-in-depth sanitization
 → OpenAI Responses API
-→ structured output
+→ structured failure analysis
 → output schema validation
-→ JSON result
+→ human review
 ```
 
-The live local workflow is validated.
+The runtime validation confirmed that the reporter produced separate evidence files across Playwright retries and preserved the relevant test identity, failure message, stack, retry number, and available diagnostic artifacts.
+
+Screenshot artifact mapping was confirmed.
+
+Trace artifact mapping was confirmed on the retry where a trace was produced.
+
+Video artifact mapping was not confirmed and remains outside the validated evidence.
+
+The real AI analysis classified the controlled failure as:
+
+```text
+classification
+→ unknown
+
+confidence
+→ low
+```
+
+because the supplied structured evidence did not establish whether the observed behavior represented a product defect, test issue, or another execution condition.
+
+This conservative result is consistent with the failure-analysis guardrails:
+
+```text
+insufficient evidence
+→ report uncertainty
+→ do not invent root cause
+→ preserve human review
+```
+
+The original intentionally failing assertion was subsequently restored and the Chromium task-dashboard regression passed:
+
+```text
+task-dashboard.spec.ts / Chromium
+→ 3 passed
+```
+
+Therefore the local reporter-to-analysis workflow is validated end-to-end.
+
+This validation does not establish end-to-end execution of the separate GitHub Actions AI Failure Analysis workflow.
 
 ## Current Limitations and Remaining Hardening
 
-The following work remains outside the currently validated local flow:
+The local AI Failure Analysis workflow has been validated end-to-end with a controlled real Playwright failure and a live OpenAI API call.
 
-- live GitHub Actions end-to-end validation;
-- stronger reporter artifact mapping for real browser failures;
-- reporter filename collision handling;
-- full-title and status semantics;
-- first-error selection behavior;
+The controlled validation confirmed:
+
+- unique failure-evidence files across Playwright retries;
+- full test identity through `titlePath`;
+- screenshot artifact mapping;
+- trace artifact mapping;
 - CLI defense-in-depth sanitization;
-- OpenAI refusal and incomplete-response handling;
-- trusted checkout and secret-exposure review;
-- artifact-source trust review;
-- job-summary Markdown injection hardening;
-- Structured-output schema validation guarantees output shape, not semantic correctness. Critical semantic guardrails are currently enforced through prompt constraints and mandatory human review. Deterministic semantic validation may be introduced if recurring violations are observed or AI output begins driving automated actions.
+- structured OpenAI analysis of real Playwright failure evidence;
+- conservative `unknown` / `low` classification when the supplied evidence was insufficient to establish root cause.
 
-These items must not be described as already validated.
+The following limitations and hardening items remain:
+
+- live GitHub Actions artifact download and AI-analysis workflow has not been validated end-to-end;
+- video artifact mapping has not yet been confirmed through runtime evidence;
+- only the first Playwright error is currently selected when multiple errors are available;
+- trusted checkout and artifact-source provenance could be hardened if the workflow is expanded beyond its current trusted manual usage;
+- GitHub Actions job-summary Markdown rendering could be hardened for less-trusted content.
+
+Structured-output schema validation guarantees output shape, not semantic correctness.
+
+Critical semantic guardrails are currently enforced through prompt constraints and mandatory human review.
+
+Deterministic semantic validation may be introduced if recurring violations are observed or AI output begins driving automated actions.
+
+These remaining limitations do not invalidate the locally validated advisory workflow, but they must not be represented as capabilities that have already been validated.
 
 ---
 
@@ -439,21 +492,61 @@ test-results/ai-test-design/task-creation-test-design.json
 
 ## Validated Workflow
 
-The capability has been validated through a live OpenAI API execution.
+The capability has been locally validated end-to-end using a controlled real Playwright failure and a live OpenAI API call.
 
-The validated flow is:
+The validated flow was:
 
 ```text
-requirement input
-→ input schema
-→ prompt
+controlled real Playwright failure
+→ FailureEvidenceReporter
+→ structured failure evidence
+→ schema validation
+→ defense-in-depth sanitization
 → OpenAI Responses API
-→ structured TestDesign
+→ structured failure analysis
 → output schema validation
-→ human-readable JSON artifact
+→ human review
 ```
 
-The validated example produced scenarios covering task priorities, missing required data, and persistence considerations while reporting missing provider-contract information rather than inventing it.
+The runtime validation confirmed that the reporter produced separate evidence files across Playwright retries and preserved the relevant test identity, failure message, stack, retry number, and available diagnostic artifacts.
+
+Screenshot artifact mapping was confirmed.
+
+Trace artifact mapping was confirmed on the retry where a trace was produced.
+
+Video artifact mapping was not confirmed and remains outside the validated evidence.
+
+The real AI analysis classified the controlled failure as:
+
+```text
+classification
+→ unknown
+
+confidence
+→ low
+```
+
+because the supplied structured evidence did not establish whether the observed behavior represented a product defect, test issue, or another execution condition.
+
+This conservative result is consistent with the failure-analysis guardrails:
+
+```text
+insufficient evidence
+→ report uncertainty
+→ do not invent root cause
+→ preserve human review
+```
+
+The original intentionally failing assertion was subsequently restored and the Chromium task-dashboard regression passed:
+
+```text
+task-dashboard.spec.ts / Chromium
+→ 3 passed
+```
+
+Therefore the local reporter-to-analysis workflow is validated end-to-end.
+
+This validation does not establish end-to-end execution of the separate GitHub Actions AI Failure Analysis workflow.
 
 ## Scope Boundary
 
@@ -2010,6 +2103,19 @@ Framework-Owned AI
 
 AI Failure Analysis
 → IMPLEMENTED
+→ LOCAL END-TO-END VALIDATED
+→ controlled real Playwright failure
+→ sanitized structured evidence
+→ live OpenAI API
+→ structured analysis
+→ human review
+
+AI Test Scenario Generation
+→ IMPLEMENTED
+→ LOCAL LIVE VALIDATION COMPLETE
+
+AI Failure Analysis
+→ IMPLEMENTED
 → LOCAL LIVE VALIDATION COMPLETE
 
 AI Test Scenario Generation
@@ -2064,18 +2170,21 @@ Playwright MCP-Assisted UI Test Generation
 
 ---
 
-# Not Yet Validated
+# Evaluated Scope Boundaries
 
-The following capability is intentionally not described as an established Golden Template yet:
+Cursor-assisted engineering was included in the original Week 9 learning scope but was intentionally not evaluated.
 
 ```text
 Cursor-Assisted Engineering
-→ NOT YET VALIDATED
+→ SKIPPED
+→ NOT EVALUATED
 ```
 
-It should be added to the validated workflow only after a real POC has been executed, reviewed, and validated.
+The existing GitHub Copilot and Copilot Agent POCs already validated the repository-grounded AI-assisted engineering workflow, including context discovery, Golden Template selection, human review, implementation, and deterministic validation.
 
-Additional hardening work also remains for the AI Failure Analysis CI workflow.
+No Cursor-specific capability is therefore claimed as validated by this framework.
+
+Additional hardening remains possible for the AI Failure Analysis CI workflow as documented above.
 
 ---
 
