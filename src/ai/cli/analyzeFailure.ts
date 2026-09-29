@@ -9,6 +9,7 @@ import {
   FailureEvidenceSchema,
   type FailureEvidence,
 } from "../schemas/FailureEvidenceSchema";
+import { sanitizePath, sanitizeText } from "../utils/failureEvidenceSanitizer";
 
 async function main(): Promise<void> {
   const evidencePath = process.argv[2];
@@ -22,10 +23,34 @@ async function main(): Promise<void> {
   if (!fs.existsSync(absoluteEvidencePath)) {
     throw new Error(`Failure evidence file not found: ${evidencePath}`);
   }
+
   const rawEvidence = fs.readFileSync(absoluteEvidencePath, "utf8");
   const parsed: unknown = JSON.parse(rawEvidence);
   validateSchema(FailureEvidenceSchema, parsed);
-  const evidence: FailureEvidence = parsed;
+
+  const evidence: FailureEvidence = {
+    test: {
+      title: sanitizeText(parsed.test.title),
+      titlePath: parsed.test.titlePath.map(sanitizeText),
+      file: sanitizePath(parsed.test.file),
+      project: sanitizeText(parsed.test.project),
+    },
+    execution: {
+      environment: sanitizeText(parsed.execution.environment),
+      retry: parsed.execution.retry,
+    },
+    failure: {
+      message: sanitizeText(parsed.failure.message),
+      stack: parsed.failure.stack
+        ? sanitizeText(parsed.failure.stack)
+        : undefined,
+    },
+    artifacts: parsed.artifacts.map((artifact) => ({
+      type: artifact.type,
+      path: sanitizePath(artifact.path),
+    })),
+  };
+
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is required.");
   }

@@ -19,6 +19,7 @@ export const FailureArtifactSchema = Type.Object(
 export const FailureTestContextSchema = Type.Object(
   {
     title: Type.String(),
+    titlePath: Type.Array(Type.String()),
     file: Type.String(),
     project: Type.String(),
   },

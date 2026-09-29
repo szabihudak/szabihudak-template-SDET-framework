@@ -19,7 +19,9 @@ export default class FailureEvidenceReporter implements Reporter {
     if (result.status !== "failed") {
       return;
     }
+
     const failure = result.errors[0];
+
     const artifacts: FailureArtifact[] = result.attachments
       .filter(
         (attachment) =>
@@ -30,11 +32,15 @@ export default class FailureEvidenceReporter implements Reporter {
         type: attachment.name as FailureArtifact["type"],
         path: sanitizePath(attachment.path!),
       }));
+
+    const project = test.parent.project()?.name ?? "unknown";
+
     const evidence: FailureEvidence = {
       test: {
         title: test.title,
+        titlePath: test.titlePath(),
         file: sanitizePath(test.location.file),
-        project: test.parent.project()?.name ?? "unknown",
+        project,
       },
       execution: {
         environment: process.env.TEST_ENV ?? "unknown",
@@ -46,16 +52,25 @@ export default class FailureEvidenceReporter implements Reporter {
       },
       artifacts,
     };
+
     const outputDir = path.resolve("test-results", "ai-failure-evidence");
     fs.mkdirSync(outputDir, { recursive: true });
-    const safeTitle = test.title
+
+    const safeIdentity = [
+      project,
+      sanitizePath(test.location.file),
+      ...test.titlePath(),
+    ]
+      .join("-")
       .replace(/[^a-zA-Z0-9-_]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .toLowerCase();
+
     const outputPath = path.join(
       outputDir,
-      `${safeTitle || "failed-test"}-${result.retry}.json`,
+      `${safeIdentity || "failed-test"}-${result.retry}.json`,
     );
+
     fs.writeFileSync(outputPath, JSON.stringify(evidence, null, 2), "utf8");
   }
 

@@ -299,7 +299,8 @@ The following work remains outside the currently validated local flow:
 - OpenAI refusal and incomplete-response handling;
 - trusted checkout and secret-exposure review;
 - artifact-source trust review;
-- job-summary Markdown injection hardening.
+- job-summary Markdown injection hardening;
+- Structured-output schema validation guarantees output shape, not semantic correctness. Critical semantic guardrails are currently enforced through prompt constraints and mandatory human review. Deterministic semantic validation may be introduced if recurring violations are observed or AI output begins driving automated actions.
 
 These items must not be described as already validated.
 
@@ -1158,15 +1159,54 @@ It also used the repository engineering guidance and relevant ADRs.
 
 ## Evidence Boundary
 
-The Agent explicitly identified that the OpenAPI contract does not define an exact field-level error payload for an unsupported priority.
+The AI receives structured failure evidence rather than unrestricted repository or environment state.
 
-Therefore the proposal intentionally did not invent:
+Evidence is sanitized before being sent to the model.
 
-- a field name in the error response;
-- an exact enum-validation message;
-- additional undocumented response structure.
+The capability is designed to avoid exposing credentials or other sensitive runtime information through failure analysis.
 
-The proposal remained limited to behavior supported by available evidence.
+The current AI-visible failure evidence includes:
+
+- test title and full title path;
+- test file and Playwright project;
+- execution environment and retry number;
+- sanitized failure message and stack;
+- available failure artifact types;
+- sanitized failure artifact paths.
+
+Failure artifacts such as screenshots, Playwright traces, and videos may be recorded in the structured failure evidence by artifact type and sanitized path.
+
+Their binary, visual, or internal contents are not currently sent to the OpenAI API.
+
+Therefore:
+
+```text
+artifact exists
+→ AI may know that additional diagnostic evidence is available
+
+artifact contents
+→ AI has not inspected them
+→ AI must not treat their contents as observed evidence
+```
+
+For example, when the failure evidence contains:
+
+```text
+screenshot
+trace
+```
+
+the model may recommend that a human engineer inspect those artifacts, but it must not claim that the screenshot or trace confirms a particular application state unless that state is independently present in the supplied structured evidence.
+
+The current AI-visible evidence does not include:
+
+- screenshot pixels;
+- Playwright trace contents;
+- video contents.
+
+Multimodal screenshot analysis or deterministic extraction of selected trace evidence may be introduced later as separate capabilities.
+
+Such capabilities would require explicit review of their privacy, sanitization, cost, and evidence-trust boundaries before becoming part of the validated failure-analysis workflow.
 
 ## Proposed Implementation
 

@@ -32,6 +32,28 @@ export class OpenAIFailureAnalyzer implements FailureAnalyzer {
       },
     });
 
+    if (response.status === "incomplete") {
+      const reason = response.incomplete_details?.reason ?? "unknown";
+
+      throw new Error(
+        `OpenAI failure analysis returned an incomplete response: ${reason}.`,
+      );
+    }
+
+    for (const item of response.output ?? []) {
+      if (item.type !== "message") {
+        continue;
+      }
+
+      for (const content of item.content) {
+        if (content.type === "refusal") {
+          throw new Error(
+            `OpenAI failure analysis was refused: ${content.refusal}`,
+          );
+        }
+      }
+    }
+
     if (!response.output_text) {
       throw new Error("OpenAI failure analysis returned no output.");
     }
