@@ -14,12 +14,15 @@ Before implementing or modifying tests, read:
 
 1. `docs/ARCHITECTURE.md`
 2. `docs/TESTING_STANDARDS.md`
-3. relevant ADRs under `docs/adr/`
-4. existing implementations analogous to the requested change
+3. `docs/AI_ASSISTED_QA_WORKFLOW.md`
+4. relevant ADRs under `docs/adr/`
+5. existing implementations analogous to the requested change
 
 `docs/ARCHITECTURE.md` defines architectural responsibilities.
 
 `docs/TESTING_STANDARDS.md` defines implementation rules and golden patterns.
+
+`docs/AI_ASSISTED_QA_WORKFLOW.md` defines AI-assisted engineering, evidence, validation, and human-review boundaries.
 
 This file defines the execution behavior expected from an AI agent.
 
@@ -159,6 +162,19 @@ Authenticated browser performance behavior
 → Lighthouse measurement
 → shared Lighthouse threshold and severity policy
 ```
+
+A Golden Template is the closest validated repository implementation with equivalent responsibility and execution ownership.
+
+Golden Template consistency must be evaluated across:
+
+```text
+behavioral consistency
++ architectural consistency
++ structural consistency
++ stylistic consistency
+```
+
+Do not select a reference merely because its code looks similar. The reference must represent the same kind of responsibility and compatible execution boundary.
 
 References demonstrate structural grammar and responsibility boundaries.
 
@@ -871,6 +887,54 @@ Preserve semantic whitespace.
 Separate external and internal imports according to the repository standard.
 
 Use Prettier as the formatting authority, while remembering that unnecessary semantic blank lines may still require manual cleanup.
+
+## AI-Assisted Engineering
+
+AI-assisted engineering must remain evidence-grounded and human-reviewed.
+
+When external evidence is used, distinguish its responsibility:
+
+```text
+repository evidence
+→ architecture, ownership, existing abstractions, Golden Templates
+
+provider-contract evidence
+→ authoritative external API behavior and contracts
+
+runtime browser evidence
+→ observable rendered state and browser behavior
+```
+
+Repository evidence determines how a change belongs in this framework.
+
+OpenAPI MCP may provide provider-contract evidence, and Playwright MCP may provide runtime browser evidence. External evidence must not override repository architecture or implementation ownership.
+
+Before implementation, an AI agent should produce or establish a proposal grounded in the available evidence.
+
+The expected workflow is:
+
+```text
+proposal
+→ human review
+→ targeted feedback
+→ implementation
+→ deterministic validation
+→ human approval
+```
+
+Do not treat generated code, an AI explanation, MCP output, or apparent plausibility as validation evidence.
+
+AI-assisted implementation must preserve the same architecture, ownership, assertions, quality gates, and validation requirements as human-written implementation.
+
+An agent must not weaken assertions, update visual baselines, invent provider behavior, bypass architectural ownership, or suppress a real failure merely to produce a passing result.
+
+When evidence is insufficient or conflicting, expose the uncertainty rather than invent missing behavior.
+
+Framework-owned AI analysis and test-design capabilities are advisory. Their structured output must pass the repository-owned runtime schema validation, but schema-valid output is not automatically semantically correct.
+
+Human review remains required before AI-generated analysis, test design, or implementation proposals are accepted as engineering decisions.
+
+Detailed AI workflow, evidence boundaries, and validated capability status are documented in [`docs/AI_ASSISTED_QA_WORKFLOW.md`](docs/AI_ASSISTED_QA_WORKFLOW.md).
 
 ## Validation
 
