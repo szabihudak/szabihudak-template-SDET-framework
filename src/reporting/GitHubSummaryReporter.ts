@@ -185,7 +185,8 @@ export default class GitHubSummaryReporter implements Reporter {
     failedTests: FailedTestSummary[],
     durationMs: number,
   ): string {
-    const runOutcome: TestOutcome =\n      result.status === "passed" ? "passed" : "failed";
+    const runOutcome: TestOutcome =
+      result.status === "passed" ? "passed" : "failed";
     const runIcon = this.outcomeIcon(runOutcome);
     const durationSeconds = (durationMs / 1000).toFixed(1);
     const displayProjectName = this.formatProjectName(this.projectName);
@@ -210,10 +211,7 @@ export default class GitHubSummaryReporter implements Reporter {
     ];
 
     for (const file of files) {
-      lines.push(
-        `#### ${this.outcomeIcon(file.outcome)} \`${file.file}\``,
-        "",
-      );
+      lines.push(`#### ${this.outcomeIcon(file.outcome)} \`${file.file}\``, "");
 
       for (const test of file.tests) {
         lines.push(
