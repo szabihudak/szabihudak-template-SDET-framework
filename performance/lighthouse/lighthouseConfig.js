@@ -15,6 +15,7 @@ module.exports = {
       numberOfRuns: 3,
       settings: {
         onlyCategories: ["performance"],
+        chromeFlags: "--no-sandbox",
       },
     },
 
