@@ -14,7 +14,7 @@ AI-Assisted Engineering
 
 Framework-owned AI capabilities use the OpenAI API directly as part of framework tooling.
 
-AI-assisted engineering uses external development assistants such as GitHub Copilot together with repository context, Golden Templates, and authoritative external context such as OpenAPI.
+AI-assisted engineering uses external development assistants such as GitHub Copilot together with repository context, Golden Templates, and authoritative external context such as OpenAPI and runtime browser evidence from Playwright MCP.
 
 AI assistance complements the existing engineering workflow.
 
@@ -42,7 +42,7 @@ Relevant evidence may include:
 repository implementation
 repository documentation
 Golden Templates
-runtime evidence
+runtime browser evidence
 OpenAPI contracts
 test failure artifacts
 ```
@@ -136,13 +136,13 @@ For API work, authoritative external context may come from:
 OpenAPI MCP
 ```
 
-For future UI work, browser context may come from:
+For UI work, authoritative runtime browser context may come from:
 
 ```text
 Playwright MCP
 ```
 
-Playwright MCP is not yet validated as part of this workflow.
+Playwright MCP-assisted UI engineering has been validated through a real browser exploration, repository-grounded implementation proposal, human review, and deterministic Playwright execution.
 
 ## Failure Analysis Flow
 
@@ -529,8 +529,13 @@ Relevant characteristics may include:
 - constants;
 - Page Object ownership;
 - Component Object ownership;
+- interaction patterns;
+- assertion placement and style;
+- locator ownership;
 - formatting;
 - code organization.
+
+Golden Template compliance means following the validated reference not only behaviorally and architecturally, but also structurally and stylistically where the same responsibility already has an established pattern.
 
 Existing implementations are references to follow deliberately, not code to copy blindly.
 
@@ -590,25 +595,28 @@ We want to add coverage for this scenario:
 Before proposing the change:
 
 1. Inspect the relevant existing implementation and documentation.
-2. Identify the existing validated tests that should act as the Golden Template.
+2. Identify the existing validated tests and their owning framework components that should act as the Golden Template.
 3. Reuse the existing architecture and patterns rather than introducing new abstractions.
 
-Treat the selected validated tests as the Golden Template.
+Treat the selected validated tests and their owning framework components as the Golden Template.
 
-The proposed test must follow the Golden Template not only architecturally and behaviorally, but also structurally and stylistically where applicable, including:
+The proposed implementation must follow the Golden Template not only behaviorally and architecturally, but also structurally and stylistically where applicable, including:
 
 - test organization and placement
+- Page Object / Component Object ownership
 - fixture usage
 - factory usage
 - naming conventions
 - Arrange / Act / Assert structure
+- interaction patterns
+- assertion placement and style
+- locator ownership
 - client usage
 - schema validation pattern
-- assertion style
 - constants and shared utilities
 - formatting and code style
 
-Do not introduce a different test structure or coding pattern when an equivalent validated pattern already exists.
+Do not introduce a different test structure, ownership model, interaction pattern, or coding pattern when an equivalent validated pattern already exists.
 
 Important constraints:
 
@@ -628,7 +636,7 @@ First provide:
 2. Which repository documentation and instructions you used.
 3. Whether the requested scenario is already covered.
 4. The exact minimal code diff you propose.
-5. An explanation of how the proposed code follows the Golden Template.
+5. An explanation of how the proposed code follows the Golden Template behaviorally, architecturally, structurally, and stylistically.
 6. Any assertions or expected behavior that cannot be safely determined from the available evidence.
 
 Wait for human review before applying any changes.
@@ -779,6 +787,8 @@ Before making changes, read and follow:
 
 Use existing validated implementations as Golden Templates.
 
+Treat the selected validated tests and their owning framework components as Golden Templates not only behaviorally and architecturally, but also structurally and stylistically where applicable.
+
 Task:
 
 Review the implementation for:
@@ -791,12 +801,13 @@ Independently:
 
 1. Inspect the relevant constants, schemas, factories, clients, fixtures, tests, and other owning framework layers.
 2. Verify that the implementation follows the repository architecture, testing standards, and existing Golden Template.
-3. Check for unnecessary type weakening, duplicated abstractions, invented behavior, or inconsistent structure.
-4. Determine the appropriate repository validation commands for this change.
-5. Run the relevant formatting, type-checking, and targeted test validation.
-6. If you identify a justified code issue, make the smallest architecturally complete correction and validate it.
-7. Do not change code merely for stylistic preference when the existing implementation already follows repository standards.
-8. Do not commit or push anything.
+3. Verify structural and stylistic consistency with the Golden Template, including test placement, responsibility ownership, interaction patterns, assertion placement, naming, and code organization.
+4. Check for unnecessary type weakening, duplicated abstractions, invented behavior, or inconsistent structure.
+5. Determine the appropriate repository validation commands for this change.
+6. Run the relevant formatting, type-checking, and targeted test validation.
+7. If you identify a justified code issue, make the smallest architecturally complete correction and validate it.
+8. Do not change code merely for stylistic preference when the existing implementation already follows repository standards.
+9. Do not commit or push anything.
 
 At the end, report:
 
@@ -1074,8 +1085,9 @@ Requirements:
 6. Do not weaken TaskPriority or shared factory types.
 7. Keep any runtime-invalid value explicit and local to the negative test.
 8. Do not invent field-level error messages or validation payload details unless the OpenAPI contract explicitly defines them.
-9. Do not modify files yet.
-10. Do not call the real API.
+9. Follow the selected Golden Template behaviorally, architecturally, structurally, and stylistically where applicable.
+10. Do not modify files yet.
+11. Do not call the real API.
 
 Report:
 
@@ -1236,6 +1248,518 @@ This separation prevents repository assumptions from being incorrectly treated a
 
 ---
 
+# Playwright MCP-Assisted UI Engineering
+
+## Purpose
+
+Playwright MCP provides runtime browser evidence for AI-assisted UI engineering.
+
+Repository evidence describes how the framework is architected and how UI tests should be implemented.
+
+Playwright MCP provides a complementary evidence source:
+
+```text
+Repository Context
++ Golden Templates
++ Playwright MCP Browser Evidence
+        ↓
+Copilot Agent
+```
+
+The responsibility boundary is:
+
+```text
+Playwright MCP
+→ observe the real running application
+→ discover current browser behavior
+→ identify accessible roles, names, fields, actions, and runtime uncertainty
+
+Repository
+→ define framework architecture
+→ define Page Object / Component Object ownership
+→ define fixtures, factories, test placement, and validation rules
+```
+
+Browser evidence does not override repository architecture.
+
+---
+
+## Validated Browser Exploration
+
+The first Playwright MCP POC explored the UPEX task-creation UI at:
+
+```text
+https://dojo.upexgalaxy.com
+```
+
+The initial exploration intentionally performed no repository modification and did not generate test code.
+
+### Initial Exploration Prompt
+
+```text
+Use the configured Playwright MCP server.
+
+Explore the UPEX application at:
+
+https://dojo.upexgalaxy.com
+
+Goal:
+
+Inspect the task-creation UI and collect browser evidence that could later support generation of a Playwright UI test.
+
+Use Playwright MCP to inspect the real running application.
+
+Report only:
+
+- how the task-creation flow is reached
+- relevant accessible roles and names
+- relevant form fields
+- available priority options
+- submit action
+- observable successful task-creation behavior
+- any UI behavior or element that cannot be determined confidently
+
+Requirements:
+
+- Use Playwright MCP browser tools for the exploration.
+- Clearly distinguish browser evidence from assumptions.
+- Do not modify repository files.
+- Do not generate test code yet.
+- Do not commit or push anything.
+- Do not perform destructive actions beyond creating one test task if creation is necessary to observe the successful flow.
+
+At the end, report the browser evidence collected and any remaining uncertainty.
+```
+
+The initial exploration reached the authenticated task dashboard and identified the `New Task` action.
+
+However, the task-creation form was not reliably represented in the initial accessibility snapshot after the action was triggered.
+
+Instead of inventing the missing UI structure, the Agent reported the uncertainty.
+
+This triggered a second targeted investigation.
+
+---
+
+## Targeted Browser Investigation Prompt
+
+```text
+Use Playwright MCP to investigate why the "New Task" action does not expose the task-creation UI.
+
+Do not modify repository files.
+Do not generate test code.
+Do not create data unless required.
+
+Investigate:
+- whether the click actually fires;
+- whether the URL changes;
+- whether a dialog, portal, drawer, popover, or hidden region appears;
+- whether the button is disabled or blocked;
+- whether there are relevant browser console errors;
+- whether there are relevant network requests after the click;
+- whether the current task limit or application state prevents creation.
+
+Report only observed browser evidence and remaining uncertainty.
+```
+
+## Browser Evidence Collected
+
+The targeted investigation established:
+
+```text
+authenticated page
+→ /dashboard
+
+New Task button
+→ visible
+→ enabled
+→ click fires
+
+URL after click
+→ remains /dashboard
+
+task creation request
+→ no POST occurs merely from opening the dialog
+
+dialog
+→ visible
+→ role: dialog
+→ heading: Create New Task
+```
+
+The form contained:
+
+```text
+Title
+→ textbox
+→ placeholder: Enter task title
+
+Description (optional)
+→ textbox
+→ placeholder: Enter task description
+
+Priority
+→ combobox
+→ default: Medium
+→ options:
+   - Low
+   - Medium
+   - High
+
+actions
+→ Cancel
+→ Create Task
+→ Close
+```
+
+The browser investigation also established the behavior used for the first MCP-assisted UI scenario:
+
+```text
+empty Title
+→ Create Task disabled
+
+Title contains a value
+→ Create Task enabled
+```
+
+No task submission was required to observe this behavior.
+
+No task was created during this investigation.
+
+---
+
+## Accessibility-Tree Observation
+
+The exploration also exposed an important runtime uncertainty.
+
+The task-creation dialog was visibly rendered in the browser, but its representation in the accessibility tree was initially inconsistent.
+
+Observed behavior included an `aria-hidden` state affecting the dialog/background representation.
+
+A console warning was also observed related to missing dialog description metadata.
+
+The exact product-level cause was not established during this POC.
+
+Therefore:
+
+```text
+observed accessibility-tree inconsistency
+→ recorded as runtime evidence
+
+exact root cause
+→ unknown
+
+speculative framework workaround
+→ not introduced
+```
+
+The later Playwright test successfully located and interacted with the required elements through the selected role-based locators.
+
+Therefore the observed uncertainty did not justify changing the framework locator strategy during this POC.
+
+---
+
+# Playwright MCP-Assisted Test Proposal
+
+The first selected scenario was:
+
+```text
+The Create Task button remains disabled until a task title is entered.
+```
+
+This scenario was selected because it was:
+
+- directly supported by browser evidence;
+- non-destructive;
+- observable without submitting the form;
+- suitable for validating MCP browser evidence together with repository architecture.
+
+## Proposal Prompt
+
+```text
+Before proposing code, read and follow:
+
+- .github/copilot-instructions.md
+- AGENTS.md
+- docs/ARCHITECTURE.md
+- docs/TESTING_STANDARDS.md
+- relevant ADRs
+
+Use existing validated implementations as Golden Templates.
+
+Also use the configured Playwright MCP server as an authoritative source of browser evidence for the running UPEX application.
+
+Scenario:
+
+"The Create Task button remains disabled until a task title is entered."
+
+Requirements:
+
+1. Inspect the existing UI tests for task creation and identify the most relevant Golden Template.
+2. Inspect the existing TasksDashboardPage, relevant components, fixtures, factories, and authenticated browser setup.
+3. Use Playwright MCP to confirm the real current UI behavior and accessible element names for:
+   - opening the New Task dialog;
+   - locating the Title field;
+   - locating the Create Task button;
+   - confirming the button is disabled with an empty title;
+   - confirming the button becomes enabled after entering a title.
+4. Clearly separate:
+   - Playwright MCP browser evidence
+   - repository evidence
+5. Determine whether this scenario is already covered.
+6. Propose the smallest architecturally complete test change.
+7. Reuse existing Page Objects and Component Objects where they already own the relevant interaction.
+8. Do not place reusable UI interaction directly in the spec if the existing architecture assigns that responsibility to a Page Object or Component Object.
+9. Treat the selected validated tests and their owning framework components as the Golden Template.
+10. Follow the Golden Template not only behaviorally and architecturally, but also structurally and stylistically where applicable, including:
+    - test organization and placement
+    - Page Object / Component Object ownership
+    - fixture usage
+    - factory usage
+    - naming conventions
+    - Arrange / Act / Assert structure
+    - interaction patterns
+    - assertion placement and style
+    - locator ownership
+    - constants and shared utilities
+    - formatting and code style
+11. Do not introduce a different test structure or interaction pattern when an equivalent validated pattern already exists.
+12. Do not introduce selectors, test IDs, helpers, fixtures, or abstractions unless the existing implementation cannot express the behavior cleanly.
+13. Do not create task data or submit the form.
+14. Do not modify files yet.
+15. Do not commit or push anything.
+
+Report:
+
+- Golden Template selected
+- Playwright MCP browser evidence
+- repository evidence
+- whether coverage already exists
+- exact files that would need to change
+- exact proposed diff
+- explanation of how the proposal follows the Golden Template behaviorally, architecturally, structurally, and stylistically
+- any remaining uncertainty
+
+Wait for human review before applying any changes.
+```
+
+---
+
+# Human Review of the MCP-Assisted Proposal
+
+Copilot correctly identified:
+
+```text
+TasksDashboardPage
+→ owning Page Object
+
+task-dashboard.spec.ts
+→ owning UI spec
+
+authenticated UI fixtures
+→ existing setup
+
+existing UI implementation
+→ Golden Template
+```
+
+The initial proposal was functionally reasonable but contained:
+
+```ts
+await tasksDashboardPage.taskTitleInput.fill("UI validation task");
+```
+
+directly in the spec.
+
+Human review compared this proposal with the existing repository implementations.
+
+Existing canonical examples such as:
+
+```text
+LoginPage.login()
+RegisterPage.register()
+NavigationBar.openUserMenu()
+```
+
+keep reusable page-level interaction inside the owning Page Object or Component Object.
+
+The spec primarily orchestrates the scenario and owns assertions.
+
+Therefore the proposal was refined to:
+
+```text
+interaction
+→ Page Object / Component Object
+
+assertion target
+→ locator exposed by Page Object / Component Object
+
+assertion
+→ spec
+```
+
+The resulting Page Object action became:
+
+```ts
+async fillTaskTitle(title: string): Promise<void> {
+  await this.taskTitleInput.fill(title);
+}
+```
+
+while the spec retained:
+
+```ts
+await expect(tasksDashboardPage.createTaskButton).toBeDisabled();
+
+await tasksDashboardPage.fillTaskTitle("UI validation task");
+
+await expect(tasksDashboardPage.createTaskButton).toBeEnabled();
+```
+
+---
+
+# Golden Template Structural Compliance
+
+This POC established an additional requirement for AI-assisted engineering.
+
+Golden Template compliance does not mean only producing equivalent behavior.
+
+The AI must follow the selected Golden Template:
+
+```text
+behaviorally
++
+architecturally
++
+structurally
++
+stylistically
+```
+
+where the same responsibility already has an established repository pattern.
+
+The reusable prompt requirement is:
+
+```text
+Treat the selected validated tests and their owning framework components as the Golden Template.
+
+Follow the Golden Template not only behaviorally and architecturally,
+but also structurally and stylistically where applicable, including:
+
+- test organization and placement
+- Page Object / Component Object ownership
+- fixture usage
+- factory usage
+- naming conventions
+- Arrange / Act / Assert structure
+- interaction patterns
+- assertion placement and style
+- locator ownership
+- constants and shared utilities
+- formatting and code style
+
+Do not introduce a different test structure or interaction pattern when
+an equivalent validated pattern already exists.
+```
+
+This requirement is important because AI-generated code can be technically correct while still drifting from the framework's established implementation pattern.
+
+Human review must detect this form of architectural and structural drift.
+
+---
+
+# Validated Playwright MCP Implementation
+
+The final implementation extended `TasksDashboardPage` with ownership of the task-creation interaction:
+
+```ts
+readonly newTaskButton: Locator;
+readonly taskTitleInput: Locator;
+readonly createTaskButton: Locator;
+```
+
+and:
+
+```ts
+async openNewTaskDialog(): Promise<void> {
+  await this.newTaskButton.click();
+}
+
+async fillTaskTitle(title: string): Promise<void> {
+  await this.taskTitleInput.fill(title);
+}
+```
+
+The UI spec expressed the scenario at the intent/assertion level:
+
+```ts
+test("keeps Create Task disabled until a title is entered", async ({
+  tasksDashboardPage,
+}) => {
+  await tasksDashboardPage.goto();
+  await tasksDashboardPage.openNewTaskDialog();
+
+  await expect(tasksDashboardPage.createTaskButton).toBeDisabled();
+
+  await tasksDashboardPage.fillTaskTitle("UI validation task");
+
+  await expect(tasksDashboardPage.createTaskButton).toBeEnabled();
+});
+```
+
+No task was submitted by the test.
+
+No new fixture, factory, helper, test ID, or abstraction was introduced.
+
+---
+
+# Playwright MCP Validation Evidence
+
+The implementation passed:
+
+```text
+Prettier
+→ PASS
+
+TypeScript typecheck
+→ PASS
+
+task-dashboard.spec.ts / Chromium
+→ 3 passed
+```
+
+The targeted scenario passed together with the existing task-dashboard UI tests.
+
+The validated flow is therefore:
+
+```text
+Playwright MCP Browser Exploration
+        ↓
+runtime browser evidence
++ explicit uncertainty
+        ↓
+Repository Context
++ Golden Template
+        ↓
+Copilot Agent Proposal
+        ↓
+Human Architecture Review
+        ↓
+Golden Template Structural Refinement
+        ↓
+Implementation
+        ↓
+Prettier
++ TypeScript
++ Chromium UI execution
+        ↓
+PASS
+```
+
+Playwright MCP-assisted UI engineering is now a validated capability of the AI-assisted QA workflow.
+
+---
+
 # Human Review and Validation Gates
 
 AI-assisted implementation follows explicit review gates.
@@ -1258,6 +1782,9 @@ The reviewer checks:
 - correct test layer;
 - correct execution project;
 - correct Golden Template;
+- behavioral Golden Template consistency;
+- architectural Golden Template consistency;
+- structural and stylistic Golden Template consistency;
 - appropriate evidence;
 - existing component reuse;
 - domain type preservation;
@@ -1330,6 +1857,25 @@ Ask the assistant to identify the analogous validated implementation before prop
 
 This grounds generation in actual framework patterns.
 
+## Require Structural Golden Template Compliance
+
+Identifying a Golden Template is not sufficient.
+
+The prompt should explicitly require the AI to follow the selected reference:
+
+```text
+behaviorally
+architecturally
+structurally
+stylistically
+```
+
+where applicable.
+
+This includes responsibility ownership, interaction patterns, assertion placement, test organization, fixture and factory usage, naming, and code style.
+
+A generated implementation can be functionally correct while still violating the framework's established pattern.
+
 ## Separate Evidence Sources
 
 When multiple evidence sources exist, require explicit separation.
@@ -1338,6 +1884,14 @@ For example:
 
 ```text
 OpenAPI contract evidence
+vs
+repository evidence
+```
+
+or:
+
+```text
+Playwright MCP browser evidence
 vs
 repository evidence
 ```
@@ -1375,6 +1929,7 @@ State explicitly when the Agent must not:
 
 - modify files;
 - call a real API;
+- create unnecessary application data;
 - commit;
 - push;
 - introduce unrelated cleanup.
@@ -1389,6 +1944,22 @@ Negative scenarios are particularly prone to invented:
 - validation semantics.
 
 Require authoritative evidence before asserting these details.
+
+## Separate Runtime Evidence from Framework Architecture
+
+MCP browser evidence can establish what the running application currently does.
+
+It does not determine how framework code should be structured.
+
+The responsibility split remains:
+
+```text
+Playwright MCP
+→ runtime browser evidence
+
+repository standards + Golden Templates
+→ implementation architecture
+```
 
 ---
 
@@ -1417,6 +1988,9 @@ Semantic Repository Context
 Golden Template Discovery
 → VALIDATED
 
+Golden Template Structural Compliance
+→ VALIDATED
+
 Copilot-Assisted Test Generation
 → VALIDATED
 
@@ -1437,23 +2011,29 @@ OpenAPI MCP + Repository Evidence Separation
 
 OpenAPI MCP-Assisted Test Proposal
 → VALIDATED
+
+Playwright MCP Browser Exploration
+→ VALIDATED
+
+Playwright MCP + Repository Evidence Separation
+→ VALIDATED
+
+Playwright MCP-Assisted UI Test Generation
+→ VALIDATED
 ```
 
 ---
 
 # Not Yet Validated
 
-The following capabilities are intentionally not described as established Golden Templates yet:
+The following capability is intentionally not described as an established Golden Template yet:
 
 ```text
-Playwright MCP-Assisted UI Engineering
-→ NOT YET VALIDATED
-
 Cursor-Assisted Engineering
 → NOT YET VALIDATED
 ```
 
-They should be added to the validated workflow only after a real POC has been executed, reviewed, and validated.
+It should be added to the validated workflow only after a real POC has been executed, reviewed, and validated.
 
 Additional hardening work also remains for the AI Failure Analysis CI workflow.
 
@@ -1488,7 +2068,7 @@ Repository Context
         +
 Authoritative External Context
 ├── API → OpenAPI MCP
-└── UI  → Playwright MCP [not yet validated]
+└── UI  → Playwright MCP
         ↓
 Copilot / Agent
         ↓

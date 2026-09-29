@@ -6,6 +6,9 @@ export class TasksDashboardPage {
   readonly page: Page;
   readonly heading: Locator;
   readonly taskCards: Locator;
+  readonly newTaskButton: Locator;
+  readonly taskTitleInput: Locator;
+  readonly createTaskButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -13,10 +16,23 @@ export class TasksDashboardPage {
       name: /tasks|dashboard/i,
     });
     this.taskCards = page.locator('[data-testid^="task-card-"]');
+    this.newTaskButton = page.getByRole("button", { name: "New Task" });
+    this.taskTitleInput = page.getByRole("textbox", { name: "Title" });
+    this.createTaskButton = page.getByRole("button", {
+      name: "Create Task",
+    });
   }
 
   async goto(): Promise<void> {
     await this.page.goto("/dashboard");
+  }
+
+  async openNewTaskDialog(): Promise<void> {
+    await this.newTaskButton.click();
+  }
+
+  async fillTaskTitle(title: string): Promise<void> {
+    await this.taskTitleInput.fill(title);
   }
 
   taskCardByTitle(title: string): Locator {

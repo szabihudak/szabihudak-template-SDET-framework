@@ -2,6 +2,18 @@ import { test, expect } from "../../src/fixtures/test-fixtures";
 import { mockTasksServerError } from "../../src/mocks/taskApiMock";
 
 test.describe("Task Dashboard tests", () => {
+  test("keeps Create Task disabled until a title is entered", async ({
+    tasksDashboardPage,
+  }) => {
+    await tasksDashboardPage.goto();
+    await tasksDashboardPage.openNewTaskDialog();
+    await expect(tasksDashboardPage.createTaskButton).toBeDisabled();
+
+    await tasksDashboardPage.fillTaskTitle("UI validation task");
+
+    await expect(tasksDashboardPage.createTaskButton).toBeEnabled();
+  });
+
   test("authenticated user sees the tasks on the dashboard", async ({
     tasksDashboardPage,
     createdTask,
