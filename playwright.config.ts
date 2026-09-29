@@ -29,6 +29,7 @@ export default defineConfig({
     ["html", { outputFolder: "playwright-report", open: "never" }],
     ["json", { outputFile: "test-results/results.json" }],
     ["./src/ai/reporters/FailureEvidenceReporter.ts"],
+    ["./src/reporting/GitHubSummaryReporter.ts"],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
