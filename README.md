@@ -15,22 +15,24 @@ The framework is designed around the concerns that matter in real automation sys
 
 ## Engineering Capabilities
 
-| Area                  | Implementation                                                                                            |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| API Testing           | Browser-independent Playwright API tests with domain-specific clients                                     |
-| Database Testing      | Typed PostgreSQL persistence validation through domain database clients                                   |
-| Contract Testing      | TypeBox schemas with AJV runtime validation                                                               |
-| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                                            |
-| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution                                |
-| Visual Regression     | Native Playwright page and component screenshot baseline comparison                                       |
-| Performance Testing   | k6 API performance and Lighthouse browser performance with calibrated quality gates                       |
-| Authentication        | Programmatic API and browser authentication                                                               |
-| Test Data             | Deterministic factories with scenario-specific overrides                                                  |
-| Cross-Browser         | Chromium, Firefox, and WebKit execution                                                                   |
-| Containerization      | Reproducible Playwright and UPEX local execution with Docker Compose                                      |
-| CI/CD                 | GitHub Actions with immutable test/app images, localDocker functional jobs, and dedicated performance CI  |
-| Diagnostics           | Playwright diagnostics, k6 HTML reports, and Lighthouse HTML/JSON reports preserved as execution evidence |
-| Engineering Standards | Architecture documentation, testing standards, and ADRs                                                   |
+| Area                  | Implementation                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API Testing           | Browser-independent Playwright API tests with domain-specific clients                                                                                 |
+| Database Testing      | Typed PostgreSQL persistence validation through domain database clients                                                                               |
+| Contract Testing      | TypeBox schemas with AJV runtime validation                                                                                                           |
+| UI Automation         | Page Objects, Component Objects, fixtures, and network mocking                                                                                        |
+| Accessibility Testing | Axe-based automated WCAG 2.2 AA checks with dedicated Playwright execution                                                                            |
+| Visual Regression     | Native Playwright page and component screenshot baseline comparison                                                                                   |
+| Performance Testing   | k6 API performance and Lighthouse browser performance with calibrated quality gates                                                                   |
+| Authentication        | Programmatic API and browser authentication                                                                                                           |
+| Test Data             | Deterministic factories with scenario-specific overrides                                                                                              |
+| Cross-Browser         | Chromium, Firefox, and WebKit execution                                                                                                               |
+| Containerization      | Reproducible Playwright and UPEX local execution with Docker Compose                                                                                  |
+| CI/CD                 | GitHub Actions with immutable test/app images, localDocker functional jobs, and dedicated performance CI                                              |
+| Diagnostics           | Playwright diagnostics, k6 HTML reports, and Lighthouse HTML/JSON reports preserved as execution evidence                                             |
+| Engineering Standards | Architecture documentation, testing standards, ADRs, repository AI instructions, and Golden Template guidance                                         |
+| AI Failure Analysis   | Structured, sanitized Playwright failure evidence analyzed through the OpenAI Responses API with runtime schema validation and mandatory human review |
+| AI Test Design        | Structured requirement-to-test-design generation with explicit risks, recommended layers, missing context, and anti-hallucination guardrails          |
 
 ## Architecture at a Glance
 
@@ -41,6 +43,10 @@ flowchart TD
     K6[k6 API Performance]
     LHCI[Standalone LHCI]
     AUTHL[Authenticated Playwright + Lighthouse]
+    AI[Framework-Owned AI]
+    AIFA[AI Failure Analysis]
+    AITD[AI Test Design]
+    HUMAN[Human Review]
 
     A --> B[API Testing]
     A --> C[UI Testing]
@@ -95,6 +101,14 @@ flowchart TD
     AB --> AE[WebKit]
 
     S --> AF[Test Reports & Failure Diagnostics]
+
+    AI --> AIFA
+    AI --> AITD
+
+    AF --> AIFA
+    AIFA --> HUMAN
+
+    AITD --> HUMAN
 ```
 
 ## Engineering Approach
@@ -121,6 +135,7 @@ New capabilities are introduced only when they demonstrate a real testing or arc
 ## Quick Navigation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [AI-Assisted QA Workflow](docs/AI_ASSISTED_QA_WORKFLOW.md)
 - [Testing Standards](docs/TESTING_STANDARDS.md)
 - [Framework Requirements](docs/FRAMEWORK_REQUIREMENTS.md)
 - [Architecture Decision Records](docs/adr/)
@@ -323,6 +338,14 @@ src/
   accessibility/
     constants/
     utils/
+  ai/
+    analyzers/
+    cli/
+    generators/
+    prompts/
+    reporters/
+    schemas/
+    utils/
   api/
     clients/
     constants/
@@ -343,6 +366,7 @@ src/
 
 tests/
   accessibility/
+  ai/
   api/
   database/
   performance/
