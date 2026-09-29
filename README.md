@@ -1177,7 +1177,7 @@ The framework treats the target application as an external provider and models o
 
 ## Project Status
 
-Current implemented foundation:
+Framework v1.0 implemented capability baseline:
 
 ```text
 Framework architecture               ✅
@@ -1211,7 +1211,7 @@ Shared environment config            ✅
 Docker test execution                ✅
 Docker Compose local UPEX runtime     ✅
 Runtime container config             ✅
-Container artifact persistence.      ✅
+Container artifact persistence      ✅
 GitHub Actions CI                    ✅
 GHCR image distribution              ✅
 Immutable test/app CI images          ✅
@@ -1228,7 +1228,7 @@ Playwright MCP browser exploration   ✅
 Golden Template AI guidance          ✅
 ```
 
-Additional Quality Engineering capabilities will be introduced as the framework evolves.
+The v1.0 framework capability scope is complete for the current target application and defined engineering goals. Future additions require a demonstrated testing or architectural need rather than portfolio-driven technology expansion.
 
 ## Design Philosophy
 
