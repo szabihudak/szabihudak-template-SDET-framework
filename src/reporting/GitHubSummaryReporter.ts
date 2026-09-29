@@ -185,7 +185,7 @@ export default class GitHubSummaryReporter implements Reporter {
     failedTests: FailedTestSummary[],
     durationMs: number,
   ): string {
-    const runOutcome: TestOutcome = result.status === "passed" ? "passed" : "failed";
+    const runOutcome: TestOutcome =\n      result.status === "passed" ? "passed" : "failed";
     const runIcon = this.outcomeIcon(runOutcome);
     const durationSeconds = (durationMs / 1000).toFixed(1);
     const displayProjectName = this.formatProjectName(this.projectName);
