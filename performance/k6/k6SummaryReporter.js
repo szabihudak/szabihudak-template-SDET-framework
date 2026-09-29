@@ -26,6 +26,7 @@ function buildMarkdown(data) {
   const failureThresholdPassed = thresholdPassed(failureMetric, "rate<0.01");
 
   const overallPassed = durationThresholdPassed && failureThresholdPassed;
+  const checksPassed = checkRate === 1;
 
   const statusIcon = overallPassed ? "✅" : "❌";
 
@@ -39,8 +40,8 @@ function buildMarkdown(data) {
     "| --- | ---: | ---: | :---: |",
     `| Task read p95 | ${formatMilliseconds(p95)} | < 500 ms | ${durationThresholdPassed ? "✅" : "❌"} |`,
     `| Task read failure rate | ${formatPercentage(failureRate)} | < 1% | ${failureThresholdPassed ? "✅" : "❌"} |`,
-    `| Iterations | ${iterations ?? "N/A"} | — | ℹ️ |`,
-    `| Checks passed | ${formatPercentage(checkRate)} | — | ℹ️ |`,
+    `| Iterations | ${iterations ?? "N/A"} | — | — |`,
+    `| Checks passed | ${formatPercentage(checkRate)} | — | ${checksPassed ? "✅" : "⚠️"} |`,
     "",
   ];
 
@@ -49,8 +50,8 @@ function buildMarkdown(data) {
 
     if (!durationThresholdPassed) {
       lines.push(
-        `<details>`,
-        `<summary>❌ Task read p95 threshold failed</summary>`,
+        "<details>",
+        "<summary>❌ Task read p95 threshold failed</summary>",
         "",
         `**Actual:** ${formatMilliseconds(p95)}  `,
         "**Expected:** < 500 ms",
@@ -62,8 +63,8 @@ function buildMarkdown(data) {
 
     if (!failureThresholdPassed) {
       lines.push(
-        `<details>`,
-        `<summary>❌ Task read failure-rate threshold failed</summary>`,
+        "<details>",
+        "<summary>❌ Task read failure-rate threshold failed</summary>",
         "",
         `**Actual:** ${formatPercentage(failureRate)}  `,
         "**Expected:** < 1%",
