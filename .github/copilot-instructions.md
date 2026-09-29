@@ -7,9 +7,23 @@ Before generating or modifying code, read and follow:
 - `AGENTS.md`
 - `docs/ARCHITECTURE.md`
 - `docs/TESTING_STANDARDS.md`
+- `docs/AI_ASSISTED_QA_WORKFLOW.md`
 - relevant ADRs under `docs/adr/`
 
 Use existing implementations with equivalent responsibilities as golden references.
+
+Treat the closest validated implementation with equivalent responsibility and execution ownership as the Golden Template.
+
+Evaluate Golden Template consistency across:
+
+```text
+behavioral consistency
++ architectural consistency
++ structural consistency
++ stylistic consistency
+```
+
+Do not select a reference merely because its code looks similar. Confirm that it represents the same responsibility and a compatible execution boundary.
 
 Prefer:
 
@@ -18,6 +32,48 @@ reuse
 → extend
 → create
 ```
+
+Prefer:
+
+```text
+reuse
+→ extend
+→ create
+```
+
+When using repository context or external evidence, preserve the evidence boundary:
+
+```text
+repository evidence
+→ architecture, ownership, existing abstractions, Golden Templates
+
+provider-contract evidence
+→ authoritative external API behavior and contracts
+
+runtime browser evidence
+→ observable rendered state and browser behavior
+```
+
+Repository evidence determines how an implementation belongs in this framework.
+
+OpenAPI MCP may provide provider-contract evidence. Playwright MCP may provide runtime browser evidence. Neither source may override repository architecture or implementation ownership.
+
+For AI-assisted engineering, follow:
+
+```text
+proposal
+→ human review
+→ targeted feedback
+→ implementation
+→ deterministic validation
+→ human approval
+```
+
+Do not treat generated code, Copilot output, MCP output, or apparent plausibility as validation evidence.
+
+When available evidence is insufficient or conflicting, state the uncertainty rather than inventing missing behavior.
+
+Do not weaken assertions, alter approved baselines, invent provider behavior, bypass established ownership, or suppress real failures merely to produce a passing implementation.
 
 Do not create a new client, database client, schema, constant collection, factory, fixture, Page Object, Component Object, accessibility abstraction, visual abstraction, mock, utility, or architectural layer before checking whether the existing architecture can be reused or extended.
 
