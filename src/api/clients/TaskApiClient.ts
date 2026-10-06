@@ -3,6 +3,7 @@ import { type APIRequestContext, type APIResponse } from "@playwright/test";
 import { getCurrentEnvironment } from "../../utils/env";
 import { logger } from "../../utils/logger";
 import type { TaskRequest } from "../schemas/TaskRequestSchema";
+import type { TaskUpdateRequest } from "../schemas/TaskUpdateRequestSchema";
 import {
   type TaskResponse,
   taskResponseSchema,
@@ -19,6 +20,23 @@ export class TaskApiClient {
     const { apiBaseUrl } = getCurrentEnvironment();
 
     return this.request.post(`${apiBaseUrl}/tasks`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      data: {
+        ...task,
+      },
+    });
+  }
+
+  async updateTask(
+    taskId: string,
+    task: TaskUpdateRequest,
+    accessToken: string,
+  ): Promise<APIResponse> {
+    const { apiBaseUrl } = getCurrentEnvironment();
+
+    return this.request.put(`${apiBaseUrl}/tasks/${taskId}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
