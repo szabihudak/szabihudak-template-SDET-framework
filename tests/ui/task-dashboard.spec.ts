@@ -33,6 +33,26 @@ test.describe("Task Dashboard tests", () => {
     ).toHaveText(request.priority);
   });
 
+  test("updates task priority through the edit dialog", async ({
+    tasksDashboardPage,
+    createdTask,
+  }) => {
+    const { request, response } = createdTask;
+    const updatedPriority = "high";
+
+    await tasksDashboardPage.goto();
+
+    await expect(
+      tasksDashboardPage.taskPriority(request.title, request.priority),
+    ).toHaveText(request.priority);
+
+    await tasksDashboardPage.updateTaskPriority(response.id, updatedPriority);
+
+    await expect(
+      tasksDashboardPage.taskPriority(request.title, updatedPriority),
+    ).toHaveText(updatedPriority);
+  });
+
   test("shows error state when tasks API fails", async ({
     authenticatedPage,
     tasksDashboardPage,

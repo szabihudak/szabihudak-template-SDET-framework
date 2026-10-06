@@ -35,6 +35,21 @@ export class TasksDashboardPage {
     await this.taskTitleInput.fill(title);
   }
 
+  async updateTaskPriority(
+    taskId: string,
+    priority: TaskPriority,
+  ): Promise<void> {
+    await this.page.getByTestId(`task-menu-${taskId}`).click();
+    await this.page.getByRole("menuitem", { name: "Edit" }).click();
+    await this.page.getByRole("combobox", { name: "Priority" }).click();
+    await this.page
+      .getByRole("option", {
+        name: priority.charAt(0).toUpperCase() + priority.slice(1),
+      })
+      .click();
+    await this.page.getByRole("button", { name: "Save Changes" }).click();
+  }
+
   taskCardByTitle(title: string): Locator {
     return this.taskCards.filter({
       hasText: title,
