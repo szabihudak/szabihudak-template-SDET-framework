@@ -34,23 +34,64 @@ test.describe("Task Dashboard tests", () => {
   });
 
   test("updates task priority through the edit dialog", async ({
+    taskApi,
     tasksDashboardPage,
     createdTask,
+    authenticatedTestUser,
   }) => {
-    const { request, response } = createdTask;
+    const taskToUpdate = createdTask.response;
+    const unchangedTask = await taskApi.createTaskForUser(
+      {
+        title: "Priority Update Unchanged Task",
+        description: "Task that should retain its original priority",
+        priority: "medium",
+        status: "backlog",
+      },
+      authenticatedTestUser.accessToken,
+    );
     const updatedPriority = "high";
 
     await tasksDashboardPage.goto();
 
     await expect(
-      tasksDashboardPage.taskPriority(request.title, request.priority),
-    ).toHaveText(request.priority);
+      tasksDashboardPage.taskPriority(
+        taskToUpdate.title,
+        taskToUpdate.priority,
+      ),
+    ).toHaveText(taskToUpdate.priority);
+    await expect(
+      tasksDashboardPage.taskPriority(
+        unchangedTask.title,
+        unchangedTask.priority,
+      ),
+    ).toHaveText(unchangedTask.priority);
 
-    await tasksDashboardPage.updateTaskPriority(response.id, updatedPriority);
+    await tasksDashboardPage.updateTaskPriority(
+      taskToUpdate.id,
+      updatedPriority,
+    );
 
     await expect(
-      tasksDashboardPage.taskPriority(request.title, updatedPriority),
+      tasksDashboardPage.taskPriority(taskToUpdate.title, updatedPriority),
     ).toHaveText(updatedPriority);
+    await expect(
+      tasksDashboardPage.taskPriority(
+        unchangedTask.title,
+        unchangedTask.priority,
+      ),
+    ).toHaveText(unchangedTask.priority);
+
+    await tasksDashboardPage.goto();
+
+    await expect(
+      tasksDashboardPage.taskPriority(taskToUpdate.title, updatedPriority),
+    ).toHaveText(updatedPriority);
+    await expect(
+      tasksDashboardPage.taskPriority(
+        unchangedTask.title,
+        unchangedTask.priority,
+      ),
+    ).toHaveText(unchangedTask.priority);
   });
 
   test("shows error state when tasks API fails", async ({
