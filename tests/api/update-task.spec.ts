@@ -65,16 +65,18 @@ const unauthenticatedScenarios = [
   },
 ] satisfies { name: string; accessToken: string }[];
 
-const notFoundScenarios = [
+const taskIdScenarios = [
   {
     name: "returns not found for a nonexistent task ID",
     taskId: randomUUID(),
+    expectedStatus: HTTP_STATUS.NOT_FOUND,
   },
   {
-    name: "returns not found when the task ID is missing",
+    name: "returns method not allowed when the task ID is missing",
     taskId: "",
+    expectedStatus: HTTP_STATUS.METHOD_NOT_ALLOWED,
   },
-] satisfies { name: string; taskId: string }[];
+] satisfies { name: string; taskId: string; expectedStatus: number }[];
 
 test.describe("Update a Task API", () => {
   test("updates every supported task field", async ({
@@ -202,7 +204,7 @@ test.describe("Update a Task API", () => {
     });
   }
 
-  for (const scenario of notFoundScenarios) {
+  for (const scenario of taskIdScenarios) {
     test(scenario.name, async ({ taskApi, authenticatedTestUser }) => {
       const user = authenticatedTestUser;
       const response = await taskApi.updateTask(
@@ -211,7 +213,7 @@ test.describe("Update a Task API", () => {
         user.accessToken,
       );
 
-      expect(response.status()).toBe(HTTP_STATUS.NOT_FOUND);
+      expect(response.status()).toBe(scenario.expectedStatus);
     });
   }
 });
