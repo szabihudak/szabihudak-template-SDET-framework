@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": ">=22.19"
+  },
   "description": "Production-oriented Playwright + TypeScript test automation framework for API, UI, contract, Docker, and CI testing.",
   "scripts": {
     "test": "playwright test",

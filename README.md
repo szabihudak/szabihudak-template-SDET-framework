@@ -6,7 +6,9 @@ The template was built and validated against [UPEX DOJO](https://dojo.upexgalaxy
 
 ## Quick Start
 
-Requirements: Node.js 22, npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
+Requirements: Node.js 22.19 or newer (`node -v`; with nvm: `nvm install 22 && nvm use 22`, the repository ships an `.nvmrc`), npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
+
+Setup asks only about your application (URLs, modules, login endpoints and field names). Never type credentials into setup: put test-account credentials into `.env` afterwards.
 
 ```bash
 git clone <this-template> my-app-tests && cd my-app-tests

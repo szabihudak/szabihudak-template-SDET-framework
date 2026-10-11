@@ -15,6 +15,8 @@ import {
   type FrameworkConfig,
 } from "../../src/framework/config/frameworkConfigSchema";
 
+import { assertSupportedNode } from "./runtime";
+
 const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = ".qa/starter";
 const PILOT_PATHS = ".qa/pilot-paths.json";
@@ -93,36 +95,160 @@ function describeSchemaError(error: unknown): string {
   }
 }
 
+type Validator = (value: string) => string | undefined;
+
+const isUrl: Validator = (value) => {
+  try {
+    const url = new URL(value);
+
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !/[\s[\]()]/.test(value)
+    ) {
+      return undefined;
+    }
+  } catch {
+    // Fall through to the message below.
+  }
+
+  return "Enter a full URL such as https://staging.example.com (no brackets or spaces).";
+};
+
+const isPath: Validator = (value) =>
+  /^\/[^\s]*$/.test(value)
+    ? undefined
+    : "Enter a path that starts with /, for example /dashboard.";
+
+const isFieldName: Validator = (value) =>
+  /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(value)
+    ? undefined
+    : "Enter the NAME of the field in the login request (for example email), not your username or password.";
+
+const isProjectName: Validator = (value) =>
+  /^[a-z0-9][a-z0-9-]*$/.test(value)
+    ? undefined
+    : "Use lower-case letters, digits and hyphens, for example my-app-tests.";
+
+const isNameList =
+  (pattern: RegExp, example: string): Validator =>
+  (value) =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .every((item) => pattern.test(item))
+      ? undefined
+      : `Enter a comma-separated list such as ${example}.`;
+
+const isBrowserList: Validator = (value) => {
+  const unknown = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item && !(BROWSERS as readonly string[]).includes(item));
+
+  return unknown.length === 0
+    ? undefined
+    : `Unknown browser: ${unknown.join(", ")}. Choose from ${BROWSERS.join(", ")}.`;
+};
+
+// Checks the answers file mode cannot express through the schema alone.
+function semanticErrors(answers: Answers): string[] {
+  const errors: string[] = [];
+
+  for (const [name, environment] of Object.entries(answers.environments)) {
+    for (const key of ["webBaseUrl", "apiBaseUrl"] as const) {
+      const error = isUrl(environment[key]);
+      if (error) errors.push(`environments.${name}.${key}: ${error}`);
+    }
+  }
+
+  const paths: [string, string][] = [];
+  if (answers.auth.api.strategy === "bearer") {
+    paths.push(["auth.api.loginPath", answers.auth.api.loginPath]);
+  }
+  if (answers.auth.browser.strategy === "nextAuth") {
+    paths.push(
+      ["auth.browser.csrfPath", answers.auth.browser.csrfPath],
+      ["auth.browser.callbackPath", answers.auth.browser.callbackPath],
+      ["auth.browser.landingPath", answers.auth.browser.landingPath],
+    );
+  }
+  for (const [key, value] of paths) {
+    const error = isPath(value);
+    if (error) errors.push(`${key}: ${error}`);
+  }
+
+  return errors;
+}
+
 async function askAnswers(): Promise<Answers> {
   // Lines are pulled on demand so piped answers are not dropped between
   // questions, which readline's question() does with non-TTY input.
   const rl = createInterface({ input: stdin, terminal: false });
   const lines = rl[Symbol.asyncIterator]();
 
-  const ask = async (question: string, fallback: string) => {
-    stdout.write(`? ${question} (${fallback}): `);
-    const { value, done } = await lines.next();
-    const answer = done ? "" : String(value).trim();
+  const ask = async (
+    question: string,
+    fallback: string,
+    validate?: Validator,
+  ): Promise<string> => {
+    for (;;) {
+      stdout.write(`? ${question} (${fallback}): `);
+      const { value, done } = await lines.next();
+      const answer = (done ? "" : String(value).trim()) || fallback;
 
-    if (!stdin.isTTY) stdout.write(`${answer}\n`);
+      if (!stdin.isTTY) stdout.write(`${done ? "" : String(value).trim()}\n`);
 
-    return answer || fallback;
+      const error = validate?.(answer);
+      if (!error) return answer;
+
+      // Piped input cannot be corrected interactively, so stop instead of looping.
+      if (!stdin.isTTY || done) {
+        throw new Error(`Invalid answer for "${question}": ${error}`);
+      }
+
+      stdout.write(`  ✖ ${error}\n`);
+    }
   };
   const confirm = async (question: string, fallback: boolean) =>
-    /^y/i.test(await ask(`${question} [y/n]`, fallback ? "y" : "n"));
+    /^y/i.test(
+      await ask(`${question} [y/n]`, fallback ? "y" : "n", (value) =>
+        /^(y|yes|n|no)$/i.test(value) ? undefined : "Answer y or n.",
+      ),
+    );
   const list = (value: string) =>
     value
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
 
+  stdout.write(
+    "Setup asks about your application. Never type credentials here: after setup, put test-account credentials into .env.\n\n",
+  );
+
   try {
-    const appName = await ask("Project name", "my-app-tests");
+    const appName = await ask("Project name", "my-app-tests", isProjectName);
 
     const environments: Answers["environments"] = {};
-    for (const name of list(await ask("Environments", "staging,local"))) {
-      const webBaseUrl = await ask(`${name}: web URL`, "http://localhost:3000");
-      const apiBaseUrl = await ask(`${name}: API URL`, `${webBaseUrl}/api`);
+    const environmentNames = list(
+      await ask(
+        "Environments",
+        "staging,local",
+        isNameList(/^[A-Za-z][A-Za-z0-9_-]*$/, "staging,local"),
+      ),
+    );
+
+    for (const name of environmentNames) {
+      const webBaseUrl = await ask(
+        `${name}: web URL`,
+        "http://localhost:3000",
+        isUrl,
+      );
+      const apiBaseUrl = await ask(
+        `${name}: API URL`,
+        `${webBaseUrl.replace(/\/$/, "")}/api`,
+        isUrl,
+      );
       const database = await confirm(
         `${name}: allow direct database access (dedicated test database only)`,
         false,
@@ -165,12 +291,34 @@ async function askAnswers(): Promise<Answers> {
 
     const browsers = (
       usesBrowser
-        ? list(await ask(`Browsers (${BROWSERS.join(", ")})`, "chromium"))
+        ? list(
+            await ask(
+              `Browsers, comma-separated (${BROWSERS.join(", ")})`,
+              "chromium",
+              isBrowserList,
+            ),
+          )
         : ["chromium"]
     ) as Answers["browsers"];
 
-    const usernameField = await ask("Login username field", "email");
-    const passwordField = await ask("Login password field", "password");
+    let fieldNames:
+      { usernameField: string; passwordField: string } | undefined;
+    const askFieldNames = async () => {
+      fieldNames ??= {
+        usernameField: await ask(
+          "Name of the username field in the login request (a field name, not your username)",
+          "email",
+          isFieldName,
+        ),
+        passwordField: await ask(
+          "Name of the password field in the login request (a field name, not your password)",
+          "password",
+          isFieldName,
+        ),
+      };
+
+      return fieldNames;
+    };
 
     const api: Answers["auth"]["api"] = (await confirm(
       "API uses bearer-token login",
@@ -178,12 +326,12 @@ async function askAnswers(): Promise<Answers> {
     ))
       ? {
           strategy: "bearer",
-          loginPath: await ask("API login path", "/auth/login"),
-          usernameField,
-          passwordField,
+          loginPath: await ask("API login path", "/auth/login", isPath),
+          ...(await askFieldNames()),
           tokenField: await ask(
-            "Token field in login response",
+            "Token field in the login response",
             "access_token",
+            isFieldName,
           ),
         }
       : { strategy: "none" };
@@ -196,14 +344,18 @@ async function askAnswers(): Promise<Answers> {
       ))
         ? {
             strategy: "nextAuth",
-            csrfPath: await ask("CSRF path", "/api/auth/csrf"),
+            csrfPath: await ask("CSRF path", "/api/auth/csrf", isPath),
             callbackPath: await ask(
               "Credentials callback path",
               "/api/auth/callback/credentials",
+              isPath,
             ),
-            landingPath: await ask("Landing path after login", "/dashboard"),
-            usernameField,
-            passwordField,
+            landingPath: await ask(
+              "Landing path after login",
+              "/dashboard",
+              isPath,
+            ),
+            ...(await askFieldNames()),
           }
         : { strategy: "none" };
 
@@ -211,7 +363,13 @@ async function askAnswers(): Promise<Answers> {
     const roles =
       api.strategy === "none" && browser.strategy === "none"
         ? []
-        : list(await ask("Roles (each gets its own test account)", "user"));
+        : list(
+            await ask(
+              "Roles, comma-separated (each gets its own test account in .env)",
+              "user",
+              isNameList(/^[a-z][a-zA-Z0-9]*$/, "user,admin"),
+            ),
+          );
 
     const installStarter = await confirm(
       "Replace the UPEX reference implementation with the starter application layer, tests and CI workflows",
@@ -392,6 +550,7 @@ async function main(): Promise<void> {
   const answersIndex = args.indexOf("--answers");
   const force = args.includes("--force");
 
+  assertSupportedNode();
   assertCleanWorkingTree(force);
 
   const answers: unknown =
@@ -405,6 +564,13 @@ async function main(): Promise<void> {
     validateSchema(answersSchema, answers);
   } catch (error) {
     throw new Error(`Invalid setup answers:\n${describeSchemaError(error)}`);
+  }
+
+  const errors = semanticErrors(answers);
+  if (errors.length > 0) {
+    throw new Error(
+      `Invalid setup answers:\n${errors.map((error) => `  - ${error}`).join("\n")}`,
+    );
   }
 
   const frameworkConfig = buildFrameworkConfig(answers);
