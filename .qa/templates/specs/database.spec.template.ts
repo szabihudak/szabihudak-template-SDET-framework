@@ -1,6 +1,6 @@
 // @template database-spec: Persistence validation after behavior created through the API.
 // @template Canonical source: tests/database/task-database.spec.ts. Rules: docs/TESTING_STANDARDS.md#database-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { create__Domain__ } from "../../src/app/data/__domain__Factory";
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 
@@ -16,9 +16,7 @@ test.describe("__Domain__ database validation", () => {
       __domain__Data,
       user.accessToken,
     );
-    const __domain__InDb = await __domain__Database.findById(
-      created__Domain__.id,
-    );
+    const __domain__InDb = await __domain__Database.findById(created__Domain__.id);
 
     expect(__domain__InDb).not.toBeNull();
     expect(__domain__InDb?.title).toBe(__domain__Data.title);

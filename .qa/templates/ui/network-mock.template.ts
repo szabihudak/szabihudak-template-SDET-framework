@@ -1,6 +1,6 @@
 // @template network-mock: Controlled network behavior for one scenario, leaving other requests untouched.
 // @template Canonical source: src/app/mocks/taskApiMock.ts. Rules: docs/TESTING_STANDARDS.md#mock-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import type { Page } from "@playwright/test";
 
 const __DOMAIN__S_API_PATTERN = "**/api/__domains__";

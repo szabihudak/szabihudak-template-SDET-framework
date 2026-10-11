@@ -17,6 +17,12 @@ type TemplateIndex = {
   templates: TemplateEntry[];
 };
 
+type ProjectExample = {
+  id: string;
+  need: string;
+  file: string;
+};
+
 type RoundTripValues = {
   defaults: Record<string, string>;
   templates: Record<string, Record<string, string>>;
@@ -24,6 +30,7 @@ type RoundTripValues = {
 
 const ROOT = path.resolve(__dirname, "../..");
 const INDEX_PATH = ".qa/index.json";
+const PROJECT_INDEX_PATH = ".qa-project.json";
 const VALUES_PATH = ".qa/roundtrip/upex.values.json";
 const CATALOGUE_PATH = ".qa/templates/README.md";
 const SNIPPETS_PATH = ".vscode/qa.code-snippets";
@@ -111,11 +118,13 @@ async function extract(ids: string[]): Promise<void> {
     const header = [
       `// @template ${entry.id}: ${entry.need}.`,
       `// @template Canonical source: ${entry.canonical}. Rules: ${entry.rules}`,
-      "// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.",
+      "// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.",
       "",
     ].join("\n");
 
-    write(entry.template, await format(header + body, entry.template));
+    // Templates stay unformatted: longer token names would make Prettier
+    // re-wrap lines, and rendering must reproduce the canonical file exactly.
+    write(entry.template, header + body);
     console.log(`extracted ${entry.id} -> ${entry.template}`);
   }
 }
@@ -193,7 +202,7 @@ async function generatedFiles(index: TemplateIndex) {
     },
     {
       file: SNIPPETS_PATH,
-      content: await format(buildSnippets(index), SNIPPETS_PATH),
+      content: buildSnippets(index),
     },
   ];
 }
@@ -244,6 +253,20 @@ async function check(): Promise<void> {
       problems.push(
         `${entry.id}: template does not reproduce ${entry.canonical}. Change both together, or run npm run qa:templates:extract -- ${entry.id} after an intended canonical change.`,
       );
+    }
+  }
+
+  if (exists(PROJECT_INDEX_PATH)) {
+    const { examples }: { examples: ProjectExample[] } = JSON.parse(
+      read(PROJECT_INDEX_PATH),
+    );
+
+    for (const example of examples) {
+      if (!exists(example.file)) {
+        problems.push(
+          `${PROJECT_INDEX_PATH}: example ${example.id} points to missing ${example.file}`,
+        );
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 // @template api-scenario-spec: API behavior with table-driven boundary, validation and authorization scenarios.
 // @template Canonical source: tests/api/update-task.spec.ts. Rules: docs/TESTING_STANDARDS.md#negative-api-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { randomUUID } from "node:crypto";
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 import { API_ERRORS } from "../../src/app/api/constants/apiErrors";

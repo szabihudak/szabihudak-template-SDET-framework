@@ -1,6 +1,6 @@
 // @template api-client: HTTP interaction with a domain endpoint: raw request methods plus fail-fast setup helpers.
 // @template Canonical source: src/app/api/clients/TaskApiClient.ts. Rules: docs/TESTING_STANDARDS.md#api-client-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
 import { getCurrentEnvironment } from "../../../framework/utils/env";
@@ -58,9 +58,7 @@ export class __Domain__ApiClient {
     const response = await this.create__Domain__(__domain__, accessToken);
 
     if (!response.ok()) {
-      logger.error(
-        `__Domain__ creation failed with status ${response.status()}`,
-      );
+      logger.error(`__Domain__ creation failed with status ${response.status()}`);
       throw new Error(
         `__Domain__ creation failed: ${response.status()} ${await response.text()}`,
       );
@@ -74,10 +72,7 @@ export class __Domain__ApiClient {
     return created__Domain__;
   }
 
-  async delete__Domain__(
-    __domain__Id: string,
-    accessToken: string,
-  ): Promise<APIResponse> {
+  async delete__Domain__(__domain__Id: string, accessToken: string): Promise<APIResponse> {
     const { apiBaseUrl } = getCurrentEnvironment();
 
     return this.request.delete(`${apiBaseUrl}/__domains__/${__domain__Id}`, {
@@ -87,18 +82,13 @@ export class __Domain__ApiClient {
     });
   }
 
-  async delete__Domain__ForUser(
-    __domain__Id: string,
-    accessToken: string,
-  ): Promise<void> {
+  async delete__Domain__ForUser(__domain__Id: string, accessToken: string): Promise<void> {
     logger.info(`Deleting __domain__: ${__domain__Id}`);
 
     const response = await this.delete__Domain__(__domain__Id, accessToken);
 
     if (!response.ok()) {
-      logger.error(
-        `__Domain__ deletion failed with status ${response.status()}`,
-      );
+      logger.error(`__Domain__ deletion failed with status ${response.status()}`);
 
       throw new Error(
         `__Domain__ deletion failed: ${response.status()} ${await response.text()}`,

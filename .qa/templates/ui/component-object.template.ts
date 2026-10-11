@@ -1,6 +1,6 @@
 // @template component-object: Reusable UI region that is not a whole page.
 // @template Canonical source: src/app/components/NavigationBar.ts. Rules: docs/TESTING_STANDARDS.md#component-object-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { type Locator, type Page } from "@playwright/test";
 
 export class __Component__ {

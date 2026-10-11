@@ -1,6 +1,6 @@
 // @template ui-spec: Browser behavior with API setup, Page Object interaction and a mocked error state.
 // @template Canonical source: tests/ui/task-dashboard.spec.ts. Rules: docs/TESTING_STANDARDS.md#ui-spec-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 import { mock__Domains__ServerError } from "../../src/app/mocks/__domain__ApiMock";
 
@@ -75,10 +75,7 @@ test.describe("__Domain__ Dashboard tests", () => {
     );
 
     await expect(
-      __page__Page.__domain__Priority(
-        __domain__ToUpdate.title,
-        updatedPriority,
-      ),
+      __page__Page.__domain__Priority(__domain__ToUpdate.title, updatedPriority),
     ).toHaveText(updatedPriority);
     await expect(
       __page__Page.__domain__Priority(
@@ -90,10 +87,7 @@ test.describe("__Domain__ Dashboard tests", () => {
     await __page__Page.goto();
 
     await expect(
-      __page__Page.__domain__Priority(
-        __domain__ToUpdate.title,
-        updatedPriority,
-      ),
+      __page__Page.__domain__Priority(__domain__ToUpdate.title, updatedPriority),
     ).toHaveText(updatedPriority);
     await expect(
       __page__Page.__domain__Priority(

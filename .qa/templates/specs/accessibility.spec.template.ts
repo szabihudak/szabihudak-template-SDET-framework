@@ -1,6 +1,6 @@
 // @template accessibility-spec: Full-page automated accessibility scans of public and authenticated pages.
 // @template Canonical source: tests/accessibility/accessibility.spec.ts. Rules: docs/TESTING_STANDARDS.md#accessibility-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { formatAccessibilityViolations } from "../../src/framework/accessibility/utils/AccessibilityFormatter";
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 

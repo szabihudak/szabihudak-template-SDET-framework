@@ -1,6 +1,6 @@
 // @template visual-spec: Page-level and component-level screenshot contracts on deterministic state.
 // @template Canonical source: tests/visual/visual.spec.ts. Rules: docs/TESTING_STANDARDS.md#visual-regression-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { create__Domain__ } from "../../src/app/data/__domain__Factory";
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 import { VISUAL_COMPARISON_OPTIONS } from "../../src/framework/visual/constants/visualComparison";
@@ -17,14 +17,9 @@ test.describe("Visual regression", () => {
       priority: "high",
       status: "done",
     });
-    await __domain__Api.create__Domain__ForUser(
-      __domain__,
-      authenticatedTestUser.accessToken,
-    );
+    await __domain__Api.create__Domain__ForUser(__domain__, authenticatedTestUser.accessToken);
     await __page__Page.goto();
-    await expect(
-      __page__Page.__domain__CardByTitle(__domain__.title),
-    ).toBeVisible();
+    await expect(__page__Page.__domain__CardByTitle(__domain__.title)).toBeVisible();
 
     await expect(__page__Page.page).toHaveScreenshot(
       "__domain__-dashboard.png",
@@ -43,10 +38,7 @@ test.describe("Visual regression", () => {
       priority: "low",
       status: "in_progress",
     });
-    await __domain__Api.create__Domain__ForUser(
-      __domain__,
-      authenticatedTestUser.accessToken,
-    );
+    await __domain__Api.create__Domain__ForUser(__domain__, authenticatedTestUser.accessToken);
     await __page__Page.goto();
     const __domain__Card = __page__Page.__domain__CardByTitle(__domain__.title);
     await expect(__domain__Card).toBeVisible();

@@ -1,6 +1,6 @@
 // @template api-spec: API behavior: positive contract tests and negative tests.
 // @template Canonical source: tests/api/create-task.spec.ts. Rules: docs/TESTING_STANDARDS.md#api-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
 import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
@@ -11,10 +11,7 @@ import {
 } from "../../src/app/api/schemas/CurrentUserSchema";
 import { __domain__ResponseSchema } from "../../src/app/api/schemas/__Domain__ResponseSchema";
 import { validateSchema } from "../../src/framework/api/SchemaValidator";
-import {
-  create__Domain__,
-  create__Domain__Payload,
-} from "../../src/app/data/__domain__Factory";
+import { create__Domain__, create__Domain__Payload } from "../../src/app/data/__domain__Factory";
 import type { UserApiClient } from "../../src/app/api/clients/UserApiClient";
 
 type Missing__Domain__FieldScenario = {
@@ -39,10 +36,7 @@ test.describe("Create a __Domain__ API", () => {
     const currentUser = await getCurrentUser(userApi, user.accessToken);
     const __domain__Data = create__Domain__();
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      user.accessToken,
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
     expect(response.status()).toBe(HTTP_STATUS.CREATED);
 
     const body = await response.json();
@@ -66,10 +60,7 @@ test.describe("Create a __Domain__ API", () => {
       missingFields: ["description"],
     });
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      user.accessToken,
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
     expect(response.status()).toBe(HTTP_STATUS.CREATED);
 
     const body = await response.json();
@@ -93,10 +84,7 @@ test.describe("Create a __Domain__ API", () => {
       missingFields: ["priority"],
     });
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      user.accessToken,
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
     expect(response.status()).toBe(HTTP_STATUS.CREATED);
 
     const body = await response.json();
@@ -120,10 +108,7 @@ test.describe("Create a __Domain__ API", () => {
       missingFields: ["status"],
     });
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      user.accessToken,
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
     expect(response.status()).toBe(HTTP_STATUS.CREATED);
 
     const body = await response.json();
@@ -147,15 +132,10 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
-  test("rejects __domain__ with invalid user token", async ({
-    __domain__Api,
-  }) => {
+  test("rejects __domain__ with invalid user token", async ({ __domain__Api }) => {
     const __domain__Data = create__Domain__();
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      "Invalid-Token_123",
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, "Invalid-Token_123");
     expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     const body = await response.json();
@@ -173,10 +153,7 @@ test.describe("Create a __Domain__ API", () => {
       priority: "critical" as __Domain__Request["priority"],
     };
 
-    const response = await __domain__Api.create__Domain__(
-      __domain__Data,
-      user.accessToken,
-    );
+    const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
     expect(response.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const body = await response.json();
@@ -191,10 +168,7 @@ test.describe("Create a __Domain__ API", () => {
         missingFields: [scenario.missingField],
       });
 
-      const response = await __domain__Api.create__Domain__(
-        __domain__Data,
-        user.accessToken,
-      );
+      const response = await __domain__Api.create__Domain__(__domain__Data, user.accessToken);
       expect(response.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
       const body = await response.json();

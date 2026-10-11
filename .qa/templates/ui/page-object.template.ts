@@ -1,12 +1,9 @@
 // @template page-object: Page-level UI structure, actions and locator queries.
 // @template Canonical source: src/app/pages/TasksDashboardPage.ts. Rules: docs/TESTING_STANDARDS.md#page-object-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { type Locator, type Page } from "@playwright/test";
 
-import type {
-  __Domain__Priority,
-  __Domain__Status,
-} from "../api/constants/__domain__";
+import type { __Domain__Priority, __Domain__Status } from "../api/constants/__domain__";
 
 export class __Page__Page {
   readonly page: Page;
@@ -22,9 +19,7 @@ export class __Page__Page {
       name: /__domains__|dashboard/i,
     });
     this.__domain__Cards = page.locator('[data-testid^="__domain__-card-"]');
-    this.new__Domain__Button = page.getByRole("button", {
-      name: "New __Domain__",
-    });
+    this.new__Domain__Button = page.getByRole("button", { name: "New __Domain__" });
     this.__domain__TitleInput = page.getByRole("textbox", { name: "Title" });
     this.create__Domain__Button = page.getByRole("button", {
       name: "Create __Domain__",

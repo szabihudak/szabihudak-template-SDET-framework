@@ -1,12 +1,9 @@
 // @template database-client: Domain-specific parameterized SQL and persisted record mapping.
 // @template Canonical source: src/app/database/clients/TaskDatabaseClient.ts. Rules: docs/TESTING_STANDARDS.md#database-test-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import type { QueryResultRow } from "pg";
 
-import type {
-  __Domain__Priority,
-  __Domain__Status,
-} from "../../api/constants/__domain__";
+import type { __Domain__Priority, __Domain__Status } from "../../api/constants/__domain__";
 import { DatabaseClient } from "../../../framework/database/DatabaseClient";
 
 export interface __Domain__DatabaseRecord extends QueryResultRow {
@@ -24,9 +21,7 @@ export interface __Domain__DatabaseRecord extends QueryResultRow {
 export class __Domain__DatabaseClient {
   constructor(private readonly databaseClient: DatabaseClient) {}
 
-  async findById(
-    __domain__Id: string,
-  ): Promise<__Domain__DatabaseRecord | null> {
+  async findById(__domain__Id: string): Promise<__Domain__DatabaseRecord | null> {
     const rows = await this.databaseClient.query<__Domain__DatabaseRecord>(
       `
         SELECT

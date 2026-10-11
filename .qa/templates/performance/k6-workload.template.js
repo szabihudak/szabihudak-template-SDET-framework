@@ -1,6 +1,6 @@
 // @template k6-workload: API workload performance with setup outside the measured operation and native thresholds.
 // @template Canonical source: performance/k6/taskReadLoad.js. Rules: docs/TESTING_STANDARDS.md#api-performance-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
@@ -164,18 +164,14 @@ export function teardown(data) {
     throw new Error("Performance teardown did not receive required setup data");
   }
 
-  const deleteResponse = http.del(
-    `${baseUrl}/__domains__/${data.__domain__Id}`,
-    null,
-    {
-      headers: {
-        Authorization: `Bearer ${data.accessToken}`,
-      },
-      tags: {
-        name: "teardown_delete___domain__",
-      },
+  const deleteResponse = http.del(`${baseUrl}/__domains__/${data.__domain__Id}`, null, {
+    headers: {
+      Authorization: `Bearer ${data.accessToken}`,
     },
-  );
+    tags: {
+      name: "teardown_delete___domain__",
+    },
+  });
 
   const __domain__Deleted = check(deleteResponse, {
     "performance __domain__ cleanup succeeds": (response) =>

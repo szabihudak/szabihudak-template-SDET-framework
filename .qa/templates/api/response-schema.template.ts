@@ -1,11 +1,8 @@
 // @template response-schema: Provider response contract, used for runtime validation.
 // @template Canonical source: src/app/api/schemas/TaskResponseSchema.ts. Rules: docs/TESTING_STANDARDS.md#schema-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { Type, type Static } from "@sinclair/typebox";
-import {
-  __DOMAIN___PRIORITIES,
-  __DOMAIN___STATUSES,
-} from "../constants/__domain__";
+import { __DOMAIN___PRIORITIES, __DOMAIN___STATUSES } from "../constants/__domain__";
 
 export const __domain__ResponseSchema = Type.Object(
   {
@@ -13,9 +10,7 @@ export const __domain__ResponseSchema = Type.Object(
     userId: Type.String(),
     title: Type.String(),
     description: Type.Union([Type.String(), Type.Null()]),
-    status: Type.Union(
-      __DOMAIN___STATUSES.map((status) => Type.Literal(status)),
-    ),
+    status: Type.Union(__DOMAIN___STATUSES.map((status) => Type.Literal(status))),
     priority: Type.Union(
       __DOMAIN___PRIORITIES.map((priority) => Type.Literal(priority)),
     ),

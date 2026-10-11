@@ -1,10 +1,7 @@
 // @template factory: Test data: complete valid object with overrides, plus partial request payloads.
 // @template Canonical source: src/app/data/taskFactory.ts. Rules: docs/TESTING_STANDARDS.md#canonical-factory-and-payload-pattern
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
-import type {
-  __Domain__Priority,
-  __Domain__Status,
-} from "../api/constants/__domain__";
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
+import type { __Domain__Priority, __Domain__Status } from "../api/constants/__domain__";
 import type { __Domain__Request } from "../api/schemas/__Domain__RequestSchema";
 
 export type Complete__Domain__Request = Required<__Domain__Request>;

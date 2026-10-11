@@ -1,0 +1,4 @@
+# Golden templates mirror their canonical files line by line; see .qa/scripts/templates.ts
+.qa/templates/**/*.template.*
+# Generated as strict JSON by .qa/scripts/templates.ts
+.vscode/qa.code-snippets

@@ -1,6 +1,6 @@
 // @template lighthouse-spec: Authenticated browser performance measured by Lighthouse after deterministic setup.
 // @template Canonical source: tests/performance/lighthouse-dashboard.spec.ts. Rules: docs/TESTING_STANDARDS.md#browser-performance-standard
-// @template Replace the __Tokens__ described in .qa/index.json. Fields, locators and test data are illustrative.
+// @template Replace the tokens described in .qa/index.json. Fields, locators and test data are illustrative.
 import { LighthouseRunner } from "../../performance/lighthouse/LighthouseRunner";
 import { expectLighthousePolicy } from "../../performance/lighthouse/lighthousePolicy";
 import { attachLighthouseReport } from "../../performance/lighthouse/lighthouseReporter";

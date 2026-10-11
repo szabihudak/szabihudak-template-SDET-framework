@@ -1,0 +1,4 @@
+{
+  "$comment": "Project golden examples: reviewed, green implementations from this project. They take precedence over the generic templates in .qa/index.json for the same responsibility. Project-owned; template updates never change this file.",
+  "examples": []
+}
