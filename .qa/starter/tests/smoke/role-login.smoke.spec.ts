@@ -1,23 +1,11 @@
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { getApiAccessToken } from "../../src/framework/auth/apiLogin";
 import { getRoleCredentials } from "../../src/framework/auth/credentials";
 import { getFrameworkConfig } from "../../src/framework/config/frameworkConfig";
 
 const { auth, roles } = getFrameworkConfig();
 
 for (const role of Object.keys(roles)) {
-  test.describe(`${role} role login`, { tag: "@starter" }, () => {
-    test("receives an API access token", async ({ request }) => {
-      test.skip(auth.api.strategy === "none", "API authentication is disabled");
-
-      const accessToken = await getApiAccessToken(
-        request,
-        getRoleCredentials(role),
-      );
-
-      expect(accessToken).not.toBe("");
-    });
-
+  test.describe(`${role} role browser login`, { tag: "@starter" }, () => {
     test("reaches the landing page with a browser session", async ({
       authenticatedPageFor,
     }) => {

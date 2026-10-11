@@ -40,7 +40,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 // Validates the workflows setup installed: parseable YAML, secrets injected for
 // each role, and the container image matching the installed Playwright version.
-function checkWorkflows(project: string): void {
+function checkWorkflows(project: string, expectedPlan: string[]): void {
   const read = (file: string) =>
     fs.readFileSync(path.join(project, file), "utf8");
   const playwrightVersion: string = JSON.parse(
@@ -93,7 +93,7 @@ function checkWorkflows(project: string): void {
     env: { ...process.env, TEST_ENV: "selftest", GITHUB_OUTPUT: "" },
   }).toString();
   assert(
-    plan.includes('["api","accessibility","chromium"]'),
+    plan.includes(JSON.stringify(expectedPlan)),
     `unexpected CI plan: ${plan.trim()}`,
   );
 
@@ -113,24 +113,54 @@ async function waitForApp(url: string): Promise<void> {
   throw new Error(`Mock application did not start at ${url}`);
 }
 
-async function main(): Promise<void> {
-  const keep = process.argv.includes("--keep");
-  const skipBrowser = process.argv.includes("--skip-browser");
+type Scenario = {
+  name: string;
+  answers: string;
+  expectedPlan: string[];
+  needsBrowser: boolean;
+};
+
+const SCENARIOS: Scenario[] = [
+  {
+    name: "full (API + browser)",
+    answers: "answers.json",
+    expectedPlan: ["api", "accessibility", "chromium"],
+    needsBrowser: true,
+  },
+  {
+    name: "API only",
+    answers: "answers-api-only.json",
+    expectedPlan: ["api"],
+    needsBrowser: false,
+  },
+];
+
+async function runScenario(
+  scenario: Scenario,
+  options: { keep: boolean; skipBrowser: boolean },
+): Promise<void> {
+  console.log(`\n=== Scenario: ${scenario.name} ===`);
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "qa-selftest-"));
-  let app: ChildProcess | undefined;
 
   try {
     copyTemplate(project);
+    // Projects are git repositories; the architecture check lists files through git.
+    execSync("git init -q", { cwd: project });
 
     run(
-      `npx tsx .qa/scripts/setup.ts --answers ${path.join(ROOT, SELFTEST_DIR, "answers.json")} --force`,
+      `npx tsx .qa/scripts/setup.ts --answers ${path.join(ROOT, SELFTEST_DIR, scenario.answers)} --force`,
       project,
     );
 
-    for (const leftover of ["src/app/api", "tests/api", ".qa/roundtrip"]) {
-      if (fs.existsSync(path.join(project, leftover))) {
-        throw new Error(`setup left example path behind: ${leftover}`);
-      }
+    for (const leftover of [
+      "src/app/api",
+      "tests/api/create-task.spec.ts",
+      ".qa/roundtrip",
+    ]) {
+      assert(
+        !fs.existsSync(path.join(project, leftover)),
+        `setup left reference path behind: ${leftover}`,
+      );
     }
 
     // setup removes .qa/selftest from projects, so fixtures come from the template.
@@ -141,31 +171,48 @@ async function main(): Promise<void> {
 
     run("npx prettier --check .", project);
     run("npx tsc --noEmit", project);
+    run("npx tsx .qa/scripts/architecture.ts", project);
     run("npx tsx .qa/scripts/templates.ts check", project);
     run("npx playwright test --list", project);
-    checkWorkflows(project);
-
-    app = spawn("node", [path.join(ROOT, SELFTEST_DIR, "mock-app.mjs")], {
-      cwd: project,
-      stdio: "inherit",
-    });
-    await waitForApp("http://localhost:4510");
+    checkWorkflows(project, scenario.expectedPlan);
 
     run("npx tsx .qa/scripts/doctor.ts", project);
 
-    if (!skipBrowser) {
+    if (scenario.needsBrowser && options.skipBrowser) {
+      console.log("Skipping starter tests: they need a browser.");
+    } else {
       run("npx playwright test --grep @starter --reporter=list", project);
     }
-
-    console.log("\n✔ Template self-test passed");
   } finally {
-    app?.kill();
-
-    if (keep) {
+    if (options.keep) {
       console.log(`Self-test project kept at ${project}`);
     } else {
       fs.rmSync(project, { recursive: true, force: true });
     }
+  }
+}
+
+async function main(): Promise<void> {
+  const options = {
+    keep: process.argv.includes("--keep"),
+    skipBrowser: process.argv.includes("--skip-browser"),
+  };
+  const app: ChildProcess = spawn(
+    "node",
+    [path.join(ROOT, SELFTEST_DIR, "mock-app.mjs")],
+    { stdio: "inherit" },
+  );
+
+  try {
+    await waitForApp("http://localhost:4510");
+
+    for (const scenario of SCENARIOS) {
+      await runScenario(scenario, options);
+    }
+
+    console.log("\n✔ Template self-test passed");
+  } finally {
+    app.kill();
   }
 }
 

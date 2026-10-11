@@ -24,6 +24,14 @@ const STARTER_WORKFLOWS = [
 ];
 const SECRETS_MARKER = /^([ \t]*)# @qa:secrets[ \t]*\n/m;
 
+const BROWSER_MODULES = [
+  "ui",
+  "smoke",
+  "accessibility",
+  "visual",
+  "performance",
+] as const;
+
 const MODULES = [
   "api",
   "ui",
@@ -152,8 +160,13 @@ async function askAnswers(): Promise<Answers> {
       );
     }
 
-    const browsers = list(
-      await ask(`Browsers (${BROWSERS.join(", ")})`, "chromium"),
+    // API-only projects never launch a browser, so browser questions are skipped.
+    const usesBrowser = BROWSER_MODULES.some((module) => modules[module]);
+
+    const browsers = (
+      usesBrowser
+        ? list(await ask(`Browsers (${BROWSERS.join(", ")})`, "chromium"))
+        : ["chromium"]
     ) as Answers["browsers"];
 
     const usernameField = await ask("Login username field", "email");
@@ -175,24 +188,30 @@ async function askAnswers(): Promise<Answers> {
         }
       : { strategy: "none" };
 
-    const browser: Answers["auth"]["browser"] = (await confirm(
-      "Browser uses NextAuth / Auth.js credentials login",
-      false,
-    ))
-      ? {
-          strategy: "nextAuth",
-          csrfPath: await ask("CSRF path", "/api/auth/csrf"),
-          callbackPath: await ask(
-            "Credentials callback path",
-            "/api/auth/callback/credentials",
-          ),
-          landingPath: await ask("Landing path after login", "/dashboard"),
-          usernameField,
-          passwordField,
-        }
-      : { strategy: "none" };
+    const browser: Answers["auth"]["browser"] =
+      usesBrowser &&
+      (await confirm(
+        "Browser uses NextAuth / Auth.js credentials login",
+        false,
+      ))
+        ? {
+            strategy: "nextAuth",
+            csrfPath: await ask("CSRF path", "/api/auth/csrf"),
+            callbackPath: await ask(
+              "Credentials callback path",
+              "/api/auth/callback/credentials",
+            ),
+            landingPath: await ask("Landing path after login", "/dashboard"),
+            usernameField,
+            passwordField,
+          }
+        : { strategy: "none" };
 
-    const roles = list(await ask("Roles", "user"));
+    // Role credentials serve both API tokens and browser sessions.
+    const roles =
+      api.strategy === "none" && browser.strategy === "none"
+        ? []
+        : list(await ask("Roles (each gets its own test account)", "user"));
 
     const installStarter = await confirm(
       "Replace the UPEX reference implementation with the starter application layer, tests and CI workflows",
