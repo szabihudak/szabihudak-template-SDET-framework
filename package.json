@@ -15,6 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "qa:templates:check": "tsx .qa/scripts/templates.ts check",
+    "qa:templates:build": "tsx .qa/scripts/templates.ts build",
+    "qa:templates:extract": "tsx .qa/scripts/templates.ts extract",
     "prepare": "husky"
   },
   "author": "Szabolcs Hudak",

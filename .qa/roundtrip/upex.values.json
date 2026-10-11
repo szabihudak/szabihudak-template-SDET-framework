@@ -1,0 +1,27 @@
+{
+  "$comment": "UPEX values for the golden-template round-trip check. Pilot-owned: moves to the UPEX pilot repository together with the canonical files.",
+  "defaults": {
+    "__Domain__": "Task",
+    "__domain__": "task",
+    "__Domains__": "Tasks",
+    "__domains__": "tasks",
+    "__DOMAIN__": "TASK"
+  },
+  "templates": {
+    "page-object": { "__Page__": "TasksDashboard" },
+    "component-object": { "__Component__": "NavigationBar" },
+    "ui-spec": { "__Page__": "TasksDashboard", "__page__": "tasksDashboard" },
+    "accessibility-spec": {
+      "__Page__": "TasksDashboard",
+      "__page__": "tasksDashboard"
+    },
+    "visual-spec": {
+      "__Page__": "TasksDashboard",
+      "__page__": "tasksDashboard"
+    },
+    "lighthouse-spec": {
+      "__Page__": "TasksDashboard",
+      "__page__": "tasksDashboard"
+    }
+  }
+}
