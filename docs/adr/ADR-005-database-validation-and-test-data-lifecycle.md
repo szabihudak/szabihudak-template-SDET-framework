@@ -4,6 +4,8 @@
 
 Accepted
 
+Amended by ADR-007: the database guards check the environment permissions `allow.database` and `allow.destructive` in `config/environments/environments.json` instead of the environment name. In the reference configuration only `localDocker` grants them. The UPEX restore and baseline verification steps moved to `src/app/database/resetTestDatabase.ts`; the guards and schema reset remain in `src/framework/database/resetTestDatabase.ts`.
+
 ---
 
 ## Context

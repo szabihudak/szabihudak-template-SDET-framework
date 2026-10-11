@@ -16,6 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "lint:architecture": "tsx .qa/scripts/architecture.ts",
     "setup": "tsx .qa/scripts/setup.ts",
     "doctor": "tsx .qa/scripts/doctor.ts",
     "qa:templates:check": "tsx .qa/scripts/templates.ts check",

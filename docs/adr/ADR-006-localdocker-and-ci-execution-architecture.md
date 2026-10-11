@@ -4,6 +4,8 @@
 
 Accepted
 
+Amended by ADR-007: the quality job also runs the architecture rules, the golden template check and the framework unit tests, with a 10-minute ceiling, and a `template-selftest` job verifies `npm run setup`. `TEST_ENV` is required; there is no default environment.
+
 ---
 
 ## Context
