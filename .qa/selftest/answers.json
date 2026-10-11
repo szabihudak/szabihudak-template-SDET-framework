@@ -36,5 +36,5 @@
     }
   },
   "roles": ["user"],
-  "removeExamples": true
+  "installStarter": true
 }

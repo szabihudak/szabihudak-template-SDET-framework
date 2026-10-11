@@ -218,7 +218,8 @@ async function check(): Promise<void> {
   const index = loadIndex();
   const knownTokens = new Set(Object.keys(index.tokens));
   const problems: string[] = [];
-  // The round trip runs where the canonical application lives (the pilot).
+  // The round trip runs where the canonical reference implementation lives;
+  // setup removes it, together with the values file, from new projects.
   const roundTrip = exists(VALUES_PATH);
 
   for (const entry of index.templates) {
@@ -292,7 +293,7 @@ async function check(): Promise<void> {
   console.log(
     roundTrip
       ? `✔ ${index.templates.length} golden templates reproduce their canonical files`
-      : `✔ ${index.templates.length} golden templates are consistent (round trip runs in the pilot)`,
+      : `✔ ${index.templates.length} golden templates are consistent (round trip runs in the reference implementation)`,
   );
 }
 

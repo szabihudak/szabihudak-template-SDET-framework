@@ -1,5 +1,5 @@
 {
-  "$comment": "UPEX values for the golden-template round-trip check. Pilot-owned: moves to the UPEX pilot repository together with the canonical files.",
+  "$comment": "UPEX values for the golden-template round-trip check. Part of the UPEX reference implementation; npm run setup removes it from new projects.",
   "defaults": {
     "__Domain__": "Task",
     "__domain__": "task",

@@ -79,6 +79,8 @@ function checkWorkflows(project: string): void {
   for (const removed of [
     ".github/workflows/ghcr-cleanup.yml",
     "docker-compose.yml",
+    ".qa/selftest",
+    ".qa/scripts/selftest.ts",
   ]) {
     assert(
       !fs.existsSync(path.join(project, removed)),
@@ -121,7 +123,7 @@ async function main(): Promise<void> {
     copyTemplate(project);
 
     run(
-      `npx tsx .qa/scripts/setup.ts --answers ${SELFTEST_DIR}/answers.json --force`,
+      `npx tsx .qa/scripts/setup.ts --answers ${path.join(ROOT, SELFTEST_DIR, "answers.json")} --force`,
       project,
     );
 
@@ -131,8 +133,9 @@ async function main(): Promise<void> {
       }
     }
 
+    // setup removes .qa/selftest from projects, so fixtures come from the template.
     fs.copyFileSync(
-      path.join(project, SELFTEST_DIR, "selftest.env"),
+      path.join(ROOT, SELFTEST_DIR, "selftest.env"),
       path.join(project, ".env"),
     );
 
@@ -142,7 +145,7 @@ async function main(): Promise<void> {
     run("npx playwright test --list", project);
     checkWorkflows(project);
 
-    app = spawn("node", [path.join(SELFTEST_DIR, "mock-app.mjs")], {
+    app = spawn("node", [path.join(ROOT, SELFTEST_DIR, "mock-app.mjs")], {
       cwd: project,
       stdio: "inherit",
     });

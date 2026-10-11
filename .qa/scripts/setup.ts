@@ -45,7 +45,7 @@ const answersSchema = Type.Object(
     roles: Type.Array(Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }), {
       uniqueItems: true,
     }),
-    removeExamples: Type.Boolean(),
+    installStarter: Type.Boolean(),
   },
   { additionalProperties: false },
 );
@@ -194,8 +194,8 @@ async function askAnswers(): Promise<Answers> {
 
     const roles = list(await ask("Roles", "user"));
 
-    const removeExamples = await confirm(
-      "Remove the UPEX example application code and tests",
+    const installStarter = await confirm(
+      "Replace the UPEX reference implementation with the starter application layer, tests and CI workflows",
       true,
     );
 
@@ -206,7 +206,7 @@ async function askAnswers(): Promise<Answers> {
       browsers,
       auth: { api, browser },
       roles,
-      removeExamples,
+      installStarter,
     };
   } finally {
     rl.close();
@@ -320,12 +320,11 @@ function copyDirectory(from: string, to: string): string[] {
   return copied;
 }
 
-function removeExamples(): void {
-  const pilot: { paths: string[]; scripts: string[] } = JSON.parse(
-    fs.readFileSync(rootPath(PILOT_PATHS), "utf8"),
-  );
+function installStarterFiles(): void {
+  const pilot: { paths: string[]; templateOnly: string[]; scripts: string[] } =
+    JSON.parse(fs.readFileSync(rootPath(PILOT_PATHS), "utf8"));
 
-  for (const pilotPath of pilot.paths) {
+  for (const pilotPath of [...pilot.paths, ...pilot.templateOnly]) {
     fs.rmSync(rootPath(pilotPath), { recursive: true, force: true });
     console.log(`  removed ${pilotPath}`);
   }
@@ -394,9 +393,11 @@ async function main(): Promise<void> {
 
   const secretNames = ciSecretNames(answers, frameworkConfig);
 
-  if (answers.removeExamples) {
-    console.log("Removing UPEX example code:");
-    removeExamples();
+  if (answers.installStarter) {
+    console.log(
+      "Replacing the UPEX reference implementation with starter files:",
+    );
+    installStarterFiles();
 
     for (const workflow of STARTER_WORKFLOWS) {
       if (fs.existsSync(rootPath(workflow))) {
@@ -435,7 +436,7 @@ Next steps:
   2. npm run doctor
   3. npm run test:starter
   4. Write tests from the golden templates: .qa/templates/README.md
-${answers.removeExamples ? ciInstructions(answers, secretNames) : ""}`);
+${answers.installStarter ? ciInstructions(answers, secretNames) : ""}`);
 }
 
 main().catch((error: unknown) => {

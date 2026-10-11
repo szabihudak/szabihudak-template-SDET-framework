@@ -59,9 +59,11 @@ npm ci → npm run setup → .env → npm run doctor → npm run test:starter
 
 Test creation after installation is tool-neutral: humans or any AI tool follow `AGENTS.md`, the golden templates, and the same lint, typecheck, CI, and review gates.
 
-### Pilot
+### Reference Implementation
 
-UPEX remains in this repository until the template is complete, so the existing suite stays a regression safety net. It then moves to a separate private pilot repository created through `npm run setup`, which also owns the round-trip check.
+UPEX stays in this repository as the reference implementation, alongside the template. It owns the canonical files, so the round-trip check and the UPEX CI keep proving the golden templates against working code. A separate pilot repository was considered and rejected: for a single maintainer it doubles secrets, package permissions and update merges without adding validation.
+
+`npm run setup` replaces the UPEX paths listed in `.qa/pilot-paths.json`, together with template-only files such as the setup self-test, with the starter files in every new project. The original pre-template framework is preserved at tag `upex-original-v1.0`.
 
 ---
 
