@@ -39,7 +39,8 @@
     "lighthouse": "^13.4.1",
     "prettier": "^3.9.6",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "yaml": "^2.8.1"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",

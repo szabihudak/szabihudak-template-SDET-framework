@@ -76,7 +76,7 @@ UPEX remains in this repository until the template is complete, so the existing 
 - `setup`, `doctor`, starter tests;
 - architecture lint rules in the CI quality gate;
 - short `AGENTS.md` and a tool-neutral first-tests prompt;
-- GitHub Actions only.
+- generic GitHub Actions workflows installed by `setup`: a quality gate, test jobs planned from the enabled modules and run in the official Playwright image against the `TEST_ENV` repository variable, and a manual performance workflow; GitHub Actions only.
 
 ### Deferred until a real project needs it
 

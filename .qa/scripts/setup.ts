@@ -18,6 +18,11 @@ import {
 const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = ".qa/starter";
 const PILOT_PATHS = ".qa/pilot-paths.json";
+const STARTER_WORKFLOWS = [
+  ".github/workflows/playwright.yml",
+  ".github/workflows/performance.yml",
+];
+const SECRETS_MARKER = /^([ \t]*)# @qa:secrets[ \t]*\n/m;
 
 const MODULES = [
   "api",
@@ -254,6 +259,48 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   return `${lines.join("\n")}\n`;
 }
 
+function ciSecretNames(answers: Answers, config: FrameworkConfig): string[] {
+  const names = Object.values(config.roles).flatMap(
+    ({ usernameEnv, passwordEnv }) => [usernameEnv, passwordEnv],
+  );
+
+  if (answers.modules.database) names.push("DATABASE_URL");
+
+  return names;
+}
+
+// Workflow env blocks cannot read secrets dynamically, so each one is listed.
+function injectWorkflowSecrets(file: string, secretNames: string[]): void {
+  const workflow = fs.readFileSync(rootPath(file), "utf8");
+  const match = workflow.match(SECRETS_MARKER);
+
+  if (!match) return;
+
+  const indent = match[1];
+  let updated = workflow.replace(
+    SECRETS_MARKER,
+    secretNames
+      .map((name) => `${indent}${name}: \${{ secrets.${name} }}\n`)
+      .join(""),
+  );
+
+  // An env key left without entries is invalid workflow syntax.
+  updated = updated.replace(/^[ \t]*env:[ \t]*\n[ \t]*\n/m, "");
+
+  fs.writeFileSync(rootPath(file), updated);
+}
+
+function ciInstructions(answers: Answers, secretNames: string[]): string {
+  const environments = Object.keys(answers.environments);
+  const ciEnvironment =
+    environments.find((name) => name !== "local") ?? environments[0];
+
+  return `
+GitHub Actions (Settings → Secrets and variables → Actions):
+  Variable  TEST_ENV = ${ciEnvironment}
+${secretNames.map((name) => `  Secret    ${name}`).join("\n") || "  No secrets required."}`;
+}
+
 function copyDirectory(from: string, to: string): string[] {
   const copied: string[] = [];
 
@@ -345,9 +392,17 @@ async function main(): Promise<void> {
   const frameworkConfig = buildFrameworkConfig(answers);
   validateSchema(frameworkConfigSchema, frameworkConfig);
 
+  const secretNames = ciSecretNames(answers, frameworkConfig);
+
   if (answers.removeExamples) {
     console.log("Removing UPEX example code:");
     removeExamples();
+
+    for (const workflow of STARTER_WORKFLOWS) {
+      if (fs.existsSync(rootPath(workflow))) {
+        injectWorkflowSecrets(workflow, secretNames);
+      }
+    }
   }
 
   await writeFormatted(
@@ -379,7 +434,8 @@ Next steps:
   1. cp .env.example .env   and fill in the credentials
   2. npm run doctor
   3. npm run test:starter
-  4. Write tests from the golden templates: .qa/templates/README.md`);
+  4. Write tests from the golden templates: .qa/templates/README.md
+${answers.removeExamples ? ciInstructions(answers, secretNames) : ""}`);
 }
 
 main().catch((error: unknown) => {

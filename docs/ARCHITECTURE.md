@@ -138,6 +138,22 @@ Dependencies flow from `src/app` and `tests` to `src/framework`, never the rever
 
 Golden templates in `.qa/templates/` are derived from canonical reference files and must reproduce them exactly (`npm run qa:templates:check`). `npm run setup` configures a new project, and `npm run doctor` verifies it.
 
+A configured project uses generic workflows from `.qa/starter/.github/workflows/` instead of the UPEX image-based pipeline described below:
+
+```text
+quality
+├── formatting, typecheck, architecture rules, golden template check
+└── plan (.qa/scripts/ci-plan.ts)
+        → projects from config/framework.config.ts
+        → database only where TEST_ENV allows it
+        → performance excluded (manual workflow)
+        ↓
+tests (matrix: one job per planned project)
+→ official Playwright image (canonical runtime, visual compare-only)
+→ deployed environment from the TEST_ENV repository variable
+→ role credentials from repository secrets
+```
+
 ## Core Dependency Model
 
 A typical API flow is:

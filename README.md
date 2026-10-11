@@ -18,19 +18,19 @@ npm run doctor         # verifies configuration, reachability and login
 npm run test:starter   # app-agnostic starter tests
 ```
 
-`npm run setup` removes the UPEX reference code by default and adds an empty application layer plus starter tests. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers.json`).
+`npm run setup` removes the UPEX reference code by default and adds an empty application layer, starter tests and generic GitHub Actions workflows. It finishes by listing the repository variable (`TEST_ENV`) and secrets (role credentials, `DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers.json`).
 
 ## What You Get
 
-| Capability             | Where                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Framework core         | `src/framework/`: environment, config, authentication, fixtures, reporters, schema validation, accessibility, visual, database, AI |
-| Your application layer | `src/app/`: schemas, API clients, factories, Page Objects, components, mocks, fixtures                                             |
-| Golden templates       | `.qa/templates/` catalogued in `.qa/index.json` and [README](.qa/templates/README.md); VS Code snippets `qa-<id>`                  |
-| Configuration          | `config/framework.config.ts`, `config/environments/environments.json`                                                              |
-| Starter tests          | `@starter`: home page health, login per role, home page accessibility                                                              |
-| Performance            | k6 under `performance/k6/`, Lighthouse under `performance/lighthouse/`                                                             |
-| CI                     | `.github/workflows/`: quality gate, functional jobs, manual performance workflow                                                   |
+| Capability             | Where                                                                                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework core         | `src/framework/`: environment, config, authentication, fixtures, reporters, schema validation, accessibility, visual, database, AI                                |
+| Your application layer | `src/app/`: schemas, API clients, factories, Page Objects, components, mocks, fixtures                                                                            |
+| Golden templates       | `.qa/templates/` catalogued in `.qa/index.json` and [README](.qa/templates/README.md); VS Code snippets `qa-<id>`                                                 |
+| Configuration          | `config/framework.config.ts`, `config/environments/environments.json`                                                                                             |
+| Starter tests          | `@starter`: home page health, login per role, home page accessibility                                                                                             |
+| Performance            | k6 under `performance/k6/`, Lighthouse under `performance/lighthouse/`                                                                                            |
+| CI                     | `.github/workflows/`: quality gate, one test job per enabled project (planned from the config, run in the official Playwright image), manual performance workflow |
 
 ## Configuration
 

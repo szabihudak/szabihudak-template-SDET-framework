@@ -3,6 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { parse } from "yaml";
+
 const ROOT = path.resolve(__dirname, "../..");
 const SELFTEST_DIR = ".qa/selftest";
 
@@ -30,6 +32,70 @@ function copyTemplate(target: string): void {
     path.join(ROOT, "node_modules"),
     path.join(target, "node_modules"),
   );
+}
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(`Self-test failed: ${message}`);
+}
+
+// Validates the workflows setup installed: parseable YAML, secrets injected for
+// each role, and the container image matching the installed Playwright version.
+function checkWorkflows(project: string): void {
+  const read = (file: string) =>
+    fs.readFileSync(path.join(project, file), "utf8");
+  const playwrightVersion: string = JSON.parse(
+    read("node_modules/@playwright/test/package.json"),
+  ).version;
+  const roleSecrets = ["USER_USERNAME", "USER_PASSWORD"];
+
+  for (const file of [
+    ".github/workflows/playwright.yml",
+    ".github/workflows/performance.yml",
+  ]) {
+    assert(!read(file).includes("@qa:secrets"), `${file} still has a marker`);
+  }
+
+  const functional = parse(read(".github/workflows/playwright.yml"));
+  assert(
+    functional.jobs.tests.container.image ===
+      `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`,
+    `tests container image does not match Playwright ${playwrightVersion}`,
+  );
+
+  const performance = parse(read(".github/workflows/performance.yml"));
+
+  for (const env of [
+    functional.jobs.tests.env,
+    performance.jobs["browser-performance"].env,
+  ]) {
+    for (const secret of roleSecrets) {
+      assert(
+        env?.[secret] === `\${{ secrets.${secret} }}`,
+        `workflow env is missing ${secret}`,
+      );
+    }
+  }
+
+  for (const removed of [
+    ".github/workflows/ghcr-cleanup.yml",
+    "docker-compose.yml",
+  ]) {
+    assert(
+      !fs.existsSync(path.join(project, removed)),
+      `${removed} was not removed`,
+    );
+  }
+
+  const plan = execSync("npx tsx .qa/scripts/ci-plan.ts", {
+    cwd: project,
+    env: { ...process.env, TEST_ENV: "selftest", GITHUB_OUTPUT: "" },
+  }).toString();
+  assert(
+    plan.includes('["api","accessibility","chromium"]'),
+    `unexpected CI plan: ${plan.trim()}`,
+  );
+
+  console.log("✔ generated workflows are valid");
 }
 
 async function waitForApp(url: string): Promise<void> {
@@ -74,6 +140,7 @@ async function main(): Promise<void> {
     run("npx tsc --noEmit", project);
     run("npx tsx .qa/scripts/templates.ts check", project);
     run("npx playwright test --list", project);
+    checkWorkflows(project);
 
     app = spawn("node", [path.join(SELFTEST_DIR, "mock-app.mjs")], {
       cwd: project,
