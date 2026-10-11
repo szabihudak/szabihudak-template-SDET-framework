@@ -24,6 +24,14 @@ const STARTER_WORKFLOWS = [
 ];
 const SECRETS_MARKER = /^([ \t]*)# @qa:secrets[ \t]*\n/m;
 
+const BROWSER_MODULES = [
+  "ui",
+  "smoke",
+  "accessibility",
+  "visual",
+  "performance",
+] as const;
+
 const MODULES = [
   "api",
   "ui",
@@ -45,7 +53,7 @@ const answersSchema = Type.Object(
     roles: Type.Array(Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }), {
       uniqueItems: true,
     }),
-    removeExamples: Type.Boolean(),
+    installStarter: Type.Boolean(),
   },
   { additionalProperties: false },
 );
@@ -152,8 +160,13 @@ async function askAnswers(): Promise<Answers> {
       );
     }
 
-    const browsers = list(
-      await ask(`Browsers (${BROWSERS.join(", ")})`, "chromium"),
+    // API-only projects never launch a browser, so browser questions are skipped.
+    const usesBrowser = BROWSER_MODULES.some((module) => modules[module]);
+
+    const browsers = (
+      usesBrowser
+        ? list(await ask(`Browsers (${BROWSERS.join(", ")})`, "chromium"))
+        : ["chromium"]
     ) as Answers["browsers"];
 
     const usernameField = await ask("Login username field", "email");
@@ -175,27 +188,33 @@ async function askAnswers(): Promise<Answers> {
         }
       : { strategy: "none" };
 
-    const browser: Answers["auth"]["browser"] = (await confirm(
-      "Browser uses NextAuth / Auth.js credentials login",
-      false,
-    ))
-      ? {
-          strategy: "nextAuth",
-          csrfPath: await ask("CSRF path", "/api/auth/csrf"),
-          callbackPath: await ask(
-            "Credentials callback path",
-            "/api/auth/callback/credentials",
-          ),
-          landingPath: await ask("Landing path after login", "/dashboard"),
-          usernameField,
-          passwordField,
-        }
-      : { strategy: "none" };
+    const browser: Answers["auth"]["browser"] =
+      usesBrowser &&
+      (await confirm(
+        "Browser uses NextAuth / Auth.js credentials login",
+        false,
+      ))
+        ? {
+            strategy: "nextAuth",
+            csrfPath: await ask("CSRF path", "/api/auth/csrf"),
+            callbackPath: await ask(
+              "Credentials callback path",
+              "/api/auth/callback/credentials",
+            ),
+            landingPath: await ask("Landing path after login", "/dashboard"),
+            usernameField,
+            passwordField,
+          }
+        : { strategy: "none" };
 
-    const roles = list(await ask("Roles", "user"));
+    // Role credentials serve both API tokens and browser sessions.
+    const roles =
+      api.strategy === "none" && browser.strategy === "none"
+        ? []
+        : list(await ask("Roles (each gets its own test account)", "user"));
 
-    const removeExamples = await confirm(
-      "Remove the UPEX example application code and tests",
+    const installStarter = await confirm(
+      "Replace the UPEX reference implementation with the starter application layer, tests and CI workflows",
       true,
     );
 
@@ -206,7 +225,7 @@ async function askAnswers(): Promise<Answers> {
       browsers,
       auth: { api, browser },
       roles,
-      removeExamples,
+      installStarter,
     };
   } finally {
     rl.close();
@@ -320,12 +339,11 @@ function copyDirectory(from: string, to: string): string[] {
   return copied;
 }
 
-function removeExamples(): void {
-  const pilot: { paths: string[]; scripts: string[] } = JSON.parse(
-    fs.readFileSync(rootPath(PILOT_PATHS), "utf8"),
-  );
+function installStarterFiles(): void {
+  const pilot: { paths: string[]; templateOnly: string[]; scripts: string[] } =
+    JSON.parse(fs.readFileSync(rootPath(PILOT_PATHS), "utf8"));
 
-  for (const pilotPath of pilot.paths) {
+  for (const pilotPath of [...pilot.paths, ...pilot.templateOnly]) {
     fs.rmSync(rootPath(pilotPath), { recursive: true, force: true });
     console.log(`  removed ${pilotPath}`);
   }
@@ -394,9 +412,11 @@ async function main(): Promise<void> {
 
   const secretNames = ciSecretNames(answers, frameworkConfig);
 
-  if (answers.removeExamples) {
-    console.log("Removing UPEX example code:");
-    removeExamples();
+  if (answers.installStarter) {
+    console.log(
+      "Replacing the UPEX reference implementation with starter files:",
+    );
+    installStarterFiles();
 
     for (const workflow of STARTER_WORKFLOWS) {
       if (fs.existsSync(rootPath(workflow))) {
@@ -435,7 +455,7 @@ Next steps:
   2. npm run doctor
   3. npm run test:starter
   4. Write tests from the golden templates: .qa/templates/README.md
-${answers.removeExamples ? ciInstructions(answers, secretNames) : ""}`);
+${answers.installStarter ? ciInstructions(answers, secretNames) : ""}`);
 }
 
 main().catch((error: unknown) => {

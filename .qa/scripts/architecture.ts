@@ -35,7 +35,8 @@ const rules: Rule[] = [
   {
     id: "no-cast-on-response-json",
     appliesTo: () => true,
-    pattern: /\.json\(\)\s*\)?\s*as\s+[A-Z{]/,
+    // A plain `as unknown` asserts nothing; any other cast trusts unvalidated data.
+    pattern: /\.json\(\)\s*\)?\s*as\s+(?!unknown\s*(?:[;,)]|$))/,
     message:
       "Do not cast provider responses. Validate with validateSchema() and use the schema type.",
   },

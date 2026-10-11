@@ -1,13 +1,15 @@
 import { test as base, expect, type Page } from "@playwright/test";
 
 import { AccessibilityScanner } from "../accessibility/utils/AccessibilityScanner";
+import { getApiAccessToken } from "../auth/apiLogin";
 import { openAuthenticatedPage } from "../auth/browserLogin";
-import type { Credentials } from "../auth/credentials";
+import { getRoleCredentials, type Credentials } from "../auth/credentials";
 import { DatabaseClient } from "../database/DatabaseClient";
 import { assertEnvironmentAllows } from "../utils/env";
 
 type FrameworkFixtures = {
   accessibility: AccessibilityScanner;
+  apiTokenFor: (role: string) => Promise<string>;
   authenticatedPageFor: (credentials: Credentials) => Promise<Page>;
   databaseClient: DatabaseClient;
 };
@@ -15,6 +17,23 @@ type FrameworkFixtures = {
 export const test = base.extend<FrameworkFixtures>({
   accessibility: async ({ page }, use) => {
     await use(new AccessibilityScanner(page));
+  },
+
+  // Bearer token for a role configured in config/framework.config.ts, logged in
+  // once per test and reused for later requests in the same test.
+  apiTokenFor: async ({ request }, use) => {
+    const tokens = new Map<string, Promise<string>>();
+
+    await use((role) => {
+      let token = tokens.get(role);
+
+      if (!token) {
+        token = getApiAccessToken(request, getRoleCredentials(role));
+        tokens.set(role, token);
+      }
+
+      return token;
+    });
   },
 
   authenticatedPageFor: async ({ browser }, use) => {

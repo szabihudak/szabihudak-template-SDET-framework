@@ -41,7 +41,9 @@ npm run test:starter   # app-agnostic starter tests
 - `execution`: CI retries and workers.
 - `auth.api`: `bearer` token login or `none`.
 - `auth.browser`: `nextAuth` credentials session or `none`.
-- `roles`: role names mapped to the environment variables holding their credentials.
+- `roles`: role names mapped to the environment variables holding their test-account credentials. The same credentials provide API bearer tokens (`apiTokenFor(role)` fixture) and browser sessions (`authenticatedPageFor` fixture).
+
+For API-only testing, enable only the `api` module: setup then skips browser questions, CI runs only the `api` project, and the starter tests check that each role receives an API token.
 
 `config/environments/environments.json` defines each target environment:
 
