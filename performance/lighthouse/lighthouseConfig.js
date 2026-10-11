@@ -1,11 +1,17 @@
 const environments = require("../../config/environments/environments.json");
 const thresholds = require("./lighthouseThresholds.json");
 
-const environment = process.env.TEST_ENV ?? "hosted";
+const environment = process.env.TEST_ENV;
 const config = environments[environment];
 
 if (!config) {
-  throw new Error(`Unknown TEST_ENV: ${environment}`);
+  throw new Error(`Unknown or missing TEST_ENV: ${environment}`);
+}
+
+if (!config.allow.performance) {
+  throw new Error(
+    `Lighthouse measurement is not allowed in the ${environment} environment.`,
+  );
 }
 
 module.exports = {

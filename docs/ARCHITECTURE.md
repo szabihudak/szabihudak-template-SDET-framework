@@ -46,7 +46,14 @@ Dockerfile.upex-local
 docker-compose.yml
 docker-compose.local.yml
 
+.qa/                template-owned golden templates and tooling
+  index.json
+  templates/
+  scripts/
+  starter/
+
 config/
+  framework.config.ts
   environments/
 
 docs/
@@ -57,34 +64,38 @@ performance/
   lighthouse/
 
 src/
-  accessibility/
-    constants/
+  framework/          template-owned core (see ADR-007)
+    accessibility/
+      constants/
+      utils/
+    ai/
+      analyzers/
+      cli/
+      generators/
+      prompts/
+      reporters/
+      schemas/
+      utils/
+    api/
+    database/
+    fixtures/
+    reporting/
     utils/
-  ai/
-    analyzers/
-    cli/
-    generators/
-    prompts/
-    reporters/
-    schemas/
-    utils/
-  api/
-    clients/
-    constants/
-    models/
-    schemas/
-    utils/
-  components/
-  data/
-  database/
-    clients/
-    utils/
-  fixtures/
-  mocks/
-  pages/
-  utils/
-  visual/
-    constants/
+    visual/
+      constants/
+  app/                project-owned application layer
+    api/
+      clients/
+      constants/
+      models/
+      schemas/
+    components/
+    data/
+    database/
+      clients/
+    fixtures/
+    mocks/
+    pages/
 
 tests/
   accessibility/
@@ -109,6 +120,38 @@ playwright.config.ts
 package.json
 package-lock.json
 tsconfig.json
+```
+
+## Template Architecture
+
+The framework is a reusable template ([ADR-007](adr/ADR-007-reusable-template-architecture.md)). Ownership is split so a project can be configured and updated without editing framework code:
+
+```text
+src/framework/    template-owned core
+.qa/              template-owned golden templates and tooling
+src/app/          project-owned application layer
+tests/            project-owned specs
+config/           project-owned configuration
+```
+
+Dependencies flow from `src/app` and `tests` to `src/framework`, never the reverse. `npm run lint:architecture` enforces this together with the layer rules.
+
+Golden templates in `.qa/templates/` are derived from canonical reference files and must reproduce them exactly (`npm run qa:templates:check`). `npm run setup` configures a new project, and `npm run doctor` verifies it.
+
+A configured project uses generic workflows from `.qa/starter/.github/workflows/` instead of the UPEX image-based pipeline described below:
+
+```text
+quality
+├── formatting, typecheck, architecture rules, golden template check
+└── plan (.qa/scripts/ci-plan.ts)
+        → projects from config/framework.config.ts
+        → database only where TEST_ENV allows it
+        → performance excluded (manual workflow)
+        ↓
+tests (matrix: one job per planned project)
+→ official Playwright image (canonical runtime, visual compare-only)
+→ deployed environment from the TEST_ENV repository variable
+→ role credentials from repository secrets
 ```
 
 ## Core Dependency Model
@@ -311,6 +354,8 @@ The framework separates browser-independent API execution, browser-independent d
 
 Playwright projects represent execution responsibility rather than simply duplicating the full suite across multiple browser configurations.
 
+Projects are generated from the enabled `modules` and `browsers` in `config/framework.config.ts`.
+
 Current project boundaries:
 
 ```text
@@ -322,9 +367,15 @@ api
 database
 → tests/database/**
 → browser-independent persistence validation
-→ localDocker execution
+→ environment with allow.database (localDocker)
 → retries disabled
 → executed once
+
+ai
+→ tests/ai/**
+→ offline unit tests of framework-owned AI capabilities
+→ no target environment required
+→ retries disabled
 
 accessibility
 → tests/accessibility/**
@@ -744,8 +795,14 @@ The current GitHub Actions dependency model is:
 ```text
 quality
 ├── formatting
-└── typecheck
+├── typecheck
+├── architecture rules
+├── golden template check
+└── framework unit tests (ai project)
         ↓
+        ├── template-selftest
+        │   └── setup in a temporary copy → checks → doctor → starter tests
+        │
 build-images
 ├── build Playwright test image
 │   └── image tag = framework github.sha
@@ -999,7 +1056,10 @@ Current limits are:
 
 ```text
 quality
-→ 5 minutes
+→ 10 minutes
+
+template-selftest
+→ 10 minutes
 
 build-images
 → 20 minutes
@@ -1058,7 +1118,7 @@ The application under test is started on each functional job's GitHub Actions ru
 http://upex-local:3000
 ```
 
-This makes CI intent explicit rather than relying on the framework's default environment and ensures that API, database, accessibility, visual, and UI validation use the reproducible local application runtime.
+This makes CI intent explicit, since the framework has no default environment, and ensures that API, database, accessibility, visual, and UI validation use the reproducible local application runtime.
 
 Performance execution remains a separate boundary and targets the hosted application through the dedicated performance workflow.
 
@@ -1072,7 +1132,17 @@ performance workflow
 → deployed UPEX application
 ```
 
-A future change to the default test environment must not silently redirect CI execution to another target.
+`TEST_ENV` is required. Environment-dependent code fails immediately when it is missing rather than falling back to a shared deployment.
+
+Each environment also declares which sensitive operations it allows:
+
+```text
+allow.database     → direct database access
+allow.destructive  → destructive database reset
+allow.performance  → k6 and Lighthouse measurement
+```
+
+Guards check these permissions rather than environment names.
 
 Supported environment URLs are owned by:
 
@@ -1345,7 +1415,7 @@ baseline verification
 The reset utility is owned by:
 
 ```text
-src/database/utils/resetTestDatabase.ts
+src/framework/database/resetTestDatabase.ts
 ```
 
 and is exposed through the framework package command:
@@ -2085,6 +2155,10 @@ Use:
 ```text
 tests/api/**
 → API project
+
+tests/ai/**
+→ ai project
+→ framework unit tests
 
 tests/database/**
 → database project

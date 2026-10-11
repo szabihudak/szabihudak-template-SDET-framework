@@ -1,5 +1,5 @@
-import { createTask } from "../../src/data/taskFactory";
-import { test, expect } from "../../src/fixtures/test-fixtures";
+import { createTask } from "../../src/app/data/taskFactory";
+import { test, expect } from "../../src/app/fixtures/test-fixtures";
 
 test.describe("Task database validation", () => {
   test("task is persisted with the expected data", async ({

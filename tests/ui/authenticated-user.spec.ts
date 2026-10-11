@@ -1,5 +1,5 @@
-import { test, expect } from "../../src/fixtures/test-fixtures";
-import { NavigationBar } from "../../src/components/NavigationBar";
+import { test, expect } from "../../src/app/fixtures/test-fixtures";
+import { NavigationBar } from "../../src/app/components/NavigationBar";
 
 test.describe("Authenticated user", () => {
   test("authenticated user sees account navigation", async ({

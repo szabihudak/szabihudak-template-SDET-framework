@@ -1,0 +1,26 @@
+{
+  "$comment": "UPEX pilot-owned paths. npm run setup removes them from a new project (starter files from .qa/starter replace the workflows), and they move to the private pilot repository when it is extracted (ADR-007).",
+  "paths": [
+    "src/app",
+    "tests/api",
+    "tests/ui",
+    "tests/smoke",
+    "tests/database",
+    "tests/accessibility",
+    "tests/visual",
+    "tests/performance",
+    "performance/k6/taskReadLoad.js",
+    "Dockerfile.upex-local",
+    "docker-compose.local.yml",
+    ".qa/roundtrip",
+    "docs/adr/ADR-001-target-application.md",
+    "docs/adr/ADR-002-realworld-implementation.md",
+    "docs/adr/ADR-004-target-application-upex-dojo.md",
+    "docs/portfolio",
+    ".github/workflows/playwright.yml",
+    ".github/workflows/performance.yml",
+    ".github/workflows/ghcr-cleanup.yml",
+    "docker-compose.yml"
+  ],
+  "scripts": ["db:test:reset"]
+}

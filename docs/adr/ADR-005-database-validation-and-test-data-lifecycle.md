@@ -4,6 +4,8 @@
 
 Accepted
 
+Amended by ADR-007: the database guards check the environment permissions `allow.database` and `allow.destructive` in `config/environments/environments.json` instead of the environment name. In the reference configuration only `localDocker` grants them. The UPEX restore and baseline verification steps moved to `src/app/database/resetTestDatabase.ts`; the guards and schema reset remain in `src/framework/database/resetTestDatabase.ts`.
+
 ---
 
 ## Context
@@ -415,11 +417,11 @@ These trade-offs are accepted because they provide clearer ownership, safer dest
 The decision is implemented through:
 
 ```text
-src/database/clients/DatabaseClient.ts
-src/database/clients/UserDatabaseClient.ts
-src/database/clients/TaskDatabaseClient.ts
-src/database/utils/resetTestDatabase.ts
-src/fixtures/test-fixtures.ts
+src/framework/database/DatabaseClient.ts
+src/app/database/clients/UserDatabaseClient.ts
+src/app/database/clients/TaskDatabaseClient.ts
+src/framework/database/resetTestDatabase.ts
+src/app/fixtures/test-fixtures.ts
 tests/database/**
 playwright.config.ts
 docker-compose.yml

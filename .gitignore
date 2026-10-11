@@ -9,5 +9,12 @@ node_modules/
 
 # Performance test artifacts
 /performance-results/
-.lighthouseci/.DS_Store
 .lighthouseci/
+
+# OS
+.DS_Store
+
+# Local secrets
+.env
+.env.*
+!.env.example

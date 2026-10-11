@@ -23,7 +23,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     permissions:
       contents: read
@@ -49,6 +49,45 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Check architecture rules
+        run: npm run lint:architecture
+
+      - name: Check golden templates
+        run: npm run qa:templates:check
+
+      - name: Run framework unit tests
+        run: npx playwright test --project=ai
+
+  template-selftest:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout framework
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pin npm version
+        run: npm install --global npm@11.19.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run template setup self-test
+        run: npm run qa:selftest
 
   build-images:
     needs: quality

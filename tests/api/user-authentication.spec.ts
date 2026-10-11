@@ -1,9 +1,9 @@
-import { test, expect } from "../../src/fixtures/test-fixtures";
-import type { LoginCredentials } from "../../src/api/schemas/LoginCredentialsSchema";
-import { HTTP_STATUS } from "../../src/api/constants/httpStatuses";
-import { API_ERRORS } from "../../src/api/constants/apiErrors";
-import { authenticationSchema } from "../../src/api/schemas/AuthenticationSchema";
-import { validateSchema } from "../../src/api/utils/SchemaValidator";
+import { test, expect } from "../../src/app/fixtures/test-fixtures";
+import type { LoginCredentials } from "../../src/app/api/schemas/LoginCredentialsSchema";
+import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
+import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
+import { authenticationSchema } from "../../src/app/api/schemas/AuthenticationSchema";
+import { validateSchema } from "../../src/framework/api/SchemaValidator";
 
 type LoginValidationScenario = {
   name: string;

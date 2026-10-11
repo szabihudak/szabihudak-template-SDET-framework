@@ -1,80 +1,50 @@
-import { defineConfig, devices } from "@playwright/test";
-import { getCurrentEnvironment } from "./src/utils/env";
+import { defineConfig, type ReporterDescription } from "@playwright/test";
 
-const environment = getCurrentEnvironment();
+import { getFrameworkConfig } from "./src/framework/config/frameworkConfig";
+import { buildProjects } from "./src/framework/config/playwrightProjects";
+import { loadDotEnv } from "./src/framework/utils/dotenv";
+import { getCurrentEnvironment } from "./src/framework/utils/env";
+
+loadDotEnv();
+
+const frameworkConfig = getFrameworkConfig();
+const isCI = !!process.env.CI;
+
+// Without TEST_ENV the config still loads for --list and offline projects;
+// environment-dependent tests fail fast through getCurrentEnvironment().
+const baseURL = process.env.TEST_ENV
+  ? getCurrentEnvironment().webBaseUrl
+  : undefined;
+
+const reporter: ReporterDescription[] = [
+  ["list"],
+  ["html", { outputFolder: "playwright-report", open: "never" }],
+  ["json", { outputFile: "test-results/results.json" }],
+  ...(frameworkConfig.modules.ai
+    ? [["./src/framework/ai/reporters/FailureEvidenceReporter.ts"] as const]
+    : []),
+  ["./src/framework/reporting/GitHubSummaryReporter.ts"],
+];
 
 export default defineConfig({
   testDir: "./tests",
 
   fullyParallel: true,
 
-  forbidOnly: !!process.env.CI,
+  forbidOnly: isCI,
 
-  retries: process.env.CI ? 2 : 0,
+  retries: isCI ? frameworkConfig.execution.ciRetries : 0,
 
-  workers: process.env.CI ? 1 : undefined,
+  workers: isCI ? frameworkConfig.execution.ciWorkers : undefined,
 
-  reporter: [
-    ["list"],
-    ["html", { outputFolder: "playwright-report", open: "never" }],
-    ["json", { outputFile: "test-results/results.json" }],
-    ["./src/ai/reporters/FailureEvidenceReporter.ts"],
-    ["./src/reporting/GitHubSummaryReporter.ts"],
-  ],
+  reporter,
 
   use: {
-    baseURL: environment.webBaseUrl,
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
 
-  projects: [
-    {
-      name: "api",
-      testMatch: /tests\/api\/.*\.spec\.ts/,
-    },
-    {
-      name: "database",
-      testMatch: /tests\/database\/.*\.spec\.ts/,
-      retries: 0,
-    },
-    {
-      name: "ai",
-      testMatch: /tests\/ai\/.*\.spec\.ts/,
-      retries: 0,
-    },
-    {
-      name: "accessibility",
-      testMatch: /tests\/accessibility\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "visual",
-      testMatch: /tests\/visual\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "performance",
-      testMatch: /tests\/performance\/.*\.spec\.ts/,
-      retries: 0,
-      timeout: 90_000,
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "chromium",
-      testMatch: [/tests\/ui\/.*\.spec\.ts/, /tests\/smoke\/.*\.spec\.ts/],
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "firefox",
-      testMatch: [/tests\/ui\/.*\.spec\.ts/, /tests\/smoke\/.*\.spec\.ts/],
-      use: { ...devices["Desktop Firefox"] },
-    },
-    {
-      name: "webkit",
-      testMatch: [/tests\/ui\/.*\.spec\.ts/, /tests\/smoke\/.*\.spec\.ts/],
-      use: { ...devices["Desktop Safari"] },
-    },
-  ],
+  projects: buildProjects(frameworkConfig),
 });

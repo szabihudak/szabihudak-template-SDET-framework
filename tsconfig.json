@@ -15,7 +15,8 @@
     "config/**/*.ts",
     "src/**/*.ts",
     "tests/**/*.ts",
-    "performance/**/*.ts"
+    "performance/**/*.ts",
+    ".qa/scripts/**/*.ts"
   ],
   "exclude": ["node_modules", "playwright-report", "test-results"]
 }

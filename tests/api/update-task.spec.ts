@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { test, expect } from "../../src/fixtures/test-fixtures";
-import { API_ERRORS } from "../../src/api/constants/apiErrors";
-import { HTTP_STATUS } from "../../src/api/constants/httpStatuses";
-import type { TaskUpdateRequest } from "../../src/api/schemas/TaskUpdateRequestSchema";
-import { taskResponseSchema } from "../../src/api/schemas/TaskResponseSchema";
-import { validateSchema } from "../../src/api/utils/SchemaValidator";
-import { createTask } from "../../src/data/taskFactory";
+import { test, expect } from "../../src/app/fixtures/test-fixtures";
+import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
+import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
+import type { TaskUpdateRequest } from "../../src/app/api/schemas/TaskUpdateRequestSchema";
+import { taskResponseSchema } from "../../src/app/api/schemas/TaskResponseSchema";
+import { validateSchema } from "../../src/framework/api/SchemaValidator";
+import { createTask } from "../../src/app/data/taskFactory";
 
 const validTitleBoundaryScenarios = [
   {

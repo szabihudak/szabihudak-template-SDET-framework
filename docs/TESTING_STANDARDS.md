@@ -79,6 +79,10 @@ Current ownership:
 tests/api/**
 → api project
 
+tests/ai/**
+→ ai project
+→ offline framework unit tests
+
 tests/database/**
 → database project
 → localDocker
@@ -481,13 +485,16 @@ Database queries must use parameterized values rather than interpolating test da
 
 Database fixtures own client construction and cleanup. The underlying connection pool must be closed after fixture use.
 
-Database execution is guarded to:
+Database execution is guarded by the environment permission:
 
 ```text
-TEST_ENV=localDocker
+config/environments/environments.json
+→ <environment>.allow.database = true
 ```
 
-Do not run the database project against `hosted`, `local`, or another environment merely because a database connection string is available.
+Only a dedicated, test-owned environment may set it. In the reference configuration that is `localDocker`.
+
+Do not enable `allow.database` for `hosted`, `local`, or another environment merely because a database connection string is available.
 
 Database tests use unique generated data so independent executions do not rely on shared mutable records.
 
@@ -674,7 +681,7 @@ When adding a fixture:
 
 Database fixtures additionally must preserve the database execution boundary, reuse the shared `DatabaseClient`, and close the owned connection pool after use.
 
-A fixture must not bypass the `localDocker` database safety guard merely to make a database test executable in another environment.
+A fixture must not bypass the `allow.database` permission guard merely to make a database test executable in another environment.
 
 ## Authentication Standard
 
@@ -1699,7 +1706,7 @@ UI
 
 Do not create separate Docker images for API, database, accessibility, visual, Chromium, Firefox, or WebKit merely because they are separate Playwright projects.
 
-The database project must execute only through the `localDocker` target because its fixture safety guard intentionally rejects other framework environments.
+The database project must execute only through an environment that allows database access (`localDocker` in the reference configuration) because its fixture safety guard rejects every other environment.
 
 ### Container Lifecycle Standard
 
@@ -1963,7 +1970,10 @@ Current limits:
 
 ```text
 quality
-→ 5 minutes
+→ 10 minutes
+
+template-selftest
+→ 10 minutes
 
 build-images
 → 20 minutes
@@ -2109,7 +2119,7 @@ The functional jobs execute against the UPEX application container on the Compos
 
 The dedicated performance workflow remains hosted because its execution cadence, measurement model, and target-safety constraints are separate from the functional pipeline.
 
-Do not rely on an implicit default environment for CI behavior when the intended target can be stated explicitly.
+The framework has no default environment: `TEST_ENV` must always be set, so CI and local runs cannot silently target a shared deployment.
 
 The GitHub Actions `CI` environment variable and framework `TEST_ENV` variable represent different concerns:
 

@@ -6,15 +6,23 @@
   "description": "Production-oriented Playwright + TypeScript test automation framework for API, UI, contract, Docker, and CI testing.",
   "scripts": {
     "test": "playwright test",
+    "test:starter": "playwright test --grep @starter",
     "test:list": "playwright test --list",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "db:test:reset": "tsx src/database/utils/resetTestDatabase.ts",
-    "ai:generate-test-design": "tsx src/ai/cli/generateTestDesign.ts",
-    "ai:analyze-failure": "tsx src/ai/cli/analyzeFailure.ts",
+    "db:test:reset": "tsx src/app/database/resetTestDatabase.ts",
+    "ai:generate-test-design": "tsx src/framework/ai/cli/generateTestDesign.ts",
+    "ai:analyze-failure": "tsx src/framework/ai/cli/analyzeFailure.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "lint:architecture": "tsx .qa/scripts/architecture.ts",
+    "setup": "tsx .qa/scripts/setup.ts",
+    "doctor": "tsx .qa/scripts/doctor.ts",
+    "qa:templates:check": "tsx .qa/scripts/templates.ts check",
+    "qa:templates:build": "tsx .qa/scripts/templates.ts build",
+    "qa:templates:extract": "tsx .qa/scripts/templates.ts extract",
+    "qa:selftest": "tsx .qa/scripts/selftest.ts",
     "prepare": "husky"
   },
   "author": "Szabolcs Hudak",
@@ -31,7 +39,8 @@
     "lighthouse": "^13.4.1",
     "prettier": "^3.9.6",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "yaml": "^2.8.1"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",
