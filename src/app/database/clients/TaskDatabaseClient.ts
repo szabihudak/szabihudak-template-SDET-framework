@@ -1,7 +1,7 @@
 import type { QueryResultRow } from "pg";
 
 import type { TaskPriority, TaskStatus } from "../../api/constants/task";
-import { DatabaseClient } from "./DatabaseClient";
+import { DatabaseClient } from "../../../framework/database/DatabaseClient";
 
 export interface TaskDatabaseRecord extends QueryResultRow {
   id: string;

@@ -1,6 +1,6 @@
 import type { QueryResultRow } from "pg";
 
-import { DatabaseClient } from "./DatabaseClient";
+import { DatabaseClient } from "../../../framework/database/DatabaseClient";
 
 export interface UserDatabaseRecord extends QueryResultRow {
   id: string;

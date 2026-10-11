@@ -1,14 +1,14 @@
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
-import { getCurrentEnvironment } from "../../utils/env";
-import { logger } from "../../utils/logger";
+import { getCurrentEnvironment } from "../../../framework/utils/env";
+import { logger } from "../../../framework/utils/logger";
 import type { TaskRequest } from "../schemas/TaskRequestSchema";
 import type { TaskUpdateRequest } from "../schemas/TaskUpdateRequestSchema";
 import {
   type TaskResponse,
   taskResponseSchema,
 } from "../schemas/TaskResponseSchema";
-import { validateSchema } from "../utils/SchemaValidator";
+import { validateSchema } from "../../../framework/api/SchemaValidator";
 
 export class TaskApiClient {
   constructor(private readonly request: APIRequestContext) {}

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import OpenAI from "openai";
 
-import { validateSchema } from "../../api/utils/SchemaValidator";
+import { validateSchema } from "../../api/SchemaValidator";
 import { OpenAIFailureAnalyzer } from "../analyzers/OpenAIFailureAnalyzer";
 import {
   FailureEvidenceSchema,

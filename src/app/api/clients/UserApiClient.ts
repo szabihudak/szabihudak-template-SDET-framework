@@ -1,11 +1,11 @@
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
-import { getCurrentEnvironment } from "../../utils/env";
+import { getCurrentEnvironment } from "../../../framework/utils/env";
 import type { LoginCredentials } from "../schemas/LoginCredentialsSchema";
 import type { AuthenticatedUser, TestUser } from "../models/User";
 import { authenticationSchema } from "../schemas/AuthenticationSchema";
-import { logger } from "../../utils/logger";
-import { validateSchema } from "../utils/SchemaValidator";
+import { logger } from "../../../framework/utils/logger";
+import { validateSchema } from "../../../framework/api/SchemaValidator";
 
 export class UserApiClient {
   constructor(private readonly request: APIRequestContext) {}

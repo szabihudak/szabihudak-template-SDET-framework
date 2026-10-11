@@ -57,34 +57,38 @@ performance/
   lighthouse/
 
 src/
-  accessibility/
-    constants/
+  framework/          template-owned core (see ADR-007)
+    accessibility/
+      constants/
+      utils/
+    ai/
+      analyzers/
+      cli/
+      generators/
+      prompts/
+      reporters/
+      schemas/
+      utils/
+    api/
+    database/
+    fixtures/
+    reporting/
     utils/
-  ai/
-    analyzers/
-    cli/
-    generators/
-    prompts/
-    reporters/
-    schemas/
-    utils/
-  api/
-    clients/
-    constants/
-    models/
-    schemas/
-    utils/
-  components/
-  data/
-  database/
-    clients/
-    utils/
-  fixtures/
-  mocks/
-  pages/
-  utils/
-  visual/
-    constants/
+    visual/
+      constants/
+  app/                project-owned application layer
+    api/
+      clients/
+      constants/
+      models/
+      schemas/
+    components/
+    data/
+    database/
+      clients/
+    fixtures/
+    mocks/
+    pages/
 
 tests/
   accessibility/
@@ -1345,7 +1349,7 @@ baseline verification
 The reset utility is owned by:
 
 ```text
-src/database/utils/resetTestDatabase.ts
+src/framework/database/resetTestDatabase.ts
 ```
 
 and is exposed through the framework package command:

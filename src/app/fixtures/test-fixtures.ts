@@ -1,6 +1,12 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
-import { AccessibilityScanner } from "../accessibility/utils/AccessibilityScanner";
+import { AccessibilityScanner } from "../../framework/accessibility/utils/AccessibilityScanner";
+import {
+  test as frameworkTest,
+  expect,
+} from "../../framework/fixtures/framework-fixtures";
+import { getCurrentEnvironment } from "../../framework/utils/env";
+
 import { TaskApiClient } from "../api/clients/TaskApiClient";
 import { UserApiClient } from "../api/clients/UserApiClient";
 import type { AuthenticatedUser, TestUser } from "../api/models/User";
@@ -8,14 +14,12 @@ import type { TaskResponse } from "../api/schemas/TaskResponseSchema";
 import { NavigationBar } from "../components/NavigationBar";
 import { createTask, type CompleteTaskRequest } from "../data/taskFactory";
 import { createTestUser } from "../data/userFactory";
-import { DatabaseClient } from "../database/clients/DatabaseClient";
 import { TaskDatabaseClient } from "../database/clients/TaskDatabaseClient";
 import { UserDatabaseClient } from "../database/clients/UserDatabaseClient";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { TasksDashboardPage } from "../pages/TasksDashboardPage";
-import { getCurrentEnvironment } from "../utils/env";
 
 type CreatedTask = {
   request: CompleteTaskRequest;
@@ -27,14 +31,12 @@ type AppFixtures = {
   loginPage: LoginPage;
   registerPage: RegisterPage;
   navigation: NavigationBar;
-  accessibility: AccessibilityScanner;
   userApi: UserApiClient;
   taskApi: TaskApiClient;
   testUserData: TestUser;
   registeredTestUser: TestUser;
   authenticatedTestUser: AuthenticatedUser;
   createdTask: CreatedTask;
-  databaseClient: DatabaseClient;
   userDatabase: UserDatabaseClient;
   taskDatabase: TaskDatabaseClient;
   authenticatedPage: Page;
@@ -42,7 +44,7 @@ type AppFixtures = {
   tasksDashboardPage: TasksDashboardPage;
 };
 
-export const test = base.extend<AppFixtures>({
+export const test = frameworkTest.extend<AppFixtures>({
   homePage: async ({ page }, use) => {
     await use(new HomePage(page));
   },
@@ -57,10 +59,6 @@ export const test = base.extend<AppFixtures>({
 
   navigation: async ({ page }, use) => {
     await use(new NavigationBar(page));
-  },
-
-  accessibility: async ({ page }, use) => {
-    await use(new AccessibilityScanner(page));
   },
 
   userApi: async ({ request }, use) => {
@@ -99,22 +97,6 @@ export const test = base.extend<AppFixtures>({
       request,
       response,
     });
-  },
-
-  databaseClient: async ({}, use) => {
-    const testEnvironment = process.env.TEST_ENV;
-    if (testEnvironment !== "localDocker") {
-      throw new Error(
-        `Database tests are only allowed in the localDocker environment. Received TEST_ENV=${testEnvironment ?? "undefined"}`,
-      );
-    }
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error("DATABASE_URL is not defined");
-    }
-    const databaseClient = new DatabaseClient(connectionString);
-    await use(databaseClient);
-    await databaseClient.close();
   },
 
   userDatabase: async ({ databaseClient }, use) => {

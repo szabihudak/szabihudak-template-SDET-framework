@@ -816,8 +816,9 @@ docker-compose.local.yml
 config/environments/**
 playwright.config.ts
 .github/workflows/playwright.yml
-src/fixtures/test-fixtures.ts
-src/database/**
+src/app/fixtures/test-fixtures.ts
+src/framework/database/**
+src/app/database/**
 tests/api/**
 tests/database/**
 tests/accessibility/**

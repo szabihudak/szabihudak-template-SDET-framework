@@ -218,7 +218,7 @@ src/ai/
 The capability also reuses the generic runtime schema validation infrastructure:
 
 ```text
-src/api/utils/SchemaValidator.ts
+src/framework/api/SchemaValidator.ts
 ```
 
 ## Evidence Boundary

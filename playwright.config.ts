@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { getCurrentEnvironment } from "./src/utils/env";
+import { getCurrentEnvironment } from "./src/framework/utils/env";
 
 const environment = getCurrentEnvironment();
 
@@ -18,8 +18,8 @@ export default defineConfig({
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
     ["json", { outputFile: "test-results/results.json" }],
-    ["./src/ai/reporters/FailureEvidenceReporter.ts"],
-    ["./src/reporting/GitHubSummaryReporter.ts"],
+    ["./src/framework/ai/reporters/FailureEvidenceReporter.ts"],
+    ["./src/framework/reporting/GitHubSummaryReporter.ts"],
   ],
 
   use: {

@@ -1,7 +1,7 @@
 import {
   getEnvironmentConfig,
   TestEnvironment,
-} from "../../config/environments/environment";
+} from "../../../config/environments/environment";
 
 const DEFAULT_ENVIRONMENT: TestEnvironment = "hosted";
 

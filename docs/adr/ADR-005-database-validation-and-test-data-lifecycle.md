@@ -415,11 +415,11 @@ These trade-offs are accepted because they provide clearer ownership, safer dest
 The decision is implemented through:
 
 ```text
-src/database/clients/DatabaseClient.ts
-src/database/clients/UserDatabaseClient.ts
-src/database/clients/TaskDatabaseClient.ts
-src/database/utils/resetTestDatabase.ts
-src/fixtures/test-fixtures.ts
+src/framework/database/DatabaseClient.ts
+src/app/database/clients/UserDatabaseClient.ts
+src/app/database/clients/TaskDatabaseClient.ts
+src/framework/database/resetTestDatabase.ts
+src/app/fixtures/test-fixtures.ts
 tests/database/**
 playwright.config.ts
 docker-compose.yml

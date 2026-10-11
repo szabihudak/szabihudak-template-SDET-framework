@@ -1,19 +1,23 @@
 import OpenAI from "openai";
 
-import { validateSchema } from "../../api/utils/SchemaValidator";
-import { buildTestDesignPrompt } from "../prompts/buildTestDesignPrompt";
-import type { TestDesignInput } from "../schemas/TestDesignInputSchema";
-import { TestDesignSchema, type TestDesign } from "../schemas/TestDesignSchema";
-import type { TestScenarioGenerator } from "./TestScenarioGenerator";
+import { validateSchema } from "../../api/SchemaValidator";
+import { buildFailureAnalysisPrompt } from "../prompts/buildFailureAnalysisPrompt";
+import {
+  FailureAnalysisSchema,
+  type FailureAnalysis,
+} from "../schemas/FailureAnalysisSchema";
+import type { FailureEvidence } from "../schemas/FailureEvidenceSchema";
+import type { FailureAnalyzer } from "./FailureAnalyzer";
 
-export class OpenAITestScenarioGenerator implements TestScenarioGenerator {
+export class OpenAIFailureAnalyzer implements FailureAnalyzer {
   constructor(
     private readonly client: OpenAI,
     private readonly model: string,
   ) {}
 
-  async generate(input: TestDesignInput): Promise<TestDesign> {
-    const prompt = buildTestDesignPrompt(input);
+  async analyze(evidence: FailureEvidence): Promise<FailureAnalysis> {
+    const prompt = buildFailureAnalysisPrompt(evidence);
+
     const response = await this.client.responses.create({
       model: this.model,
       instructions: prompt.instructions,
@@ -21,9 +25,9 @@ export class OpenAITestScenarioGenerator implements TestScenarioGenerator {
       text: {
         format: {
           type: "json_schema",
-          name: "test_design",
+          name: "failure_analysis",
           strict: true,
-          schema: TestDesignSchema,
+          schema: FailureAnalysisSchema,
         },
       },
     });
@@ -32,9 +36,10 @@ export class OpenAITestScenarioGenerator implements TestScenarioGenerator {
       const reason = response.incomplete_details?.reason ?? "unknown";
 
       throw new Error(
-        `OpenAI test design generation returned an incomplete response: ${reason}.`,
+        `OpenAI failure analysis returned an incomplete response: ${reason}.`,
       );
     }
+
     for (const item of response.output ?? []) {
       if (item.type !== "message") {
         continue;
@@ -43,16 +48,17 @@ export class OpenAITestScenarioGenerator implements TestScenarioGenerator {
       for (const content of item.content) {
         if (content.type === "refusal") {
           throw new Error(
-            `OpenAI test design generation was refused: ${content.refusal}`,
+            `OpenAI failure analysis was refused: ${content.refusal}`,
           );
         }
       }
     }
+
     if (!response.output_text) {
-      throw new Error("OpenAI test design generation returned no output.");
+      throw new Error("OpenAI failure analysis returned no output.");
     }
     const parsed: unknown = JSON.parse(response.output_text);
-    validateSchema(TestDesignSchema, parsed);
+    validateSchema(FailureAnalysisSchema, parsed);
     return parsed;
   }
 }
