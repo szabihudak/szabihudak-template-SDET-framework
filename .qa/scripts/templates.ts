@@ -218,9 +218,15 @@ async function check(): Promise<void> {
   const index = loadIndex();
   const knownTokens = new Set(Object.keys(index.tokens));
   const problems: string[] = [];
+  // The round trip runs where the canonical application lives (the pilot).
+  const roundTrip = exists(VALUES_PATH);
 
   for (const entry of index.templates) {
-    for (const file of [entry.template, entry.canonical]) {
+    const required = roundTrip
+      ? [entry.template, entry.canonical]
+      : [entry.template];
+
+    for (const file of required) {
       if (!exists(file)) problems.push(`${entry.id}: missing ${file}`);
     }
 
@@ -230,18 +236,20 @@ async function check(): Promise<void> {
       problems.push(`${entry.id}: rules link ${entry.rules} does not resolve`);
     }
 
-    if (!exists(entry.template) || !exists(entry.canonical)) continue;
+    if (!required.every(exists)) continue;
 
     const template = read(entry.template);
 
     for (const token of [
-      ...(template.match(TOKEN_PATTERN) ?? []),
+      ...(template.replace(TEMPLATE_DIRECTIVE, "").match(TOKEN_PATTERN) ?? []),
       ...(entry.output.match(TOKEN_PATTERN) ?? []),
     ]) {
       if (!knownTokens.has(token)) {
         problems.push(`${entry.id}: unknown token ${token}`);
       }
     }
+
+    if (!roundTrip) continue;
 
     const rendered = await format(
       render(template, valuesFor(entry.id)),
@@ -282,7 +290,9 @@ async function check(): Promise<void> {
   }
 
   console.log(
-    `✔ ${index.templates.length} golden templates reproduce their canonical files`,
+    roundTrip
+      ? `✔ ${index.templates.length} golden templates reproduce their canonical files`
+      : `✔ ${index.templates.length} golden templates are consistent (round trip runs in the pilot)`,
   );
 }
 

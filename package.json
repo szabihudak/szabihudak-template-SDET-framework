@@ -6,6 +6,7 @@
   "description": "Production-oriented Playwright + TypeScript test automation framework for API, UI, contract, Docker, and CI testing.",
   "scripts": {
     "test": "playwright test",
+    "test:starter": "playwright test --grep @starter",
     "test:list": "playwright test --list",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
@@ -15,9 +16,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "setup": "tsx .qa/scripts/setup.ts",
+    "doctor": "tsx .qa/scripts/doctor.ts",
     "qa:templates:check": "tsx .qa/scripts/templates.ts check",
     "qa:templates:build": "tsx .qa/scripts/templates.ts build",
     "qa:templates:extract": "tsx .qa/scripts/templates.ts extract",
+    "qa:selftest": "tsx .qa/scripts/selftest.ts",
     "prepare": "husky"
   },
   "author": "Szabolcs Hudak",

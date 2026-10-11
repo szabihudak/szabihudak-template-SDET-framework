@@ -2,7 +2,10 @@ import { defineConfig, type ReporterDescription } from "@playwright/test";
 
 import { getFrameworkConfig } from "./src/framework/config/frameworkConfig";
 import { buildProjects } from "./src/framework/config/playwrightProjects";
+import { loadDotEnv } from "./src/framework/utils/dotenv";
 import { getCurrentEnvironment } from "./src/framework/utils/env";
+
+loadDotEnv();
 
 const frameworkConfig = getFrameworkConfig();
 const isCI = !!process.env.CI;

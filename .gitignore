@@ -13,3 +13,8 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Local secrets
+.env
+.env.*
+!.env.example

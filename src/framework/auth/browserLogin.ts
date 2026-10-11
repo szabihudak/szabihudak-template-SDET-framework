@@ -1,14 +1,10 @@
-import type { Browser, Page } from "@playwright/test";
+import type { APIRequestContext, Browser, Page } from "@playwright/test";
 
 import { getFrameworkConfig } from "../config/frameworkConfig";
 import { getCurrentEnvironment } from "../utils/env";
 import type { Credentials } from "./credentials";
 
-// Programmatic login keeps UI login out of setup unless login is under test.
-export async function openAuthenticatedPage(
-  browser: Browser,
-  credentials: Credentials,
-): Promise<Page> {
+function getBrowserAuth() {
   const auth = getFrameworkConfig().auth.browser;
 
   if (auth.strategy === "none") {
@@ -17,13 +13,18 @@ export async function openAuthenticatedPage(
     );
   }
 
+  return auth;
+}
+
+// Establishes the Auth.js session cookie on the request context's cookie jar.
+export async function signInBrowserSession(
+  request: APIRequestContext,
+  credentials: Credentials,
+): Promise<void> {
+  const auth = getBrowserAuth();
   const { webBaseUrl } = getCurrentEnvironment();
 
-  const context = await browser.newContext({
-    baseURL: webBaseUrl,
-  });
-
-  const csrfResponse = await context.request.get(auth.csrfPath);
+  const csrfResponse = await request.get(auth.csrfPath);
 
   if (!csrfResponse.ok()) {
     throw new Error(
@@ -33,7 +34,7 @@ export async function openAuthenticatedPage(
 
   const { csrfToken } = await csrfResponse.json();
 
-  const loginResponse = await context.request.post(auth.callbackPath, {
+  const loginResponse = await request.post(auth.callbackPath, {
     form: {
       csrfToken,
       [auth.usernameField]: credentials.username,
@@ -47,6 +48,21 @@ export async function openAuthenticatedPage(
       `Programmatic authentication failed: ${loginResponse.status()} ${await loginResponse.text()}`,
     );
   }
+}
+
+// Programmatic login keeps UI login out of setup unless login is under test.
+export async function openAuthenticatedPage(
+  browser: Browser,
+  credentials: Credentials,
+): Promise<Page> {
+  const auth = getBrowserAuth();
+  const { webBaseUrl } = getCurrentEnvironment();
+
+  const context = await browser.newContext({
+    baseURL: webBaseUrl,
+  });
+
+  await signInBrowserSession(context.request, credentials);
 
   const page = await context.newPage();
 
