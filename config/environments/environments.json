@@ -1,18 +1,29 @@
 {
   "hosted": {
     "webBaseUrl": "https://dojo.upexgalaxy.com",
-    "apiBaseUrl": "https://dojo.upexgalaxy.com/api"
+    "apiBaseUrl": "https://dojo.upexgalaxy.com/api",
+    "allow": {
+      "database": false,
+      "destructive": false,
+      "performance": true
+    }
   },
   "local": {
     "webBaseUrl": "http://localhost:3000",
-    "apiBaseUrl": "http://localhost:3000/api"
-  },
-  "ci": {
-    "webBaseUrl": "http://localhost:3000",
-    "apiBaseUrl": "http://localhost:3000/api"
+    "apiBaseUrl": "http://localhost:3000/api",
+    "allow": {
+      "database": false,
+      "destructive": false,
+      "performance": false
+    }
   },
   "localDocker": {
     "webBaseUrl": "http://upex-local:3000",
-    "apiBaseUrl": "http://upex-local:3000/api"
+    "apiBaseUrl": "http://upex-local:3000/api",
+    "allow": {
+      "database": true,
+      "destructive": true,
+      "performance": false
+    }
   }
 }

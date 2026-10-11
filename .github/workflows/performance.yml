@@ -34,6 +34,10 @@ jobs:
               throw new Error(\`Unknown TEST_ENV: \${environment}\`);
             }
 
+            if (!config.allow.performance) {
+              throw new Error(\`Performance testing is not allowed in \${environment}\`);
+            }
+
             process.stdout.write(config.apiBaseUrl);
           ")
 

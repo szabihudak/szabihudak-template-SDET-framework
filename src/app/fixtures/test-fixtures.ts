@@ -5,7 +5,6 @@ import {
   test as frameworkTest,
   expect,
 } from "../../framework/fixtures/framework-fixtures";
-import { getCurrentEnvironment } from "../../framework/utils/env";
 
 import { TaskApiClient } from "../api/clients/TaskApiClient";
 import { UserApiClient } from "../api/clients/UserApiClient";
@@ -107,50 +106,16 @@ export const test = frameworkTest.extend<AppFixtures>({
     await use(new TaskDatabaseClient(databaseClient));
   },
 
-  authenticatedPage: async ({ browser, authenticatedTestUser }, use) => {
-    const { webBaseUrl } = getCurrentEnvironment();
-
-    const context = await browser.newContext({
-      baseURL: webBaseUrl,
+  authenticatedPage: async (
+    { authenticatedPageFor, authenticatedTestUser },
+    use,
+  ) => {
+    const page = await authenticatedPageFor({
+      username: authenticatedTestUser.email,
+      password: authenticatedTestUser.password,
     });
 
-    const csrfResponse = await context.request.get("/api/auth/csrf");
-
-    if (!csrfResponse.ok()) {
-      throw new Error(
-        `Failed to obtain NextAuth CSRF token: ${csrfResponse.status()}`,
-      );
-    }
-
-    const { csrfToken } = await csrfResponse.json();
-
-    const loginResponse = await context.request.post(
-      "/api/auth/callback/credentials",
-      {
-        form: {
-          csrfToken,
-          email: authenticatedTestUser.email,
-          password: authenticatedTestUser.password,
-          callbackUrl: `${webBaseUrl}/dashboard`,
-        },
-      },
-    );
-
-    if (!loginResponse.ok()) {
-      throw new Error(
-        `Programmatic authentication failed: ${loginResponse.status()} ${await loginResponse.text()}`,
-      );
-    }
-
-    const page = await context.newPage();
-
-    await page.goto("/dashboard");
-
-    await page.waitForURL("**/dashboard");
-
     await use(page);
-
-    await context.close();
   },
 
   authenticatedAccessibility: async ({ authenticatedPage }, use) => {

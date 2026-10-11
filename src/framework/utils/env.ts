@@ -1,14 +1,50 @@
+import environments from "../../../config/environments/environments.json";
+import { validateSchema } from "../api/SchemaValidator";
 import {
-  getEnvironmentConfig,
-  TestEnvironment,
-} from "../../../config/environments/environment";
+  environmentsSchema,
+  type EnvironmentConfig,
+  type EnvironmentPermission,
+} from "../config/environmentSchema";
 
-const DEFAULT_ENVIRONMENT: TestEnvironment = "hosted";
+function getEnvironments() {
+  const data: unknown = environments;
+  validateSchema(environmentsSchema, data);
 
-export function getCurrentEnvironment() {
-  const environment =
-    (process.env.TEST_ENV as TestEnvironment | undefined) ??
-    DEFAULT_ENVIRONMENT;
+  return data;
+}
 
-  return getEnvironmentConfig(environment);
+export function getCurrentEnvironment(): EnvironmentConfig {
+  const configuredEnvironments = getEnvironments();
+  const supportedNames = Object.keys(configuredEnvironments).join(", ");
+  const name = process.env.TEST_ENV;
+
+  // A silent default could send tests to a shared environment.
+  if (!name) {
+    throw new Error(
+      `TEST_ENV is not set. Choose one of: ${supportedNames} (config/environments/environments.json).`,
+    );
+  }
+
+  const environment = configuredEnvironments[name];
+
+  if (!environment) {
+    throw new Error(
+      `Unknown TEST_ENV: ${name}. Choose one of: ${supportedNames}.`,
+    );
+  }
+
+  return { name, ...environment };
+}
+
+export function assertEnvironmentAllows(
+  permission: EnvironmentPermission,
+  operation: string,
+): void {
+  const environment = getCurrentEnvironment();
+
+  if (!environment.allow[permission]) {
+    throw new Error(
+      `${operation} is not allowed in the ${environment.name} environment. Set allow.${permission} in config/environments/environments.json only for a dedicated test-owned environment.`,
+    );
+  }
 }

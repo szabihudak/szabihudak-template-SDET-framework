@@ -1,10 +1,14 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 
 import { AccessibilityScanner } from "../accessibility/utils/AccessibilityScanner";
+import { openAuthenticatedPage } from "../auth/browserLogin";
+import type { Credentials } from "../auth/credentials";
 import { DatabaseClient } from "../database/DatabaseClient";
+import { assertEnvironmentAllows } from "../utils/env";
 
 type FrameworkFixtures = {
   accessibility: AccessibilityScanner;
+  authenticatedPageFor: (credentials: Credentials) => Promise<Page>;
   databaseClient: DatabaseClient;
 };
 
@@ -13,13 +17,23 @@ export const test = base.extend<FrameworkFixtures>({
     await use(new AccessibilityScanner(page));
   },
 
-  databaseClient: async ({}, use) => {
-    const testEnvironment = process.env.TEST_ENV;
-    if (testEnvironment !== "localDocker") {
-      throw new Error(
-        `Database tests are only allowed in the localDocker environment. Received TEST_ENV=${testEnvironment ?? "undefined"}`,
-      );
+  authenticatedPageFor: async ({ browser }, use) => {
+    const pages: Page[] = [];
+
+    await use(async (credentials) => {
+      const page = await openAuthenticatedPage(browser, credentials);
+      pages.push(page);
+
+      return page;
+    });
+
+    for (const page of pages) {
+      await page.context().close();
     }
+  },
+
+  databaseClient: async ({}, use) => {
+    assertEnvironmentAllows("database", "Direct database access");
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error("DATABASE_URL is not defined");

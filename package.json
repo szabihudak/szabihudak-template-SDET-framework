@@ -9,7 +9,7 @@
     "test:list": "playwright test --list",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "db:test:reset": "tsx src/framework/database/resetTestDatabase.ts",
+    "db:test:reset": "tsx src/app/database/resetTestDatabase.ts",
     "ai:generate-test-design": "tsx src/framework/ai/cli/generateTestDesign.ts",
     "ai:analyze-failure": "tsx src/framework/ai/cli/analyzeFailure.ts",
     "format": "prettier --write .",

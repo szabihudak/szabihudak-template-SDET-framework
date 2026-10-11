@@ -2,20 +2,25 @@ import { spawnSync } from "node:child_process";
 
 import { Client } from "pg";
 
-const EXPECTED_TEST_ENV = "localDocker";
+import { assertEnvironmentAllows, getCurrentEnvironment } from "../utils/env";
+
 const REQUIRED_CONFIRMATION = "true";
 
-const BASELINE_USERS = ["testuser@upex.dev", "admin@upex.dev"];
+export type DatabaseResetHooks = {
+  preflight?: () => void;
+  restoreBaseline: () => void;
+  verifyBaseline: (client: Client) => Promise<void>;
+};
 
 function abort(message: string): never {
   throw new Error(`Database reset aborted: ${message}`);
 }
 
-function validateEnvironment(): URL {
-  if (process.env.TEST_ENV !== EXPECTED_TEST_ENV) {
-    abort(
-      `TEST_ENV must be "${EXPECTED_TEST_ENV}". Received "${process.env.TEST_ENV ?? "undefined"}".`,
-    );
+function validateEnvironment(): string {
+  try {
+    assertEnvironmentAllows("destructive", "Database reset");
+  } catch (error) {
+    abort(error instanceof Error ? error.message : String(error));
   }
 
   const connectionString = process.env.DATABASE_URL;
@@ -47,10 +52,17 @@ function validateEnvironment(): URL {
     );
   }
 
-  return databaseUrl;
+  console.log("Test database reset requested.");
+  console.log(`Environment: ${getCurrentEnvironment().name}`);
+  console.log(`Database host: ${databaseUrl.host}`);
+  console.log(
+    `Database name: ${databaseUrl.pathname.replace(/^\//, "") || "<unknown>"}`,
+  );
+
+  return connectionString;
 }
 
-function runCommand(command: string, args: string[]): void {
+export function runCommand(command: string, args: string[]): void {
   const result = spawnSync(command, args, {
     stdio: "inherit",
     env: process.env,
@@ -67,24 +79,10 @@ function runCommand(command: string, args: string[]): void {
   }
 }
 
-function validateDockerAvailability(): void {
-  console.log("Checking Docker availability...");
-
-  const result = spawnSync("docker", ["info"], {
-    stdio: "ignore",
-    env: process.env,
-  });
-
-  if (result.error || result.status !== 0) {
-    abort(
-      "Docker is not available. Start Docker before resetting the database.",
-    );
-  }
-
-  console.log("Docker is available.");
-}
-
-async function resetPublicSchema(connectionString: string): Promise<void> {
+async function withClient(
+  connectionString: string,
+  action: (client: Client) => Promise<void>,
+): Promise<void> {
   const client = new Client({
     connectionString,
   });
@@ -92,148 +90,42 @@ async function resetPublicSchema(connectionString: string): Promise<void> {
   await client.connect();
 
   try {
-    console.log("Resetting public schema...");
-
-    await client.query("DROP SCHEMA IF EXISTS public CASCADE");
-    await client.query("CREATE SCHEMA public");
-
-    console.log("Public schema reset successfully.");
+    await action(client);
   } finally {
     await client.end();
   }
 }
 
-function restoreApplicationBaseline(): void {
-  const composeFiles = [
-    "-f",
-    "docker-compose.yml",
-    "-f",
-    "docker-compose.local.yml",
-  ];
-
-  console.log("Applying UPEX database schema...");
-
-  runCommand("docker", [
-    "compose",
-    ...composeFiles,
-    "run",
-    "--rm",
-    "--no-deps",
-    "app",
-    "bun",
-    "run",
-    "db:push",
-  ]);
-
-  console.log("Seeding UPEX baseline data...");
-
-  runCommand("docker", [
-    "compose",
-    ...composeFiles,
-    "run",
-    "--rm",
-    "--no-deps",
-    "app",
-    "bun",
-    "run",
-    "db:seed",
-  ]);
-}
-
-async function verifyBaseline(connectionString: string): Promise<void> {
-  const client = new Client({
-    connectionString,
-  });
-
-  await client.connect();
-
+export async function resetTestDatabase(
+  hooks: DatabaseResetHooks,
+): Promise<void> {
   try {
-    console.log("Verifying database baseline...");
+    const connectionString = validateEnvironment();
 
-    const result = await client.query<{ email: string }>(
-      `
-        SELECT email
-        FROM users
-        WHERE email = ANY($1::text[])
-      `,
-      [BASELINE_USERS],
-    );
+    hooks.preflight?.();
 
-    const foundUsers = new Set(result.rows.map((row) => row.email));
+    await withClient(connectionString, async (client) => {
+      console.log("Resetting public schema...");
 
-    const missingUsers = BASELINE_USERS.filter(
-      (email) => !foundUsers.has(email),
-    );
+      await client.query("DROP SCHEMA IF EXISTS public CASCADE");
+      await client.query("CREATE SCHEMA public");
 
-    if (missingUsers.length > 0) {
-      throw new Error(
-        `Baseline verification failed. Missing seeded users: ${missingUsers.join(", ")}`,
-      );
-    }
+      console.log("Public schema reset successfully.");
+    });
 
-    const taskResult = await client.query<{ count: string }>(
-      `
-        SELECT COUNT(*)::text AS count
-        FROM tasks
-        WHERE user_id IN (
-          SELECT id
-          FROM users
-          WHERE email = ANY($1::text[])
-        )
-      `,
-      [BASELINE_USERS],
-    );
+    hooks.restoreBaseline();
 
-    const taskCount = Number(taskResult.rows[0]?.count ?? 0);
+    await withClient(connectionString, async (client) => {
+      console.log("Verifying database baseline...");
 
-    if (taskCount === 0) {
-      throw new Error(
-        "Baseline verification failed. Seeded users have no baseline tasks.",
-      );
-    }
+      await hooks.verifyBaseline(client);
+    });
 
-    console.log(
-      `Database baseline verified successfully: ${BASELINE_USERS.length} users, ${taskCount} tasks.`,
-    );
-  } finally {
-    await client.end();
+    console.log("Test database reset completed successfully.");
+  } catch (error: unknown) {
+    console.error("Test database reset failed.");
+    console.error(error instanceof Error ? error.message : error);
+
+    process.exit(1);
   }
 }
-
-async function resetTestDatabase(): Promise<void> {
-  const databaseUrl = validateEnvironment();
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    abort("DATABASE_URL is not defined.");
-  }
-
-  console.log("Test database reset requested.");
-  console.log(`Environment: ${process.env.TEST_ENV}`);
-  console.log(`Database host: ${databaseUrl.host}`);
-  console.log(
-    `Database name: ${databaseUrl.pathname.replace(/^\//, "") || "<unknown>"}`,
-  );
-
-  validateDockerAvailability();
-
-  await resetPublicSchema(connectionString);
-
-  restoreApplicationBaseline();
-
-  await verifyBaseline(connectionString);
-
-  console.log("Test database reset completed successfully.");
-}
-
-resetTestDatabase().catch((error: unknown) => {
-  console.error("Test database reset failed.");
-
-  if (error instanceof Error) {
-    console.error(error.message);
-  } else {
-    console.error(error);
-  }
-
-  process.exit(1);
-});

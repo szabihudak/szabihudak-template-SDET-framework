@@ -5,6 +5,8 @@ import { chromium, type Cookie } from "@playwright/test";
 import * as chromeLauncher from "chrome-launcher";
 import lighthouse from "lighthouse";
 
+import { assertEnvironmentAllows } from "../../src/framework/utils/env";
+
 export type LighthouseMetrics = {
   performanceScore: number;
   lcp: number;
@@ -77,6 +79,8 @@ export class LighthouseRunner {
     if (!Number.isInteger(numberOfRuns) || numberOfRuns < 1) {
       throw new Error("Lighthouse numberOfRuns must be a positive integer");
     }
+
+    assertEnvironmentAllows("performance", "Lighthouse measurement");
 
     const runs: LighthouseAuditRun[] = [];
 
