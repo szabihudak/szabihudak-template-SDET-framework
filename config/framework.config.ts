@@ -1,4 +1,4 @@
-import { defineFrameworkConfig } from "../src/framework/config/frameworkConfigSchema";
+import { defineFrameworkConfig } from "../template-fw/framework/config/frameworkConfigSchema";
 
 export default defineFrameworkConfig({
   modules: {

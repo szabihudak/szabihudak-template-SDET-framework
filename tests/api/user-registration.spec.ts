@@ -1,14 +1,11 @@
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import type { TestUser } from "../../src/app/api/models/User";
-import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
-import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
-import { userRegistrationSchema } from "../../src/app/api/schemas/UserRegistrationSchema";
-import { validateSchema } from "../../src/framework/api/SchemaValidator";
-import {
-  createTestUser,
-  createTestUserPayload,
-} from "../../src/app/data/userFactory";
-import { API_MESSAGES } from "../../src/app/api/constants/apiMessages";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import type { TestUser } from "@app/api/models/User";
+import { HTTP_STATUS } from "@framework/api/httpStatuses";
+import { API_ERRORS } from "@app/api/constants/apiErrors";
+import { userRegistrationSchema } from "@app/api/schemas/UserRegistrationSchema";
+import { validateSchema } from "@framework/api/SchemaValidator";
+import { createTestUser, createTestUserPayload } from "@app/data/userFactory";
+import { API_MESSAGES } from "@app/api/constants/apiMessages";
 
 type EmptyFieldScenario = {
   name: string;

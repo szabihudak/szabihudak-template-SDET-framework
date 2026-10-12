@@ -1,8 +1,8 @@
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
-import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
-import { currentUserSchema } from "../../src/app/api/schemas/CurrentUserSchema";
-import { validateSchema } from "../../src/framework/api/SchemaValidator";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import { HTTP_STATUS } from "@framework/api/httpStatuses";
+import { API_ERRORS } from "@app/api/constants/apiErrors";
+import { currentUserSchema } from "@app/api/schemas/CurrentUserSchema";
+import { validateSchema } from "@framework/api/SchemaValidator";
 
 type GetCurrentUserValidationScenario = {
   name: string;

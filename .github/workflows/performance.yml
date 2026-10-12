@@ -54,10 +54,10 @@ jobs:
             -e K6_WEB_DASHBOARD=true \
             -e K6_WEB_DASHBOARD_PORT=-1 \
             -e K6_WEB_DASHBOARD_EXPORT=/reports/task-read-load.html \
-            -v "$PWD/performance/k6:/scripts" \
+            -v "$PWD:/work:ro" \
             -v "$PWD/performance-results/k6:/reports" \
             "$K6_IMAGE" \
-            run /scripts/taskReadLoad.js
+            run /work/tests/performance/k6/taskReadLoad.js
 
       - name: Publish k6 performance summary
         if: always()
@@ -114,7 +114,7 @@ jobs:
       - name: Run Lighthouse browser performance audit
         run: |
           npx lhci autorun \
-            --config=performance/lighthouse/lighthouseConfig.js
+            --config=template-fw/framework/performance/lighthouse/lighthouseConfig.js
 
       - name: Run authenticated dashboard Lighthouse audit
         run: |

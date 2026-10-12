@@ -1,6 +1,6 @@
-import { createTask } from "../../src/app/data/taskFactory";
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { VISUAL_COMPARISON_OPTIONS } from "../../src/framework/visual/constants/visualComparison";
+import { createTask } from "@app/data/taskFactory";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import { VISUAL_COMPARISON_OPTIONS } from "@framework/visual/constants/visualComparison";
 
 test.describe("Visual regression", () => {
   test("authenticated dashboard matches the approved visual baseline", async ({

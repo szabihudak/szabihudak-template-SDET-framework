@@ -1,8 +1,8 @@
-import { LighthouseRunner } from "../../performance/lighthouse/LighthouseRunner";
-import { expectLighthousePolicy } from "../../performance/lighthouse/lighthousePolicy";
-import { attachLighthouseReport } from "../../performance/lighthouse/lighthouseReporter";
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { getCurrentEnvironment } from "../../src/framework/utils/env";
+import { LighthouseRunner } from "@framework/performance/lighthouse/LighthouseRunner";
+import { expectLighthousePolicy } from "@framework/performance/lighthouse/lighthousePolicy";
+import { attachLighthouseReport } from "@framework/performance/lighthouse/lighthouseReporter";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import { getCurrentEnvironment } from "@framework/utils/env";
 
 const AUTHENTICATED_LIGHTHOUSE_RUNS = 3;
 

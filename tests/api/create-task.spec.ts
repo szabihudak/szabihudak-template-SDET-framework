@@ -1,15 +1,15 @@
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { HTTP_STATUS } from "../../src/framework/api/httpStatuses";
-import { API_ERRORS } from "../../src/app/api/constants/apiErrors";
-import type { TaskRequest } from "../../src/app/api/schemas/TaskRequestSchema";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import { HTTP_STATUS } from "@framework/api/httpStatuses";
+import { API_ERRORS } from "@app/api/constants/apiErrors";
+import type { TaskRequest } from "@app/api/schemas/TaskRequestSchema";
 import {
   type CurrentUser,
   currentUserSchema,
-} from "../../src/app/api/schemas/CurrentUserSchema";
-import { taskResponseSchema } from "../../src/app/api/schemas/TaskResponseSchema";
-import { validateSchema } from "../../src/framework/api/SchemaValidator";
-import { createTask, createTaskPayload } from "../../src/app/data/taskFactory";
-import type { UserApiClient } from "../../src/app/api/clients/UserApiClient";
+} from "@app/api/schemas/CurrentUserSchema";
+import { taskResponseSchema } from "@app/api/schemas/TaskResponseSchema";
+import { validateSchema } from "@framework/api/SchemaValidator";
+import { createTask, createTaskPayload } from "@app/data/taskFactory";
+import type { UserApiClient } from "@app/api/clients/UserApiClient";
 
 type MissingTaskFieldScenario = {
   name: string;
