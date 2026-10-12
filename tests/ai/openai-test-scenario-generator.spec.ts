@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import OpenAI from "openai";
 
-import { OpenAITestScenarioGenerator } from "../../src/framework/ai/generators/OpenAITestScenarioGenerator";
-import type { TestDesign } from "../../src/framework/ai/schemas/TestDesignSchema";
-import type { TestDesignInput } from "../../src/framework/ai/schemas/TestDesignInputSchema";
+import { OpenAITestScenarioGenerator } from "@framework/ai/generators/OpenAITestScenarioGenerator";
+import type { TestDesign } from "@framework/ai/schemas/TestDesignSchema";
+import type { TestDesignInput } from "@framework/ai/schemas/TestDesignInputSchema";
 
 const input: TestDesignInput = {
   requirement: "A task must have a title before it can be created.",

@@ -1,4 +1,4 @@
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
+import { test, expect } from "@app/fixtures/test-fixtures";
 
 test.describe("User database validation", () => {
   test("registered user is persisted with the expected data", async ({

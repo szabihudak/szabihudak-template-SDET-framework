@@ -1,5 +1,5 @@
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
-import { mockTasksServerError } from "../../src/app/mocks/taskApiMock";
+import { test, expect } from "@app/fixtures/test-fixtures";
+import { mockTasksServerError } from "@app/mocks/taskApiMock";
 
 test.describe("Task Dashboard tests", () => {
   test("keeps Create Task disabled until a title is entered", async ({

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   sanitizePath,
   sanitizeText,
-} from "../../src/framework/ai/utils/failureEvidenceSanitizer";
+} from "@framework/ai/utils/failureEvidenceSanitizer";
 
 test.describe("failure evidence sanitizer", () => {
   test("keeps repository-relative artifact paths", () => {

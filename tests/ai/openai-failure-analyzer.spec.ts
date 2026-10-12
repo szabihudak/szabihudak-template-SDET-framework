@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import OpenAI from "openai";
 
-import { OpenAIFailureAnalyzer } from "../../src/framework/ai/analyzers/OpenAIFailureAnalyzer";
-import type { FailureAnalysis } from "../../src/framework/ai/schemas/FailureAnalysisSchema";
-import type { FailureEvidence } from "../../src/framework/ai/schemas/FailureEvidenceSchema";
+import { OpenAIFailureAnalyzer } from "@framework/ai/analyzers/OpenAIFailureAnalyzer";
+import type { FailureAnalysis } from "@framework/ai/schemas/FailureAnalysisSchema";
+import type { FailureEvidence } from "@framework/ai/schemas/FailureEvidenceSchema";
 
 const evidence: FailureEvidence = {
   test: {

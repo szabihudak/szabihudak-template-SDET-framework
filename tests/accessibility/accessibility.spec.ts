@@ -1,5 +1,5 @@
-import { formatAccessibilityViolations } from "../../src/framework/accessibility/utils/AccessibilityFormatter";
-import { test, expect } from "../../src/app/fixtures/test-fixtures";
+import { formatAccessibilityViolations } from "@framework/accessibility/utils/AccessibilityFormatter";
+import { test, expect } from "@app/fixtures/test-fixtures";
 
 test.describe("Accessibility", () => {
   test("home page has no accessibility violations", async ({
