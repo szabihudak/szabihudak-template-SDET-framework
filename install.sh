@@ -41,7 +41,7 @@ install_project() {
   fi
 
   step "Installing browsers"
-  BROWSERS="$(npx tsx template-fw/tools/browsers.ts)"
+  BROWSERS="$(npx tsx framework/tools/browsers.ts)"
   if [ -z "$BROWSERS" ]; then
     echo "No browser tests are enabled; skipping."
   else
@@ -61,7 +61,7 @@ install_project() {
 check_runtime
 
 # setup.ts is template-only: projects do not contain it.
-if [ ! -f template-fw/tools/setup.ts ]; then
+if [ ! -f framework/tools/setup.ts ]; then
   install_project
   exit 0
 fi
@@ -80,4 +80,4 @@ install_project
 
 step "Done"
 echo "Your project is in $PROJECT"
-echo "Next: cd \"$PROJECT\", then configure login and write the first tests (/first-tests, or template-fw/docs/FIRST_TESTS_PROMPT.md)."
+echo "Next: cd \"$PROJECT\", then configure login and write the first tests (/first-tests, or framework/docs/FIRST_TESTS_PROMPT.md)."

@@ -5,17 +5,17 @@ These rules apply to every AI tool and every human contributor. Detailed reasoni
 ## Read Before Changing Code
 
 1. `config/approved-examples.json`: this project's reviewed golden examples. Use them first.
-2. `template-fw/index.json`: the generic golden templates and when to use each.
-3. `template-fw/docs/ARCHITECTURE.md`: layer responsibilities and execution boundaries.
-4. `template-fw/docs/TESTING_STANDARDS.md`: implementation rules per layer and test type.
-5. `template-fw/docs/AI_ASSISTED_QA_WORKFLOW.md`: evidence, proposal and review boundaries for AI work.
-6. `template-fw/docs/adr/`: decisions, especially ADR-007 (template architecture).
+2. `framework/templates/index.json`: the generic golden templates and when to use each.
+3. `framework/docs/ARCHITECTURE.md`: layer responsibilities and execution boundaries.
+4. `framework/docs/TESTING_STANDARDS.md`: implementation rules per layer and test type.
+5. `framework/docs/AI_ASSISTED_QA_WORKFLOW.md`: evidence, proposal and review boundaries for AI work.
+6. `framework/docs/adr/`: decisions, especially ADR-007 (template architecture).
 
 ## Workflow
 
 ```text
 understand the behavior
-→ find the golden example for the same responsibility (config/approved-examples.json, then template-fw/index.json)
+→ find the golden example for the same responsibility (config/approved-examples.json, then framework/templates/index.json)
 → identify the layers and the execution project
 → reuse → extend → create (only what is missing)
 → propose, and wait for human review
@@ -29,15 +29,18 @@ Do not start by generating code. Do not create an abstraction for hypothetical r
 ## Ownership
 
 ```text
-template-fw/   template-owned: framework core, golden templates, tools, docs.
-               Do not edit it in a project; change it in the template.
+framework/     template-owned. Do not edit it in a project; change it in the template.
+  core/        the framework itself (login, fixtures, schema validation, reporting)
+  templates/   golden templates and their catalogue (index.json)
+  tools/       doctor, lint, ci-plan, sync-ci-secrets
+  docs/        standards, architecture, first-tests prompt, ADRs
 src/           project-owned application layer: schemas, clients, factories,
                pages, components, mocks, fixtures.
 tests/         project-owned specs.
 config/        project-owned configuration and approved examples.
 ```
 
-Import the framework as `@framework/...` and the application layer as `@app/...` (aliases in `tsconfig.json`). `template-fw/framework` never imports `src` or `tests`.
+Import the framework as `@framework/...` and the application layer as `@app/...` (aliases in `tsconfig.json`). `framework/core` never imports `src` or `tests`.
 
 ## Layer Rules
 
@@ -81,9 +84,9 @@ Run the affected tests against the target environment. Do not claim a command pa
 
 ## Golden Template Changes
 
-Generic templates in `template-fw/templates/` are derived from canonical files in the reference application and must reproduce them exactly (`npm run qa:templates:check`). Change a pattern in the canonical file first, then run `npm run qa:templates:extract -- <id>` and `npm run qa:templates:build`.
+Generic templates in `framework/templates/` are derived from canonical files in the reference application and must reproduce them exactly (`npm run qa:templates:check`). Change a pattern in the canonical file first, then run `npm run qa:templates:extract -- <id>` and `npm run qa:templates:build`.
 
-In a project, register reviewed examples in `config/approved-examples.json` instead of editing `template-fw/templates/`.
+In a project, register reviewed examples in `config/approved-examples.json` instead of editing `framework/templates/`.
 
 ## Documentation
 

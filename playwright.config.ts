@@ -1,9 +1,9 @@
 import { defineConfig, type ReporterDescription } from "@playwright/test";
 
-import { getFrameworkConfig } from "./template-fw/framework/config/frameworkConfig";
-import { buildProjects } from "./template-fw/framework/config/playwrightProjects";
-import { loadDotEnv } from "./template-fw/framework/utils/dotenv";
-import { getCurrentEnvironment } from "./template-fw/framework/utils/env";
+import { getFrameworkConfig } from "./framework/core/config/frameworkConfig";
+import { buildProjects } from "./framework/core/config/playwrightProjects";
+import { loadDotEnv } from "./framework/core/utils/dotenv";
+import { getCurrentEnvironment } from "./framework/core/utils/env";
 
 loadDotEnv();
 
@@ -20,7 +20,7 @@ const reporter: ReporterDescription[] = [
   ["list"],
   ["html", { outputFolder: "playwright-report", open: "never" }],
   ["json", { outputFile: "test-results/results.json" }],
-  ["./template-fw/framework/reporting/GitHubSummaryReporter.ts"],
+  ["./framework/core/reporting/GitHubSummaryReporter.ts"],
 ];
 
 export default defineConfig({

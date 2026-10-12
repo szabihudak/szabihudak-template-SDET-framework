@@ -2,7 +2,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
 
-export { handleSummary } from "../../../template-fw/framework/performance/k6/k6SummaryReporter.js";
+export { handleSummary } from "../../../framework/core/performance/k6/k6SummaryReporter.js";
 
 export const options = {
   scenarios: {
