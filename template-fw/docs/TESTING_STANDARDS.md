@@ -79,10 +79,6 @@ Current ownership:
 tests/api/**
 → api project
 
-tests/ai/**
-→ ai project
-→ offline framework unit tests
-
 tests/database/**
 → database project
 → localDocker
@@ -2753,15 +2749,7 @@ Generated code must not be considered validated merely because it was produced b
 
 Validation must use the deterministic checks appropriate to the affected scope, such as formatting, type checking, targeted Playwright execution, or other repository-owned quality gates.
 
-Framework-owned AI capabilities must validate structured inputs and outputs against their runtime schemas.
-
-Missing output, refusal, incomplete provider responses, invalid JSON, and schema-invalid output must be treated as explicit failures rather than silently accepted or coerced.
-
-Failure evidence sent to an AI provider must be sanitized before submission.
-
-Artifact metadata may be included as evidence, but the existence of a screenshot, trace, or video path must not be interpreted as evidence that the AI inspected the artifact contents.
-
-AI-generated failure analysis and test design are advisory outputs.
+AI-assisted failure analysis and test design are advisory outputs. An agent states which evidence it actually inspected (error message, error context, trace, screenshot) and must not present an unopened artifact as observed evidence.
 
 They must not autonomously:
 

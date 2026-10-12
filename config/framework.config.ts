@@ -9,7 +9,6 @@ export default defineFrameworkConfig({
     accessibility: true,
     visual: true,
     performance: true,
-    ai: true,
   },
 
   browsers: ["chromium", "firefox", "webkit"],

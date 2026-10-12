@@ -56,9 +56,6 @@ jobs:
       - name: Check golden templates
         run: npm run qa:templates:check
 
-      - name: Run framework unit tests
-        run: npx playwright test --project=ai
-
   template-selftest:
     needs: quality
     runs-on: ubuntu-latest

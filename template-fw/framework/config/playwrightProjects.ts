@@ -33,10 +33,6 @@ export function buildProjects({
     });
   }
 
-  if (modules.ai) {
-    projects.push({ name: "ai", testMatch: specsIn("ai"), retries: 0 });
-  }
-
   if (modules.accessibility) {
     projects.push({
       name: "accessibility",

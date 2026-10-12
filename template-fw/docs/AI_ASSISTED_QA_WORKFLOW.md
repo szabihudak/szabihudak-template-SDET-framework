@@ -4,15 +4,7 @@
 
 This document defines the validated AI-assisted QA workflow used by the Playwright Enterprise Framework.
 
-The workflow combines two different categories of AI capability:
-
-```text
-Framework-Owned AI Capabilities
-+
-AI-Assisted Engineering
-```
-
-Framework-owned AI capabilities use the OpenAI API directly as part of framework tooling.
+AI assistance means AI-assisted engineering with coding agents. The framework contains no AI provider integration of its own: the earlier OpenAI-based failure analysis and test design tooling was removed (ADR-007), because coding agents cover both with the full repository as context and without a separate API key, cost or data path.
 
 AI-assisted engineering uses external development assistants such as GitHub Copilot together with repository context, Golden Templates, and authoritative external context such as OpenAPI and runtime browser evidence from Playwright MCP.
 
@@ -94,16 +86,16 @@ Generated or modified implementation must still pass the repository's determinis
 
 # End-to-End AI-Assisted QA Architecture
 
-The current architecture contains two complementary flows.
+The architecture has one flow, from requirement to validated test, and agents also support failure analysis.
 
 ## Test Design and Implementation Flow
 
 ```text
 Requirement / User Story / Acceptance Criteria
         ↓
-AI Test Scenario Generator
+Copilot / Claude Code / Agent
         ↓
-structured scenarios
+proposed scenarios
 + risks
 + recommended test layer
 + missing context
@@ -144,376 +136,24 @@ Playwright MCP
 
 Playwright MCP-assisted UI engineering has been validated through a real browser exploration, repository-grounded implementation proposal, human review, and deterministic Playwright execution.
 
-## Failure Analysis Flow
+## Failure Analysis
 
 ```text
-Playwright Failure
+Playwright failure
         ↓
-deterministic evidence collection
+Playwright evidence
+(error message, error-context.md, screenshot, trace, video, HTML report)
         ↓
-sanitization
+Copilot / Claude Code / Agent with repository context
         ↓
-structured failure evidence
-        ↓
-OpenAI API
-        ↓
-structured failure analysis
+classification + hypotheses + uncertainty + proposed next step
         ↓
 Human Review
         ↓
 engineering action
 ```
 
-The AI Failure Analysis capability is advisory.
-
-It does not autonomously modify framework code or test expectations.
-
----
-
-# AI Failure Analysis
-
-## Purpose
-
-AI Failure Analysis provides structured diagnostic assistance for Playwright failures.
-
-The capability converts deterministic failure evidence into a machine-readable context, sanitizes that context, sends it to the OpenAI Responses API, validates the returned structured analysis, and presents the result for human review.
-
-The canonical flow is:
-
-```text
-Playwright failure
-→ deterministic evidence collection
-→ sanitized machine-readable failure context
-→ AI analysis
-→ failure classification + hypotheses
-→ human review
-→ optional engineering change
-```
-
-## Current Architecture
-
-```text
-src/ai/
-  analyzers/
-    FailureAnalyzer.ts
-    OpenAIFailureAnalyzer.ts
-
-  cli/
-    analyzeFailure.ts
-
-  prompts/
-    buildFailureAnalysisPrompt.ts
-
-  reporters/
-    FailureEvidenceReporter.ts
-
-  schemas/
-    FailureAnalysisSchema.ts
-    FailureEvidenceSchema.ts
-
-  utils/
-    failureEvidenceSanitizer.ts
-```
-
-The capability also reuses the generic runtime schema validation infrastructure:
-
-```text
-template-fw/framework/api/SchemaValidator.ts
-```
-
-## Evidence Boundary
-
-The AI receives structured failure evidence rather than unrestricted repository or environment state.
-
-Evidence is sanitized before being sent to the model.
-
-The capability is designed to avoid exposing credentials or other sensitive runtime information through failure analysis.
-
-## Structured Output
-
-The OpenAI provider uses structured output through the Responses API.
-
-The returned analysis must satisfy the framework-owned failure-analysis schema before it is trusted.
-
-The model is not allowed to return arbitrary unvalidated diagnostic prose as the canonical result.
-
-## Classification Guardrail
-
-Failure classification must reflect available evidence.
-
-When the supplied evidence is insufficient to support a confident classification, the analysis must prefer:
-
-```text
-unknown
-+
-low confidence
-```
-
-rather than inventing a root cause.
-
-This guardrail was introduced after live validation showed that an unconstrained model could over-classify failures when evidence was incomplete.
-
-## Human Review Boundary
-
-The AI analyzer is read-only and advisory.
-
-It does not:
-
-- modify test files;
-- modify framework files;
-- remove assertions;
-- update visual baselines;
-- suppress failures;
-- automatically rerun arbitrary tests;
-- modify CI configuration.
-
-The human engineer reviews the structured analysis and decides whether engineering action is justified.
-
-## Validated Workflow
-
-The local AI Failure Analysis workflow has been validated end-to-end through a controlled real Playwright failure and a live OpenAI API execution.
-
-The validated flow is:
-
-```text
-controlled Playwright failure
-→ FailureEvidenceReporter
-→ structured failure evidence
-→ input schema validation
-→ defense-in-depth sanitization
-→ OpenAI Responses API
-→ structured failure analysis
-→ output schema validation
-→ human review
-```
-
-The controlled validation confirmed:
-
-- unique failure-evidence files across Playwright retries;
-- full test identity through `titlePath`;
-- screenshot artifact mapping;
-- trace artifact mapping;
-- CLI defense-in-depth sanitization;
-- structured OpenAI analysis of real Playwright failure evidence;
-- conservative `unknown` / `low` classification when the supplied evidence was insufficient to establish root cause.
-
-Therefore:
-
-```text
-AI Failure Analysis
-→ IMPLEMENTED
-→ LOCAL END-TO-END VALIDATED
-```
-
-The capability remains advisory and does not autonomously modify framework code, test expectations, or CI behavior.
-
-## Current Limitations and Remaining Hardening
-
-The local AI Failure Analysis workflow has been validated end-to-end with a controlled real Playwright failure and a live OpenAI API call.
-
-The controlled validation confirmed:
-
-- unique failure-evidence files across Playwright retries;
-- full test identity through `titlePath`;
-- screenshot artifact mapping;
-- trace artifact mapping;
-- CLI defense-in-depth sanitization;
-- structured OpenAI analysis of real Playwright failure evidence;
-- conservative `unknown` / `low` classification when the supplied evidence was insufficient to establish root cause.
-
-The following limitations and hardening items remain:
-
-- live GitHub Actions artifact download and AI-analysis workflow has not been validated end-to-end;
-- video artifact mapping has not yet been confirmed through runtime evidence;
-- only the first Playwright error is currently selected when multiple errors are available;
-- trusted checkout and artifact-source provenance could be hardened if the workflow is expanded beyond its current trusted manual usage;
-- GitHub Actions job-summary Markdown rendering could be hardened for less-trusted content.
-
-Structured-output schema validation guarantees output shape, not semantic correctness.
-
-Critical semantic guardrails are currently enforced through prompt constraints and mandatory human review.
-
-Deterministic semantic validation may be introduced if recurring violations are observed or AI output begins driving automated actions.
-
-These remaining limitations do not invalidate the locally validated advisory workflow, but they must not be represented as capabilities that have already been validated.
-
----
-
-# AI Test Scenario Generation
-
-## Purpose
-
-The AI Test Scenario Generator converts requirements into structured test-design input for human review.
-
-It does not directly generate Playwright implementation.
-
-The canonical flow is:
-
-```text
-Requirement / User Story
-+ optional Acceptance Criteria
-+ optional Framework Context
-        ↓
-OpenAI API
-        ↓
-structured TestDesign
-        ↓
-Human Review
-        ↓
-approved scenario
-```
-
-## Input
-
-The generator accepts:
-
-```text
-requirement / user story
-optional acceptance criteria
-optional short framework context
-```
-
-## Structured Output
-
-The current `TestDesign` structure contains:
-
-```text
-TestDesign
-├── summary
-├── risks[]
-├── scenarios[]
-│   ├── title
-│   ├── type
-│   │   ├── positive
-│   │   ├── negative
-│   │   └── boundary
-│   ├── recommendedLayer
-│   │   ├── api
-│   │   ├── ui
-│   │   ├── database
-│   │   ├── contract
-│   │   └── unknown
-│   ├── reason
-│   ├── preconditions[]
-│   └── expectedOutcome
-└── missingContext[]
-```
-
-## Missing Context
-
-`missingContext` is an explicit anti-hallucination mechanism.
-
-When required product or contract information is unavailable, the generator should report the missing information rather than invent it.
-
-Similarly:
-
-```text
-recommendedLayer: unknown
-```
-
-is valid when the available information is insufficient to determine the correct test layer.
-
-## Provider-Behavior Guardrail
-
-The generator must not invent specific provider behavior.
-
-The validated prompt contains the following guardrail:
-
-```text
-Do not include specific error-response behavior, status codes, messages, fields, or validation semantics in expected outcomes unless explicitly provided.
-
-When mechanism is known but response contract is unknown, keep expected outcome behavioral and record missing details in missingContext.
-```
-
-For example, when a required task title is absent but the exact API error contract is unknown, an acceptable expected outcome is:
-
-```text
-Task creation does not succeed because the required title is absent.
-```
-
-The generator should not invent a status code, error field, or error message unless that information was provided.
-
-## Current Implementation
-
-```text
-src/ai/
-  generators/
-    TestScenarioGenerator.ts
-    OpenAITestScenarioGenerator.ts
-
-  prompts/
-    buildTestDesignPrompt.ts
-
-  schemas/
-    TestDesignSchema.ts
-    TestDesignInputSchema.ts
-
-  cli/
-    generateTestDesign.ts
-```
-
-The CLI is exposed through:
-
-```text
-npm run ai:generate-test-design
-```
-
-Example validated invocation:
-
-```text
-npm run ai:generate-test-design -- test-results/ai-test-design-input/task-creation.json
-```
-
-Example output:
-
-```text
-test-results/ai-test-design/task-creation-test-design.json
-```
-
-## Validated Workflow
-
-The capability has been validated through a live OpenAI API execution.
-
-The validated flow is:
-
-```text
-requirement input
-→ input schema validation
-→ prompt construction
-→ OpenAI Responses API
-→ structured TestDesign
-→ output schema validation
-→ human review
-```
-
-The live validation confirmed that the generator can produce structured risks and test scenarios while preserving uncertainty when provider-contract information is unavailable.
-
-The validated output did not invent unsupported status codes, error fields, error messages, or validation semantics.
-
-Therefore:
-
-```text
-AI Test Scenario Generation
-→ IMPLEMENTED
-→ LOCAL LIVE VALIDATION COMPLETE
-```
-
-The capability remains advisory and does not directly modify repository files or autonomously implement generated scenarios.
-
-## Scope Boundary
-
-The Test Scenario Generator does not currently:
-
-- generate Playwright spec files;
-- modify repository files;
-- execute tests;
-- explore the browser;
-- generate locators;
-- query OpenAPI through MCP;
-- use RAG or a vector database;
-- autonomously implement generated scenarios.
-
-Actual implementation happens after human review through the AI-assisted engineering workflow.
+Failure analysis is advisory. The agent does not change test expectations, weaken assertions or suppress failures to get a green run (AGENTS.md).
 
 ---
 
@@ -1201,57 +841,6 @@ create-task.spec.ts
 ```
 
 It also used the repository engineering guidance and relevant ADRs.
-
-## Evidence Boundary
-
-The AI receives structured failure evidence rather than unrestricted repository or environment state.
-
-Evidence is sanitized before being sent to the model.
-
-The capability is designed to avoid exposing credentials or other sensitive runtime information through failure analysis.
-
-The current AI-visible failure evidence includes:
-
-- test title and full title path;
-- test file and Playwright project;
-- execution environment and retry number;
-- sanitized failure message and stack;
-- available failure artifact types;
-- sanitized failure artifact paths.
-
-Failure artifacts such as screenshots, Playwright traces, and videos may be recorded in the structured failure evidence by artifact type and sanitized path.
-
-Their binary, visual, or internal contents are not currently sent to the OpenAI API.
-
-Therefore:
-
-```text
-artifact exists
-→ AI may know that additional diagnostic evidence is available
-
-artifact contents
-→ AI has not inspected them
-→ AI must not treat their contents as observed evidence
-```
-
-For example, when the failure evidence contains:
-
-```text
-screenshot
-trace
-```
-
-the model may recommend that a human engineer inspect those artifacts, but it must not claim that the screenshot or trace confirms a particular application state unless that state is independently present in the supplied structured evidence.
-
-The current AI-visible evidence does not include:
-
-- screenshot pixels;
-- Playwright trace contents;
-- video contents.
-
-Multimodal screenshot analysis or deterministic extraction of selected trace evidence may be introduced later as separate capabilities.
-
-Such capabilities would require explicit review of their privacy, sanitization, cost, and evidence-trust boundaries before becoming part of the validated failure-analysis workflow.
 
 ## Proposed Implementation
 
@@ -2051,21 +1640,6 @@ repository standards + Golden Templates
 # Current Validated Capability Status
 
 ```text
-Framework-Owned AI
-
-AI Failure Analysis
-→ IMPLEMENTED
-→ LOCAL END-TO-END VALIDATED
-→ controlled real Playwright failure
-→ sanitized structured evidence
-→ live OpenAI API
-→ structured analysis
-→ human review
-
-AI Test Scenario Generation
-→ IMPLEMENTED
-→ LOCAL LIVE VALIDATION COMPLETE
-
 AI-Assisted Engineering
 
 Repository AI Instructions
@@ -2127,8 +1701,6 @@ The existing GitHub Copilot and Copilot Agent POCs already validated the reposit
 
 No Cursor-specific capability is therefore claimed as validated by this framework.
 
-Additional hardening remains possible for the AI Failure Analysis CI workflow as documented above.
-
 ---
 
 # Target AI-Assisted QA Workflow
@@ -2138,9 +1710,9 @@ The intended integrated workflow is:
 ```text
 Requirement / User Story / Acceptance Criteria
         ↓
-AI Test Scenario Generator
+Copilot / Claude Code / Agent
         ↓
-structured TestDesign
+proposed test design
 ├── scenarios
 ├── risks
 ├── recommended test layer
@@ -2187,11 +1759,9 @@ Test Execution
         ↓
 Failure
         ↓
-FailureEvidenceReporter
+Playwright evidence (error context, trace, screenshot, video)
         ↓
-structured + sanitized evidence
-        ↓
-AI Failure Analysis
+Copilot / Claude Code / Agent
         ↓
 classification
 + hypotheses

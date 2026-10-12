@@ -61,6 +61,10 @@ npm ci → npm run setup → ../<project name> (project files only, own git hist
 
 The template clone is never modified, so it serves every new project and nothing is pushed back to the template by accident. `--in-place` converts the current folder instead, for repositories created with GitHub's "Use this template".
 
+### No Built-In AI Provider
+
+The template has no AI provider integration. The earlier OpenAI-based failure analysis and test design tooling, its unit tests, CLI scripts and workflow were removed: coding agents (GitHub Copilot, Claude Code) do both with the whole repository and Playwright's own evidence as context, without a separate API key, cost, model maintenance or data path to an external API. AI assistance is the agent workflow in `AGENTS.md`, `AI_ASSISTED_QA_WORKFLOW.md` and the `/first-tests` command.
+
 ### Project Layout
 
 Everything the template owns lives under one folder, so a project sees at a glance what is its own and a template update can replace that folder as a whole:

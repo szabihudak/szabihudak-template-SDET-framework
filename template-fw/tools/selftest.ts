@@ -147,7 +147,6 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "template-fw/templates/roundtrip",
     "template-fw/docs/portfolio",
     ".github/workflows/ghcr-cleanup.yml",
-    ".github/workflows/ai-failure-analysis.yml",
     "Dockerfile",
     "docker-compose.yml",
     ...scenario.aiFiles.absent,
