@@ -43,8 +43,6 @@ const BROWSER_MODULES = [
 const AI_TOOLS = ["copilot", "claude", "both", "none"] as const;
 const AI_TOOLS_DIR = "template-fw/setup/ai-tools";
 
-// The ai module runs the framework's own AI unit tests; it is not offered to
-// projects and stays off.
 const MODULES = [
   "api",
   "ui",
@@ -84,12 +82,7 @@ const templatePath = (file: string) => path.join(ROOT, file);
 
 // Starter files, AI tool files and the project file list. An in-place setup
 // stages them first, because it removes them from the folder it transforms.
-const RESOURCES = [
-  STARTER_DIR,
-  AI_TOOLS_DIR,
-  PROJECT_FILES,
-  ".github/workflows/ai-failure-analysis.yml",
-];
+const RESOURCES = [STARTER_DIR, AI_TOOLS_DIR, PROJECT_FILES];
 let sourceRoot = ROOT;
 const sourcePath = (file: string) => path.join(sourceRoot, file);
 
@@ -321,7 +314,6 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
       database: false,
       visual: false,
       performance: false,
-      ai: false,
     };
     const modules = { ...defaults };
     for (const module of MODULES) {
@@ -468,10 +460,6 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
     lines.push("", "# Dedicated test database only", "DATABASE_URL=");
   }
 
-  if (answers.modules.ai) {
-    lines.push("", "# AI failure analysis and test design", "OPENAI_API_KEY=");
-  }
-
   return `${lines.join("\n")}\n`;
 }
 
@@ -586,9 +574,6 @@ function installStarterFiles(project: string, answers: Answers): void {
 
   if (!answers.modules.performance) {
     fs.rmSync(path.join(project, ".github/workflows/performance.yml"));
-  }
-  if (answers.modules.ai) {
-    copyFromTemplate(".github/workflows/ai-failure-analysis.yml", project);
   }
 }
 

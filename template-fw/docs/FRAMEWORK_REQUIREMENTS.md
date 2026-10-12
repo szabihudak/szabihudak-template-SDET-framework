@@ -46,10 +46,8 @@ The framework must support:
 - Multiple deployment environments
 - Explicit guarded reset of the dedicated test database to the application-owned seeded baseline
 - Immutable CI container images for the Playwright framework and local UPEX application runtime
-- Structured AI-assisted failure analysis based on sanitized Playwright failure evidence
-- Structured AI-assisted test scenario generation from explicit requirement context
-- Runtime schema validation for framework-owned AI inputs and outputs
-- Mandatory human review of framework-owned AI output before engineering decisions or implementation changes
+- AI-assisted failure analysis and test design by coding agents from Playwright evidence and explicit requirement context
+- Mandatory human review of AI output before engineering decisions or implementation changes
 - Repository-aware AI-assisted engineering using documented architecture, testing standards, and validated Golden Templates
 - Separation of repository evidence, provider-contract evidence, and runtime browser evidence during AI-assisted engineering
 - Deterministic validation of AI-assisted implementation changes before human approval
@@ -75,8 +73,6 @@ Database validation should use a dedicated disposable test database and preserve
 Visual regression tests should establish deterministic rendered state before comparison and must not rely on automatic baseline updates to hide unstable or unexpected differences.
 
 Browser-performance coverage should reuse existing deterministic framework setup where that setup already represents the required application state rather than duplicating business-state initialization solely for performance measurement.
-
-Framework-owned AI capabilities must fail explicitly when provider output is missing, refused, incomplete, invalid JSON, or incompatible with the expected runtime schema.
 
 AI-generated analysis and test design must remain advisory and must not replace deterministic execution evidence or human review.
 
@@ -201,5 +197,3 @@ The framework will be considered successful when:
 - performance execution is owned by a dedicated manually triggered CI workflow rather than the normal pull-request test path;
 - performance execution preserves k6, Lighthouse, and authenticated Playwright performance evidence as appropriate to each execution path;
 - the repository can be confidently presented during a Senior QA / SDET interview;
-- framework-owned AI failure analysis produces schema-validated advisory output from sanitized structured Playwright failure evidence and requires human review;
-- framework-owned AI test scenario generation produces schema-validated structured test design from explicit requirement context and requires human review;

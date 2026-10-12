@@ -56,7 +56,6 @@ export const frameworkConfigSchema = Type.Object(
         accessibility: Type.Boolean(),
         visual: Type.Boolean(),
         performance: Type.Boolean(),
-        ai: Type.Boolean(),
       },
       { additionalProperties: false },
     ),

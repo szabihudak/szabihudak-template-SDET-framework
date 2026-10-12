@@ -18,8 +18,7 @@
     "accessibility": true,
     "database": true,
     "visual": false,
-    "performance": false,
-    "ai": false
+    "performance": false
   },
   "browsers": ["chromium"],
   "aiTools": "none"

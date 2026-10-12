@@ -56,7 +56,7 @@ Once login and roles are configured in `config/framework.config.ts`, add the rol
 
 `config/framework.config.ts` (validated at load time):
 
-- `modules`: enables Playwright projects (`api`, `ui`, `smoke`, `database`, `accessibility`, `visual`, `performance`, `ai`).
+- `modules`: enables Playwright projects (`api`, `ui`, `smoke`, `database`, `accessibility`, `visual`, `performance`).
 - `browsers`: browsers for UI and smoke tests.
 - `execution`: CI retries and workers.
 - `auth.api`: `bearer` token login or `none`.

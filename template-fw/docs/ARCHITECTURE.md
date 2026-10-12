@@ -42,7 +42,7 @@ The framework follows these principles:
 ```text
 template-fw/          template-owned (see ADR-007)
   framework/          framework core, imported as @framework/...
-    accessibility/  ai/  api/  auth/  config/  database/
+    accessibility/  api/  auth/  config/  database/
     fixtures/  performance/  reporting/  utils/  visual/
   templates/          golden templates (+ roundtrip/ values for the UPEX check)
   index.json          golden template catalogue
@@ -54,8 +54,8 @@ src/                  application layer, imported as @app/... (UPEX reference he
   api/  clients/  constants/  models/  schemas/
   components/  data/  database/  fixtures/  mocks/  pages/
 
-tests/                specs (UPEX reference here; tests/ai are framework unit tests)
-  accessibility/  ai/  api/  database/  performance/  smoke/  ui/  visual/
+tests/                specs (UPEX reference here)
+  accessibility/  api/  database/  performance/  smoke/  ui/  visual/
 
 config/
   framework.config.ts
@@ -244,51 +244,7 @@ Authenticated browser performance reuses the existing Playwright fixture and Pag
 
 Performance workloads use the k6 runtime independently from Playwright clients and fixtures. Shared configuration may be reused where it is runtime-neutral, while HTTP transport remains native to the execution technology.
 
-The framework also contains two framework-owned AI flows.
-
-A typical AI Failure Analysis flow is:
-
-```text
-Playwright failure
-  ↓
-FailureEvidenceReporter
-  ↓
-structured failure evidence
-  ↓
-schema validation
-  ↓
-defense-in-depth sanitization
-  ↓
-OpenAI Responses API
-  ↓
-structured failure analysis
-  ↓
-output schema validation
-  ↓
-human review
-```
-
-A typical AI Test Scenario Generation flow is:
-
-```text
-requirement / user story
-  ↓
-input schema validation
-  ↓
-prompt construction
-  ↓
-OpenAI Responses API
-  ↓
-structured TestDesign
-  ↓
-output schema validation
-  ↓
-human review
-```
-
-Both capabilities are advisory.
-
-AI output does not replace deterministic validation or human engineering judgment.
+The framework contains no AI provider integration. Test design and failure analysis are done by coding agents (Copilot, Claude Code) with repository context and Playwright's own evidence, under human review.
 
 The detailed AI-assisted engineering workflow, evidence boundaries, validated capabilities, and remaining limitations are defined in [`AI_ASSISTED_QA_WORKFLOW.md`](AI_ASSISTED_QA_WORKFLOW.md).
 
@@ -318,12 +274,6 @@ database
 → environment with allow.database (localDocker)
 → retries disabled
 → executed once
-
-ai
-→ tests/ai/**
-→ offline unit tests of framework-owned AI capabilities
-→ no target environment required
-→ retries disabled
 
 accessibility
 → tests/accessibility/**
@@ -745,8 +695,7 @@ quality
 ├── formatting
 ├── typecheck
 ├── architecture rules
-├── golden template check
-└── framework unit tests (ai project)
+└── golden template check
         ↓
         ├── template-selftest
         │   └── setup into temporary folders (new folder and in place) → checks → doctor → login tests, rendered templates
@@ -2006,46 +1955,9 @@ This shared policy is specific to Lighthouse's multiple consumers. k6 retains it
 
 ## AI-Assisted QA Architecture
 
-The framework separates framework-owned AI capabilities from external AI-assisted engineering.
+The framework has no AI provider integration of its own. AI assistance is AI-assisted engineering by coding agents (GitHub Copilot, Claude Code and others) that follow `AGENTS.md`. Failure analysis uses Playwright's own evidence (error context, screenshots, traces, videos) through the same agents.
 
-Framework-owned AI capabilities are implemented inside:
-
-```text
-src/ai/
-```
-
-Current framework-owned capabilities are:
-
-```text
-AI Failure Analysis
-AI Test Scenario Generation
-```
-
-These capabilities use bounded inputs, explicit schemas, structured outputs, and mandatory human review.
-
-The architectural boundary is:
-
-```text
-deterministic or human-provided input
-        ↓
-schema validation
-        ↓
-sanitization where required
-        ↓
-AI provider
-        ↓
-structured output
-        ↓
-runtime schema validation
-        ↓
-human review
-```
-
-AI output is advisory and must not be treated as deterministic execution evidence.
-
-Failure analysis receives sanitized structured evidence. Artifact metadata may identify available screenshots, traces, or videos, but artifact existence does not imply that the AI inspected their binary, visual, or internal contents.
-
-External AI-assisted engineering follows a separate boundary:
+AI-assisted engineering follows this boundary:
 
 ```text
 repository instructions
@@ -2103,10 +2015,6 @@ Use:
 ```text
 tests/api/**
 → API project
-
-tests/ai/**
-→ ai project
-→ framework unit tests
 
 tests/database/**
 → database project

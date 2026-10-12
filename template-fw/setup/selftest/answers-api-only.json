@@ -18,8 +18,7 @@
     "accessibility": false,
     "database": false,
     "visual": false,
-    "performance": false,
-    "ai": false
+    "performance": false
   },
   "browsers": ["chromium"],
   "auth": {

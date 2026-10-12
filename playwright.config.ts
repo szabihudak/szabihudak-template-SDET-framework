@@ -20,13 +20,6 @@ const reporter: ReporterDescription[] = [
   ["list"],
   ["html", { outputFolder: "playwright-report", open: "never" }],
   ["json", { outputFile: "test-results/results.json" }],
-  ...(frameworkConfig.modules.ai
-    ? [
-        [
-          "./template-fw/framework/ai/reporters/FailureEvidenceReporter.ts",
-        ] as const,
-      ]
-    : []),
   ["./template-fw/framework/reporting/GitHubSummaryReporter.ts"],
 ];
 
