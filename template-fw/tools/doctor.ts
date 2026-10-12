@@ -12,9 +12,12 @@ import { loadDotEnv } from "../framework/utils/dotenv";
 import { getCurrentEnvironment } from "../framework/utils/env";
 import { assertSupportedNode } from "./runtime";
 
+// A warning passes the check but tells the user what it could not confirm.
+type Result = string | void | { warning: string };
+
 type Check = {
   name: string;
-  run: () => Promise<string | void>;
+  run: () => Promise<Result>;
 };
 
 const message = (error: unknown) =>
@@ -57,6 +60,16 @@ async function main(): Promise<void> {
 
         if (response.status >= 500) {
           throw new Error(`responded with ${response.status}`);
+        }
+
+        // A 404 proves the server answers, not that the base path is right.
+        if (response.status === 404) {
+          return {
+            warning:
+              label === "API"
+                ? "HTTP 404: the server responds, but the base path is not confirmed. The API login check confirms it once login is configured."
+                : "HTTP 404: the server responds, but this page does not exist. Check the web base URL.",
+          };
         }
 
         return `HTTP ${response.status}`;
@@ -134,10 +147,18 @@ async function main(): Promise<void> {
     });
   }
 
+  let warnings = 0;
+
   for (const check of checks) {
     try {
-      const detail = await check.run();
-      console.log(`✔ ${check.name}${detail ? ` (${detail})` : ""}`);
+      const result = await check.run();
+
+      if (result && typeof result === "object") {
+        warnings += 1;
+        console.log(`⚠ ${check.name}: ${result.warning}`);
+      } else {
+        console.log(`✔ ${check.name}${result ? ` (${result})` : ""}`);
+      }
     } catch (error) {
       failures += 1;
       console.error(`✖ ${check.name}: ${message(error)}`);
@@ -150,7 +171,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    "\nAll checks passed. Next: write tests from the golden templates (template-fw/docs/FIRST_TESTS_PROMPT.md).",
+    `\nAll checks passed${warnings > 0 ? ` with ${warnings} warning(s)` : ""}. Next: write tests from the golden templates (template-fw/docs/FIRST_TESTS_PROMPT.md).`,
   );
 }
 

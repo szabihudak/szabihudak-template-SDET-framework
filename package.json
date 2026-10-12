@@ -29,6 +29,7 @@
   "author": "Szabolcs Hudak",
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@clack/prompts": "1.8.1",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",

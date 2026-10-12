@@ -8,7 +8,7 @@ The template was built and validated against [UPEX DOJO](https://dojo.upexgalaxy
 
 Requirements: Node.js 22.19 or newer (`node -v`; with nvm: `nvm install 22 && nvm use 22`, the repository ships an `.nvmrc`), npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
 
-Setup asks only about your application: name, modules, browsers, staging and local URLs (either can be skipped with `-`), environment permissions and your AI coding tool (GitHub Copilot, Claude Code, both or none). It asks nothing about login: login and roles are configured afterwards, together with the first tests ([template-fw/docs/FIRST_TESTS_PROMPT.md](template-fw/docs/FIRST_TESTS_PROMPT.md)). The only secret it asks for is the test database URL, when an environment allows database access: the input is hidden and written only to the git-ignored `.env`. Test-account credentials belong in `.env` and in GitHub secrets, never in prompts.
+Setup asks only about your application, with menus for every choice (arrow keys, space to select, Enter to confirm): project name, test types, browsers, environments (staging, local) with their URLs and permissions, and your AI coding tool (GitHub Copilot, Claude Code, both or none). An interactive run needs a terminal; scripts use `--answers`. It asks nothing about login: login and roles are configured afterwards, together with the first tests ([template-fw/docs/FIRST_TESTS_PROMPT.md](template-fw/docs/FIRST_TESTS_PROMPT.md)). The only secret it asks for is the test database URL, when an environment allows database access: the input is masked and written only to the git-ignored `.env`. Test-account credentials belong in `.env` and in GitHub secrets, never in prompts.
 
 On macOS or Linux, one script creates a new project next to the template:
 

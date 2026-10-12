@@ -2,8 +2,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { stdin, stdout } from "node:process";
-import { createInterface } from "node:readline/promises";
+import { stdin } from "node:process";
 
 import { Type, type Static } from "@sinclair/typebox";
 import * as prettier from "prettier";
@@ -27,10 +26,9 @@ const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = "template-fw/setup/starter";
 const PROJECT_FILES = "template-fw/setup/project-files.json";
 const ENVIRONMENTS = [
-  { name: "staging", fallback: "-" },
-  { name: "local", fallback: "http://localhost:3000" },
+  { name: "staging", example: "https://staging.example.com" },
+  { name: "local", example: "http://localhost:3000" },
 ] as const;
-const SKIP = "-";
 
 const BROWSER_MODULES = [
   "ui",
@@ -162,38 +160,10 @@ const isProjectName: Validator = (value) =>
     ? undefined
     : "Use lower-case letters, digits and hyphens, for example my-app-tests.";
 
-const isBrowserList: Validator = (value) => {
-  const unknown = value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item && !(BROWSERS as readonly string[]).includes(item));
-
-  return unknown.length === 0
-    ? undefined
-    : `Unknown browser: ${unknown.join(", ")}. Choose from ${BROWSERS.join(", ")}.`;
-};
-
 const isDatabaseUrl: Validator = (value) =>
   value === "" || /^postgres(ql)?:\/\/\S+$/.test(value)
     ? undefined
-    : "Enter a PostgreSQL URL such as postgresql://user:password@host:5432/test_db, or press Enter to skip.";
-
-const isAiTool: Validator = (value) =>
-  (AI_TOOLS as readonly string[]).includes(value)
-    ? undefined
-    : `Choose one of ${AI_TOOLS.join(", ")}.`;
-
-// Removes the characters a raw-mode terminal sends for backspace.
-function applyBackspaces(value: string): string {
-  const characters: string[] = [];
-
-  for (const character of value) {
-    if (character === "\x7f" || character === "\b") characters.pop();
-    else if (character >= " ") characters.push(character);
-  }
-
-  return characters.join("");
-}
+    : "Enter a PostgreSQL URL such as postgresql://user:password@host:5432/test_db, or leave it empty.";
 
 // Checks the answers file mode cannot express through the schema alone.
 function semanticErrors(answers: Answers): string[] {
@@ -225,190 +195,168 @@ function semanticErrors(answers: Answers): string[] {
   return errors;
 }
 
+const MODULE_LABELS: Record<(typeof MODULES)[number], string> = {
+  api: "API",
+  ui: "UI",
+  smoke: "Smoke",
+  accessibility: "Accessibility",
+  database: "Database",
+  visual: "Visual regression",
+  performance: "Performance (k6, Lighthouse)",
+};
+
+const AI_TOOL_LABELS: Record<(typeof AI_TOOLS)[number], string> = {
+  copilot: "GitHub Copilot",
+  claude: "Claude Code",
+  both: "Both",
+  none: "None",
+};
+
+// Menus for choices, text fields for names and URLs. @clack/prompts is an ES
+// module, so it is loaded with import().
 async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
-  // Lines are pulled on demand so piped answers are not dropped between
-  // questions, which readline's question() does with non-TTY input.
-  const rl = createInterface({ input: stdin, terminal: false });
-  const lines = rl[Symbol.asyncIterator]();
-
-  const ask = async (
-    question: string,
-    fallback: string,
-    validate?: Validator,
-  ): Promise<string> => {
-    for (;;) {
-      stdout.write(`? ${question} (${fallback}): `);
-      const { value, done } = await lines.next();
-      const answer = (done ? "" : String(value).trim()) || fallback;
-
-      if (!stdin.isTTY) stdout.write(`${done ? "" : String(value).trim()}\n`);
-
-      const error = validate?.(answer);
-      if (!error) return answer;
-
-      // Piped input cannot be corrected interactively, so stop instead of looping.
-      if (!stdin.isTTY || done) {
-        throw new Error(`Invalid answer for "${question}": ${error}`);
-      }
-
-      stdout.write(`  ✖ ${error}\n`);
-    }
-  };
-  const confirm = async (question: string, fallback: boolean) =>
-    /^y/i.test(
-      await ask(`${question} [y/n]`, fallback ? "y" : "n", (value) =>
-        /^(y|yes|n|no)$/i.test(value) ? undefined : "Answer y or n.",
-      ),
+  if (!stdin.isTTY) {
+    throw new Error(
+      "Interactive setup needs a terminal. For non-interactive use, pass --answers answers.json.",
     );
-  const list = (value: string) =>
-    value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+  }
 
-  // Reads a value without echoing it; the terminal echoes typed characters
-  // unless raw mode is on.
-  const askSecret = async (
-    question: string,
-    validate: Validator,
-  ): Promise<string> => {
-    for (;;) {
-      stdout.write(`? ${question}: `);
-      if (stdin.isTTY) stdin.setRawMode(true);
-
-      let line: IteratorResult<string>;
-      try {
-        line = await lines.next();
-      } finally {
-        if (stdin.isTTY) stdin.setRawMode(false);
-      }
-      stdout.write("\n");
-
-      const raw = line.done ? "" : String(line.value);
-      if (raw.includes("\u0003")) process.exit(130);
-
-      const answer = applyBackspaces(raw).trim();
-      const error = validate(answer);
-      if (!error) return answer;
-
-      if (!stdin.isTTY || line.done) {
-        throw new Error(`Invalid answer for "${question}": ${error}`);
-      }
-
-      stdout.write(`  ✖ ${error}\n`);
+  const prompts = await import("@clack/prompts");
+  const answer = <T>(value: T): Exclude<T, symbol> => {
+    if (prompts.isCancel(value)) {
+      prompts.cancel("Setup cancelled. Nothing was created.");
+      process.exit(130);
     }
-  };
 
-  stdout.write(
-    "Setup creates a new project folder next to the template and asks about your application, not about login. The only secret it asks for is the test database URL, with hidden input, written only to the git-ignored .env file.\n\n",
+    // Every prompt resolves to its value or the cancel symbol handled above.
+    return value as Exclude<T, symbol>;
+  };
+  const validateWith = (validator: Validator) => (value: string | undefined) =>
+    validator((value ?? "").trim());
+  const ask = async (
+    message: string,
+    validator: Validator,
+    options: { initialValue?: string; placeholder?: string } = {},
+  ) =>
+    answer(
+      await prompts.text({
+        message,
+        validate: validateWith(validator),
+        ...options,
+      }),
+    ).trim();
+  const confirm = async (message: string) =>
+    answer(await prompts.confirm({ message, initialValue: false }));
+
+  prompts.intro("SDET framework setup");
+  prompts.log.info(
+    "Setup creates a new project folder next to the template. It asks nothing about login; the only secret is the test database URL (masked, written only to the git-ignored .env).",
   );
 
-  try {
-    const appName = await ask("Project name", "my-app-tests", isProjectName);
+  const appName = await ask(
+    "Project name (also the folder name)",
+    isProjectName,
+    {
+      initialValue: "my-app-tests",
+    },
+  );
 
-    const defaults: Answers["modules"] = {
-      api: true,
-      ui: true,
-      smoke: true,
-      accessibility: true,
-      database: false,
-      visual: false,
-      performance: false,
+  const selectedModules = answer(
+    await prompts.multiselect({
+      message: "Which test types do you need?",
+      options: MODULES.map((module) => ({
+        value: module,
+        label: MODULE_LABELS[module],
+      })),
+      initialValues: ["api", "ui"] as (typeof MODULES)[number][],
+      required: true,
+    }),
+  );
+  const modules: Answers["modules"] = {
+    ...Object.fromEntries(MODULES.map((module) => [module, false])),
+    ...Object.fromEntries(selectedModules.map((module) => [module, true])),
+  } as Answers["modules"];
+
+  // API-only projects never launch a browser, so the browser menu is skipped.
+  const browsers = BROWSER_MODULES.some((module) => modules[module])
+    ? answer(
+        await prompts.multiselect({
+          message: "Browsers",
+          options: BROWSERS.map((browser) => ({ value: browser })),
+          initialValues: ["chromium"] as Answers["browsers"],
+          required: true,
+        }),
+      )
+    : (["chromium"] as Answers["browsers"]);
+
+  const environmentNames = answer(
+    await prompts.multiselect({
+      message: "Which environments will the tests run against?",
+      options: ENVIRONMENTS.map(({ name }) => ({ value: name })),
+      initialValues: ["staging"] as (typeof ENVIRONMENTS)[number]["name"][],
+      required: true,
+    }),
+  );
+
+  const environments: Answers["environments"] = {};
+
+  for (const { name, example } of ENVIRONMENTS) {
+    if (!environmentNames.includes(name)) continue;
+
+    const webBaseUrl = await ask(`${name}: web URL`, isUrl, {
+      placeholder: example,
+    });
+    const apiBaseUrl = await ask(`${name}: API URL`, isUrl, {
+      initialValue: `${webBaseUrl.replace(/\/$/, "")}/api`,
+    });
+    const database =
+      modules.database &&
+      (await confirm(
+        `${name}: allow direct database access (dedicated test database only)?`,
+      ));
+    const destructive =
+      database && (await confirm(`${name}: allow destructive database reset?`));
+    const performance =
+      modules.performance &&
+      (await confirm(`${name}: allow performance measurement?`));
+
+    environments[name] = {
+      webBaseUrl,
+      apiBaseUrl,
+      allow: { database, destructive, performance },
     };
-    const modules = { ...defaults };
-    for (const module of MODULES) {
-      modules[module] = await confirm(
-        `Enable ${module} tests`,
-        defaults[module],
-      );
-    }
-
-    // API-only projects never launch a browser, so browser questions are skipped.
-    const usesBrowser = BROWSER_MODULES.some((module) => modules[module]);
-
-    const browsers = (
-      usesBrowser
-        ? list(
-            await ask(
-              `Browsers, comma-separated (${BROWSERS.join(", ")})`,
-              "chromium",
-              isBrowserList,
-            ),
-          )
-        : ["chromium"]
-    ) as Answers["browsers"];
-
-    const environments: Answers["environments"] = {};
-
-    for (const { name, fallback } of ENVIRONMENTS) {
-      const webBaseUrl = await ask(
-        `${name}: web URL ("${SKIP}" to skip)`,
-        fallback,
-        (value) => (value === SKIP ? undefined : isUrl(value)),
-      );
-
-      if (webBaseUrl === SKIP) continue;
-
-      const apiBaseUrl = await ask(
-        `${name}: API URL`,
-        `${webBaseUrl.replace(/\/$/, "")}/api`,
-        isUrl,
-      );
-      const database =
-        modules.database &&
-        (await confirm(
-          `${name}: allow direct database access (dedicated test database only)`,
-          false,
-        ));
-      const destructive =
-        database &&
-        (await confirm(`${name}: allow destructive database reset`, false));
-      const performance =
-        modules.performance &&
-        (await confirm(`${name}: allow performance measurement`, false));
-
-      environments[name] = {
-        webBaseUrl,
-        apiBaseUrl,
-        allow: { database, destructive, performance },
-      };
-    }
-
-    if (Object.keys(environments).length === 0) {
-      throw new Error(
-        "At least one environment needs a URL. Run npm run setup again and enter the staging or local URL.",
-      );
-    }
-
-    const secrets: Secrets = {};
-
-    if (Object.values(environments).some(({ allow }) => allow.database)) {
-      secrets.databaseUrl =
-        (await askSecret(
-          "DATABASE_URL of the dedicated test database (hidden, Enter to skip)",
-          isDatabaseUrl,
-        )) || undefined;
-    }
-
-    const aiTools = (await ask(
-      `AI coding tool (${AI_TOOLS.join(", ")})`,
-      "none",
-      isAiTool,
-    )) as NonNullable<Answers["aiTools"]>;
-
-    return {
-      answers: {
-        appName,
-        environments,
-        modules,
-        browsers,
-        aiTools,
-      },
-      secrets,
-    };
-  } finally {
-    rl.close();
   }
+
+  const secrets: Secrets = {};
+
+  if (Object.values(environments).some(({ allow }) => allow.database)) {
+    secrets.databaseUrl =
+      answer(
+        await prompts.password({
+          message:
+            "DATABASE_URL of the dedicated test database (leave empty to add it to .env later)",
+          validate: validateWith(isDatabaseUrl),
+        }),
+      ).trim() || undefined;
+  }
+
+  const aiTools = answer(
+    await prompts.select({
+      message: "AI coding tool for the /first-tests command",
+      options: AI_TOOLS.map((tool) => ({
+        value: tool,
+        label: AI_TOOL_LABELS[tool],
+      })),
+      initialValue: "copilot" as (typeof AI_TOOLS)[number],
+    }),
+  );
+
+  prompts.outro(`Creating ${appName}…`);
+
+  return {
+    answers: { appName, environments, modules, browsers, aiTools },
+    secrets,
+  };
 }
 
 function buildFrameworkConfig(answers: Answers): FrameworkConfig {
@@ -579,6 +527,93 @@ function installStarterFiles(project: string, answers: Answers): void {
 
 // Instructions and the /first-tests command for the chosen AI tools. AGENTS.md
 // stays the single source of rules for every tool.
+// Empty folders for the enabled test types, each with a README naming what
+// belongs there and the golden templates that start it, so the layout is
+// visible before the first test exists.
+const SKELETON: Record<(typeof MODULES)[number], string[]> = {
+  api: [
+    "src/api/constants",
+    "src/api/schemas",
+    "src/api/clients",
+    "src/data",
+    "tests/api",
+  ],
+  ui: ["src/pages", "src/components", "src/mocks", "tests/ui"],
+  smoke: ["src/pages", "tests/smoke"],
+  accessibility: ["src/pages", "tests/accessibility"],
+  database: ["src/database/clients", "tests/database"],
+  visual: ["src/pages", "tests/visual"],
+  performance: ["src/pages", "tests/performance", "tests/performance/k6"],
+};
+
+const FOLDER_PURPOSE: Record<string, string> = {
+  "src/api/constants":
+    "Domain constants such as supported statuses, with derived types.",
+  "src/api/schemas":
+    "TypeBox request and response schemas: the provider contracts.",
+  "src/api/clients":
+    "API clients: HTTP requests and raw responses, no assertions.",
+  "src/data": "Factories: valid default payloads with overrides.",
+  "src/pages":
+    "Page Objects: locators and user actions for one page, no assertions.",
+  "src/components": "Component Objects for shared UI parts such as navigation.",
+  "src/mocks": "Network mocks for the states a scenario needs.",
+  "src/database/clients":
+    "Domain database clients: parameterized SQL and record mapping.",
+  "tests/api": "API specs.",
+  "tests/ui": "UI specs.",
+  "tests/smoke":
+    "Smoke specs: short checks that the main pages load. Follow the ui-spec template.",
+  "tests/accessibility":
+    "Accessibility specs using the accessibility fixtures and the central WCAG policy.",
+  "tests/database":
+    "Database specs (only where the environment allows database access).",
+  "tests/visual": "Visual regression specs with toHaveScreenshot().",
+  "tests/performance": "Lighthouse browser performance specs.",
+  "tests/performance/k6": "k6 API workloads.",
+};
+
+async function createSkeleton(
+  project: string,
+  answers: Answers,
+): Promise<void> {
+  const index: {
+    templates: { id: string; need: string; output: string }[];
+  } = JSON.parse(
+    fs.readFileSync(templatePath("template-fw/index.json"), "utf8"),
+  );
+  const folders = new Set(
+    MODULES.filter((module) => answers.modules[module]).flatMap(
+      (module) => SKELETON[module],
+    ),
+  );
+
+  for (const folder of folders) {
+    const templates = index.templates.filter(
+      (template) => path.posix.dirname(template.output) === folder,
+    );
+
+    await writeFormatted(
+      project,
+      `${folder}/README.md`,
+      [
+        `# ${folder}`,
+        "",
+        FOLDER_PURPOSE[folder],
+        "",
+        ...(templates.length > 0
+          ? [
+              "Start from these golden templates (`template-fw/index.json`):",
+              "",
+              ...templates.map(({ id, need }) => `- \`${id}\`: ${need}`),
+            ]
+          : []),
+        "",
+      ].join("\n"),
+    );
+  }
+}
+
 function installAiTools(
   project: string,
   choice: NonNullable<Answers["aiTools"]>,
@@ -820,6 +855,7 @@ async function main(): Promise<void> {
   installStarterFiles(project, answers);
   syncWorkflowSecrets(project, secretNames);
   installAiTools(project, aiTools);
+  await createSkeleton(project, answers);
 
   await writeFormatted(
     project,
