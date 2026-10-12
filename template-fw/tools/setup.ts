@@ -43,6 +43,8 @@ const BROWSER_MODULES = [
 const AI_TOOLS = ["copilot", "claude", "both", "none"] as const;
 const AI_TOOLS_DIR = "template-fw/setup/ai-tools";
 
+// The ai module runs the framework's own AI unit tests; it is not offered to
+// projects and stays off.
 const MODULES = [
   "api",
   "ui",
@@ -51,7 +53,6 @@ const MODULES = [
   "database",
   "visual",
   "performance",
-  "ai",
 ] as const;
 
 const answersSchema = Type.Object(
@@ -370,10 +371,9 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
       const destructive =
         database &&
         (await confirm(`${name}: allow destructive database reset`, false));
-      const performance = await confirm(
-        `${name}: allow performance measurement`,
-        false,
-      );
+      const performance =
+        modules.performance &&
+        (await confirm(`${name}: allow performance measurement`, false));
 
       environments[name] = {
         webBaseUrl,
