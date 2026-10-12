@@ -10,7 +10,7 @@
     "noEmit": true,
     "types": ["node", "@playwright/test"],
     "paths": {
-      "@framework/*": ["./template-fw/framework/*"],
+      "@framework/*": ["./framework/core/*"],
       "@app/*": ["./src/*"]
     }
   },
@@ -19,8 +19,8 @@
     "config/**/*.ts",
     "src/**/*.ts",
     "tests/**/*.ts",
-    "template-fw/framework/**/*.ts",
-    "template-fw/tools/**/*.ts"
+    "framework/core/**/*.ts",
+    "framework/tools/**/*.ts"
   ],
   "exclude": ["node_modules", "playwright-report", "test-results"]
 }
