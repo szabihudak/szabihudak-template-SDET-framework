@@ -8,9 +8,9 @@ import { parse } from "yaml";
 const ROOT = path.resolve(__dirname, "../..");
 const SELFTEST_DIR = ".qa/selftest";
 
-function run(command: string, cwd: string): void {
+function run(command: string, cwd: string, env: NodeJS.ProcessEnv = {}): void {
   console.log(`\n$ ${command}`);
-  execSync(command, { cwd, stdio: "inherit" });
+  execSync(command, { cwd, stdio: "inherit", env: { ...process.env, ...env } });
 }
 
 // Copies the working tree, including uncommitted files, so a change can be
@@ -207,17 +207,28 @@ type Scenario = {
   // minimal flow instead (no tests, role added later, templates rendered).
   plan: string[] | null;
   needsBrowser: boolean;
+  // Files the chosen AI tool installs, and files it must not leave behind.
+  aiFiles: { present: string[]; absent: string[] };
 };
 
 const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
+const COPILOT_FILES = [
+  ".github/copilot-instructions.md",
+  ".github/prompts/first-tests.prompt.md",
+];
+const CLAUDE_FILES = ["CLAUDE.md", ".claude/commands/first-tests.md"];
+// The minimal scenario enables database tests without an environment that
+// allows them; setup must still record the URL and the CI secret.
+const SELFTEST_DATABASE_URL = "postgresql://selftest@localhost:5432/selftest";
 
 const SCENARIOS: Scenario[] = [
   {
     name: "minimal (no login, no tests)",
     answers: "answers-minimal.json",
-    secrets: [],
+    secrets: ["DATABASE_URL"],
     plan: null,
     needsBrowser: false,
+    aiFiles: { present: [], absent: [...COPILOT_FILES, ...CLAUDE_FILES] },
   },
   {
     name: "login configured (API + browser)",
@@ -225,6 +236,7 @@ const SCENARIOS: Scenario[] = [
     secrets: ROLE_SECRETS,
     plan: ["api", "accessibility", "chromium"],
     needsBrowser: true,
+    aiFiles: { present: [...COPILOT_FILES, ...CLAUDE_FILES], absent: [] },
   },
   {
     name: "login configured (API only)",
@@ -232,6 +244,7 @@ const SCENARIOS: Scenario[] = [
     secrets: ROLE_SECRETS,
     plan: ["api"],
     needsBrowser: false,
+    aiFiles: { present: COPILOT_FILES, absent: CLAUDE_FILES },
   },
 ];
 
@@ -258,7 +271,23 @@ async function runScenario(
     run(
       `npx tsx .qa/scripts/setup.ts --answers ${path.join(ROOT, SELFTEST_DIR, scenario.answers)} --force`,
       project,
+      { DATABASE_URL: scenario.plan ? "" : SELFTEST_DATABASE_URL },
     );
+
+    for (const file of scenario.aiFiles.present) {
+      assert(fs.existsSync(path.join(project, file)), `${file} is missing`);
+    }
+    for (const file of scenario.aiFiles.absent) {
+      assert(!fs.existsSync(path.join(project, file)), `${file} is present`);
+    }
+
+    const env = fs.readFileSync(path.join(project, ".env"), "utf8");
+    for (const line of [
+      "TEST_ENV=selftest",
+      ...(scenario.plan ? [] : [`DATABASE_URL=${SELFTEST_DATABASE_URL}`]),
+    ]) {
+      assert(env.includes(line), `setup did not write ${line} to .env`);
+    }
 
     for (const leftover of [
       "src/app/api",
@@ -297,7 +326,7 @@ async function runScenario(
 
       addUserRole(project);
       run("npx tsx .qa/scripts/sync-ci-secrets.ts", project);
-      checkWorkflows(project, ROLE_SECRETS);
+      checkWorkflows(project, [...ROLE_SECRETS, "DATABASE_URL"]);
 
       renderTemplates(project);
       run("npx prettier --write --log-level warn src config", project);

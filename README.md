@@ -8,19 +8,26 @@ The template was built and validated against [UPEX DOJO](https://dojo.upexgalaxy
 
 Requirements: Node.js 22.19 or newer (`node -v`; with nvm: `nvm install 22 && nvm use 22`, the repository ships an `.nvmrc`), npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
 
-Setup asks only about your application: name, staging and local URLs (either can be skipped with `-`), environment permissions, modules and browsers. It asks nothing about login: login and roles are configured afterwards, together with the first tests ([docs/FIRST_TESTS_PROMPT.md](docs/FIRST_TESTS_PROMPT.md)). Never type credentials into setup or prompts: test-account credentials belong in `.env` and in GitHub secrets.
+Setup asks only about your application: name, modules, browsers, staging and local URLs (either can be skipped with `-`), environment permissions and your AI coding tool (GitHub Copilot, Claude Code, both or none). It asks nothing about login: login and roles are configured afterwards, together with the first tests ([docs/FIRST_TESTS_PROMPT.md](docs/FIRST_TESTS_PROMPT.md)). The only secret it asks for is the test database URL, when an environment allows database access: the input is hidden and written only to the git-ignored `.env`. Test-account credentials belong in `.env` and in GitHub secrets, never in prompts.
+
+On macOS or Linux, one script runs the whole installation:
 
 ```bash
-git clone <this-template> my-app-tests && cd my-app-tests
-npm ci
-npx playwright install --with-deps
-npm run setup          # name, staging/local URLs, permissions, modules, browsers
-cp .env.example .env   # TEST_ENV is preset
-npm run doctor         # verifies configuration and reachability
-# then: configure login and roles and write the first tests (docs/FIRST_TESTS_PROMPT.md)
+git clone <your-new-repository> my-app-tests && cd my-app-tests
+./install.sh   # npm ci → setup questions → browsers you selected → .env → doctor
+# then: configure login and roles and write the first tests (/first-tests, or docs/FIRST_TESTS_PROMPT.md)
 ```
 
-`npm run setup` removes the UPEX reference code by default and adds an empty application layer and generic GitHub Actions workflows; it installs no tests. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers-minimal.json`).
+In a project that is already configured (a teammate's clone), `./install.sh` skips the questions, creates `.env` from `.env.example` and installs the configured browsers. The same steps by hand, for example on Windows:
+
+```bash
+npm ci
+npm run setup                       # creates .env as well
+npx playwright install --with-deps  # or only the browsers you selected
+npm run doctor
+```
+
+`npm run setup` removes the UPEX reference code by default and adds an empty application layer and generic GitHub Actions workflows; it installs no tests. With the database module enabled, it warns when no environment allows database access or `DATABASE_URL` is empty. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. The chosen AI tool gets a `/first-tests` command (`.github/prompts/` for Copilot, `.claude/commands/` and `CLAUDE.md` for Claude Code); every tool follows `AGENTS.md`. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers-minimal.json`); the database URL then comes from the `DATABASE_URL` environment variable.
 
 Once login and roles are configured in `config/framework.config.ts`, add the role accounts to `.env`, run `npm run doctor` (it checks that each role logs in) and `npm run qa:sync-ci-secrets` (it adds the role secrets to the workflows and lists the secrets to create in GitHub). CI skips Playwright projects that have no tests yet.
 
@@ -80,6 +87,7 @@ With an AI tool, use [docs/FIRST_TESTS_PROMPT.md](docs/FIRST_TESTS_PROMPT.md) fo
 
 | Command                        | Purpose                                                       |
 | ------------------------------ | ------------------------------------------------------------- |
+| `./install.sh`                 | Install dependencies, configure, install browsers, run doctor |
 | `npm run setup`                | Configure the template for an application                     |
 | `npm run doctor`               | Check configuration, reachability, credentials and login      |
 | `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows |

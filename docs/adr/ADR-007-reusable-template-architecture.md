@@ -54,7 +54,7 @@ Dependencies flow one way: `src/app` and `tests` may import `src/framework`; `sr
 Installation is deterministic and does not involve AI:
 
 ```text
-npm ci → npm run setup → .env → npm run doctor
+./install.sh: npm ci → npm run setup (creates .env) → browsers → npm run doctor
 ```
 
 Setup configures no login and installs no tests. Login and roles are configured with the first tests, because they need evidence from the application; credentials stay with the human (`.env`, GitHub secrets), and `npm run qa:sync-ci-secrets` adds the role secrets to the workflows. Test creation after installation is tool-neutral: humans or any AI tool follow `AGENTS.md`, the golden templates, and the same lint, typecheck, CI, and review gates.

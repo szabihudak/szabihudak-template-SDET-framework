@@ -35,5 +35,6 @@
     }
   },
   "roles": ["user"],
+  "aiTools": "copilot",
   "installStarter": true
 }

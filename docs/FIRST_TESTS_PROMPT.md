@@ -4,7 +4,7 @@ Use this prompt with any AI coding tool (Copilot, Claude Code, Cursor, Codex) af
 
 Credentials never go into the prompt. You create the test accounts and put them into `.env` (and GitHub secrets) yourself.
 
-Fill in the bracketed parts, then paste the whole block.
+If setup installed the `/first-tests` command (GitHub Copilot Chat in agent mode, or Claude Code), run it and give the application context; it follows this prompt. Otherwise fill in the bracketed parts, then paste the whole block.
 
 ```text
 Read AGENTS.md and follow it strictly.
