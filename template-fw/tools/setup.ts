@@ -527,6 +527,93 @@ function installStarterFiles(project: string, answers: Answers): void {
 
 // Instructions and the /first-tests command for the chosen AI tools. AGENTS.md
 // stays the single source of rules for every tool.
+// Empty folders for the enabled test types, each with a README naming what
+// belongs there and the golden templates that start it, so the layout is
+// visible before the first test exists.
+const SKELETON: Record<(typeof MODULES)[number], string[]> = {
+  api: [
+    "src/api/constants",
+    "src/api/schemas",
+    "src/api/clients",
+    "src/data",
+    "tests/api",
+  ],
+  ui: ["src/pages", "src/components", "src/mocks", "tests/ui"],
+  smoke: ["src/pages", "tests/smoke"],
+  accessibility: ["src/pages", "tests/accessibility"],
+  database: ["src/database/clients", "tests/database"],
+  visual: ["src/pages", "tests/visual"],
+  performance: ["src/pages", "tests/performance", "tests/performance/k6"],
+};
+
+const FOLDER_PURPOSE: Record<string, string> = {
+  "src/api/constants":
+    "Domain constants such as supported statuses, with derived types.",
+  "src/api/schemas":
+    "TypeBox request and response schemas: the provider contracts.",
+  "src/api/clients":
+    "API clients: HTTP requests and raw responses, no assertions.",
+  "src/data": "Factories: valid default payloads with overrides.",
+  "src/pages":
+    "Page Objects: locators and user actions for one page, no assertions.",
+  "src/components": "Component Objects for shared UI parts such as navigation.",
+  "src/mocks": "Network mocks for the states a scenario needs.",
+  "src/database/clients":
+    "Domain database clients: parameterized SQL and record mapping.",
+  "tests/api": "API specs.",
+  "tests/ui": "UI specs.",
+  "tests/smoke":
+    "Smoke specs: short checks that the main pages load. Follow the ui-spec template.",
+  "tests/accessibility":
+    "Accessibility specs using the accessibility fixtures and the central WCAG policy.",
+  "tests/database":
+    "Database specs (only where the environment allows database access).",
+  "tests/visual": "Visual regression specs with toHaveScreenshot().",
+  "tests/performance": "Lighthouse browser performance specs.",
+  "tests/performance/k6": "k6 API workloads.",
+};
+
+async function createSkeleton(
+  project: string,
+  answers: Answers,
+): Promise<void> {
+  const index: {
+    templates: { id: string; need: string; output: string }[];
+  } = JSON.parse(
+    fs.readFileSync(templatePath("template-fw/index.json"), "utf8"),
+  );
+  const folders = new Set(
+    MODULES.filter((module) => answers.modules[module]).flatMap(
+      (module) => SKELETON[module],
+    ),
+  );
+
+  for (const folder of folders) {
+    const templates = index.templates.filter(
+      (template) => path.posix.dirname(template.output) === folder,
+    );
+
+    await writeFormatted(
+      project,
+      `${folder}/README.md`,
+      [
+        `# ${folder}`,
+        "",
+        FOLDER_PURPOSE[folder],
+        "",
+        ...(templates.length > 0
+          ? [
+              "Start from these golden templates (`template-fw/index.json`):",
+              "",
+              ...templates.map(({ id, need }) => `- \`${id}\`: ${need}`),
+            ]
+          : []),
+        "",
+      ].join("\n"),
+    );
+  }
+}
+
 function installAiTools(
   project: string,
   choice: NonNullable<Answers["aiTools"]>,
@@ -768,6 +855,7 @@ async function main(): Promise<void> {
   installStarterFiles(project, answers);
   syncWorkflowSecrets(project, secretNames);
   installAiTools(project, aiTools);
+  await createSkeleton(project, answers);
 
   await writeFormatted(
     project,

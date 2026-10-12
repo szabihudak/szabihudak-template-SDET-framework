@@ -139,8 +139,8 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
   }
 
   for (const file of [
-    "src/api",
-    "tests",
+    "src/api/clients/TaskApiClient.ts",
+    "tests/api/create-task.spec.ts",
     "template-fw/setup",
     "template-fw/tools/setup.ts",
     "template-fw/tools/selftest.ts",
@@ -157,6 +157,22 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
   const config = fs.readFileSync(
     path.join(project, "config/framework.config.ts"),
     "utf8",
+  );
+
+  // Folder skeleton for the enabled test types, without any spec yet.
+  const specs = fs.existsSync(path.join(project, "tests"))
+    ? fs
+        .readdirSync(path.join(project, "tests"), { recursive: true })
+        .filter((file) => String(file).endsWith(".spec.ts"))
+    : [];
+  assert(specs.length === 0, `setup installed specs: ${specs.join(", ")}`);
+  assert(
+    exists("tests/api/README.md") && exists("src/api/clients/README.md"),
+    "the API folder skeleton is missing",
+  );
+  assert(
+    exists("tests/ui/README.md") === config.includes("ui: true"),
+    "the UI folder skeleton does not follow the ui module",
   );
   assert(
     exists(".github/workflows/performance.yml") ===
