@@ -25,9 +25,11 @@ import { assertSupportedNode } from "./runtime";
 const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = "template-fw/setup/starter";
 const PROJECT_FILES = "template-fw/setup/project-files.json";
+// Local apps usually run on a known address; a staging URL has no sensible
+// default.
 const ENVIRONMENTS = [
-  { name: "staging", example: "https://staging.example.com" },
-  { name: "local", example: "http://localhost:3000" },
+  { name: "staging", hint: { example: "https://staging.example.com" } },
+  { name: "local", hint: { suggested: "http://localhost:3000" } },
 ] as const;
 
 const BROWSER_MODULES = [
@@ -233,18 +235,28 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
   };
   const validateWith = (validator: Validator) => (value: string | undefined) =>
     validator((value ?? "").trim());
+  // Every text field starts empty and shows its suggestion in grey: Enter
+  // accepts a suggested value, typing replaces it. A field without a
+  // suggestion shows an "e.g." example and must be filled in.
   const ask = async (
     message: string,
     validator: Validator,
-    options: { initialValue?: string; placeholder?: string } = {},
-  ) =>
-    answer(
+    hint: { suggested: string } | { example: string },
+  ) => {
+    const suggested = "suggested" in hint ? hint.suggested : undefined;
+    const value = answer(
       await prompts.text({
         message,
-        validate: validateWith(validator),
-        ...options,
+        placeholder:
+          suggested ?? `e.g. ${"example" in hint ? hint.example : ""}`,
+        defaultValue: suggested,
+        validate: (input) =>
+          validateWith(validator)((input ?? "").trim() || suggested),
       }),
     ).trim();
+
+    return value || suggested || "";
+  };
   const confirm = async (message: string) =>
     answer(await prompts.confirm({ message, initialValue: false }));
 
@@ -256,9 +268,7 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
   const appName = await ask(
     "Project name (also the folder name)",
     isProjectName,
-    {
-      initialValue: "my-app-tests",
-    },
+    { suggested: "my-app-tests" },
   );
 
   const selectedModules = answer(
@@ -300,14 +310,12 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
 
   const environments: Answers["environments"] = {};
 
-  for (const { name, example } of ENVIRONMENTS) {
+  for (const { name, hint } of ENVIRONMENTS) {
     if (!environmentNames.includes(name)) continue;
 
-    const webBaseUrl = await ask(`${name}: web URL`, isUrl, {
-      placeholder: example,
-    });
+    const webBaseUrl = await ask(`${name}: web URL`, isUrl, hint);
     const apiBaseUrl = await ask(`${name}: API URL`, isUrl, {
-      initialValue: `${webBaseUrl.replace(/\/$/, "")}/api`,
+      suggested: `${webBaseUrl.replace(/\/$/, "")}/api`,
     });
     const database =
       modules.database &&
