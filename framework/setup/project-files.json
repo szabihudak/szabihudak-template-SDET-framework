@@ -1,5 +1,5 @@
 {
-  "$comment": "What npm run setup leaves out of a new project. 'reference' is the UPEX reference implementation that lives in the template repository (ADR-007); 'templateOnly' builds and tests the template itself; 'scripts' are package.json scripts for those files. Everything else is copied, and the starter files from framework/setup/starter are added.",
+  "$comment": "What npm run setup leaves out of a new project. 'reference' is the UPEX reference implementation that lives in the template repository (ADR-007); 'templateOnly' builds and tests the template itself; 'scripts' are package.json scripts for those files; 'performance' lists the files and devDependencies only the performance module needs, removed when it is not enabled. Everything else is copied, and the starter files from framework/setup/starter are added.",
   "reference": [
     "src",
     "tests",
@@ -20,5 +20,9 @@
     "framework/tools/setup.ts",
     "framework/tools/selftest.ts"
   ],
-  "scripts": ["setup", "db:test:reset", "qa:selftest"]
+  "scripts": ["setup", "db:test:reset", "qa:selftest"],
+  "performance": {
+    "files": ["framework/core/performance/lighthouse"],
+    "devDependencies": ["@lhci/cli", "chrome-launcher", "lighthouse"]
+  }
 }

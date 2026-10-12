@@ -429,7 +429,11 @@ type ProjectFiles = {
   reference: string[];
   templateOnly: string[];
   scripts: string[];
+  performance: { files: string[]; devDependencies: string[] };
 };
+
+const readProjectFiles = (): ProjectFiles =>
+  JSON.parse(fs.readFileSync(sourcePath(PROJECT_FILES), "utf8"));
 
 const within = (file: string, entries: string[]) =>
   entries.some((entry) => file === entry || file.startsWith(`${entry}/`));
@@ -438,9 +442,7 @@ const within = (file: string, entries: string[]) =>
 // reference implementation and the files that only build or test the template.
 // Uncommitted files are included so a change can be verified before a commit.
 function projectFileList(): string[] {
-  const excluded: ProjectFiles = JSON.parse(
-    fs.readFileSync(sourcePath(PROJECT_FILES), "utf8"),
-  );
+  const excluded = readProjectFiles();
 
   return execSync("git ls-files --cached --others --exclude-standard", {
     cwd: ROOT,
@@ -530,6 +532,9 @@ function installStarterFiles(project: string, answers: Answers): void {
 
   if (!answers.modules.performance) {
     fs.rmSync(path.join(project, ".github/workflows/performance.yml"));
+    for (const file of readProjectFiles().performance.files) {
+      fs.rmSync(path.join(project, file), { recursive: true, force: true });
+    }
   }
 }
 
@@ -643,23 +648,44 @@ function installAiTools(
     copyDirectory(path.join(AI_TOOLS_DIR, tool), project);
 }
 
-function updatePackageFiles(project: string, appName: string): void {
-  const excluded: ProjectFiles = JSON.parse(
-    fs.readFileSync(sourcePath(PROJECT_FILES), "utf8"),
-  );
+// Without the performance module, the Lighthouse packages (and their audit
+// warnings) stay out of the project. npm regenerates the lockfile so npm ci
+// still matches package.json; the remaining versions keep their locked values.
+function updatePackageFiles(project: string, answers: Answers): void {
+  const excluded = readProjectFiles();
   const packageFile = path.join(project, "package.json");
   const packageJson = JSON.parse(fs.readFileSync(packageFile, "utf8"));
+  const removedPackages = answers.modules.performance
+    ? []
+    : excluded.performance.devDependencies;
 
-  packageJson.name = appName;
+  packageJson.name = answers.appName;
   for (const script of excluded.scripts) delete packageJson.scripts[script];
+  for (const name of removedPackages) delete packageJson.devDependencies[name];
   fs.writeFileSync(packageFile, `${JSON.stringify(packageJson, null, 2)}\n`);
+
+  if (removedPackages.length > 0) {
+    execSync(
+      `${npmCommand()} install --package-lock-only --ignore-scripts --no-audit --no-fund`,
+      { cwd: project, stdio: "inherit" },
+    );
+  }
 
   const lockFile = path.join(project, "package-lock.json");
   const lock = JSON.parse(fs.readFileSync(lockFile, "utf8"));
 
-  lock.name = appName;
-  if (lock.packages?.[""]) lock.packages[""].name = appName;
+  lock.name = answers.appName;
+  if (lock.packages?.[""]) lock.packages[""].name = answers.appName;
   fs.writeFileSync(lockFile, `${JSON.stringify(lock, null, 2)}\n`);
+}
+
+// The npm that runs setup (install.sh pins the version from packageManager).
+function npmCommand(): string {
+  const npmCli = process.env.npm_execpath;
+
+  return npmCli && path.basename(npmCli) === "npm-cli.js"
+    ? `"${process.execPath}" "${npmCli}"`
+    : "npm";
 }
 
 function buildReadme(answers: Answers): string {
@@ -894,7 +920,7 @@ async function main(): Promise<void> {
     approvedExamples(),
   );
   await writeFormatted(project, "README.md", buildReadme(answers));
-  updatePackageFiles(project, answers.appName);
+  updatePackageFiles(project, answers);
 
   const envExample = buildEnvExample(answers, frameworkConfig);
   fs.writeFileSync(path.join(project, ".env.example"), envExample);

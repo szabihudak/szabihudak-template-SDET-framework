@@ -33,7 +33,7 @@ The template folder stays unchanged, so the next project starts from the same cl
 └── package.json, playwright.config.ts, tsconfig.json
 ```
 
-It leaves out the UPEX reference implementation, the setup tooling and the workflows of modules you did not enable. A teammate who clones the project runs `./install.sh` there: it skips the questions, creates `.env` from `.env.example` and installs the configured browsers.
+It leaves out the UPEX reference implementation, the setup tooling and the workflows of modules you did not enable. Without performance tests it also leaves out the Lighthouse runner and its packages (`@lhci/cli`, `lighthouse`, `chrome-launcher`), which make up most of the install size and of the `npm audit` warnings. A teammate who clones the project runs `./install.sh` there: it skips the questions, creates `.env` from `.env.example` and installs the configured browsers.
 
 Without the script, for example on Windows: `npm ci`, `npm run setup`, then `npm ci`, `npx playwright install --with-deps` and `npm run doctor` in the new project folder. `npm run setup -- --target <folder>` chooses another location; `--in-place` turns the current folder into the project, for a repository created with GitHub's **Use this template** (it refuses to run on uncommitted changes unless you pass `--force`). For non-interactive use: `--answers answers.json` (see `framework/setup/selftest/answers-minimal.json`); the database URL then comes from the `DATABASE_URL` environment variable.
 

@@ -187,6 +187,29 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     !packageJson.scripts.setup && !packageJson.scripts["qa:selftest"],
     "package.json still has template-only scripts",
   );
+
+  // The Lighthouse packages and runner come only with the performance module,
+  // and the lockfile follows package.json so npm ci accepts it.
+  const performance = config.includes("performance: true");
+  const lock = JSON.parse(
+    fs.readFileSync(path.join(project, "package-lock.json"), "utf8"),
+  );
+  for (const name of PERFORMANCE_PACKAGES) {
+    assert(
+      name in packageJson.devDependencies === performance &&
+        `node_modules/${name}` in lock.packages === performance,
+      `${name} does not follow the performance module`,
+    );
+  }
+  assert(
+    JSON.stringify(lock.packages[""].devDependencies) ===
+      JSON.stringify(packageJson.devDependencies),
+    "package-lock.json does not match the devDependencies in package.json",
+  );
+  assert(
+    exists("framework/core/performance/lighthouse") === performance,
+    "the Lighthouse runner does not follow the performance module",
+  );
   assert(
     fs
       .readFileSync(path.join(project, "README.md"), "utf8")
@@ -298,6 +321,7 @@ type Scenario = {
   aiFiles: { present: string[]; absent: string[] };
 };
 
+const PERFORMANCE_PACKAGES = ["@lhci/cli", "chrome-launcher", "lighthouse"];
 const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
 const COPILOT_FILES = [
   ".github/copilot-instructions.md",
