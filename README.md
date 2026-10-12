@@ -6,19 +6,23 @@ The template was built and validated against [UPEX DOJO](https://dojo.upexgalaxy
 
 ## Quick Start
 
-Requirements: Node.js 22, npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
+Requirements: Node.js 22.19 or newer (`node -v`; with nvm: `nvm install 22 && nvm use 22`, the repository ships an `.nvmrc`), npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
+
+Setup asks only about your application: name, staging and local URLs (either can be skipped with `-`), environment permissions, modules and browsers. It asks nothing about login: login and roles are configured afterwards, together with the first tests ([docs/FIRST_TESTS_PROMPT.md](docs/FIRST_TESTS_PROMPT.md)). Never type credentials into setup or prompts: test-account credentials belong in `.env` and in GitHub secrets.
 
 ```bash
 git clone <this-template> my-app-tests && cd my-app-tests
 npm ci
 npx playwright install --with-deps
-npm run setup          # URLs, environments, modules, browsers, login, roles
-cp .env.example .env   # fill in test account credentials
-npm run doctor         # verifies configuration, reachability and login
-npm run test:starter   # app-agnostic starter tests
+npm run setup          # name, staging/local URLs, permissions, modules, browsers
+cp .env.example .env   # TEST_ENV is preset
+npm run doctor         # verifies configuration and reachability
+# then: configure login and roles and write the first tests (docs/FIRST_TESTS_PROMPT.md)
 ```
 
-`npm run setup` removes the UPEX reference code by default and adds an empty application layer, starter tests and generic GitHub Actions workflows. It finishes by listing the repository variable (`TEST_ENV`) and secrets (role credentials, `DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers.json`).
+`npm run setup` removes the UPEX reference code by default and adds an empty application layer and generic GitHub Actions workflows; it installs no tests. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. It refuses to run on a working tree with uncommitted changes unless you pass `--force`. For non-interactive use: `npm run setup -- --answers answers.json` (see `.qa/selftest/answers-minimal.json`).
+
+Once login and roles are configured in `config/framework.config.ts`, add the role accounts to `.env`, run `npm run doctor` (it checks that each role logs in) and `npm run qa:sync-ci-secrets` (it adds the role secrets to the workflows and lists the secrets to create in GitHub). CI skips Playwright projects that have no tests yet.
 
 ## What You Get
 
@@ -28,7 +32,6 @@ npm run test:starter   # app-agnostic starter tests
 | Your application layer | `src/app/`: schemas, API clients, factories, Page Objects, components, mocks, fixtures                                                                            |
 | Golden templates       | `.qa/templates/` catalogued in `.qa/index.json` and [README](.qa/templates/README.md); VS Code snippets `qa-<id>`                                                 |
 | Configuration          | `config/framework.config.ts`, `config/environments/environments.json`                                                                                             |
-| Starter tests          | `@starter`: home page health, login per role, home page accessibility                                                                                             |
 | Performance            | k6 under `performance/k6/`, Lighthouse under `performance/lighthouse/`                                                                                            |
 | CI                     | `.github/workflows/`: quality gate, one test job per enabled project (planned from the config, run in the official Playwright image), manual performance workflow |
 
@@ -43,7 +46,7 @@ npm run test:starter   # app-agnostic starter tests
 - `auth.browser`: `nextAuth` credentials session or `none`.
 - `roles`: role names mapped to the environment variables holding their test-account credentials. The same credentials provide API bearer tokens (`apiTokenFor(role)` fixture) and browser sessions (`authenticatedPageFor` fixture).
 
-For API-only testing, enable only the `api` module: setup then skips browser questions, CI runs only the `api` project, and the starter tests check that each role receives an API token.
+For API-only testing, enable only the `api` module: setup then skips browser questions and CI runs only the `api` project.
 
 `config/environments/environments.json` defines each target environment:
 
@@ -75,17 +78,17 @@ With an AI tool, use [docs/FIRST_TESTS_PROMPT.md](docs/FIRST_TESTS_PROMPT.md) fo
 
 ## Commands
 
-| Command                        | Purpose                                                      |
-| ------------------------------ | ------------------------------------------------------------ |
-| `npm run setup`                | Configure the template for an application                    |
-| `npm run doctor`               | Check configuration, reachability, credentials and login     |
-| `npm run test:starter`         | Run the starter tests                                        |
-| `npm run lint:architecture`    | Enforce layer and import rules                               |
-| `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets              |
-| `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `.qa/index.json`  |
-| `npm run qa:templates:extract` | Re-extract templates after an intended canonical change      |
-| `npm run qa:selftest`          | Run setup in a temporary copy and verify the result          |
-| `npm run db:test:reset`        | Reset the dedicated test database (reference implementation) |
+| Command                        | Purpose                                                       |
+| ------------------------------ | ------------------------------------------------------------- |
+| `npm run setup`                | Configure the template for an application                     |
+| `npm run doctor`               | Check configuration, reachability, credentials and login      |
+| `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows |
+| `npm run lint:architecture`    | Enforce layer and import rules                                |
+| `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets               |
+| `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `.qa/index.json`   |
+| `npm run qa:templates:extract` | Re-extract templates after an intended canonical change       |
+| `npm run qa:selftest`          | Run setup in a temporary copy and verify the result           |
+| `npm run db:test:reset`        | Reset the dedicated test database (reference implementation)  |
 
 ## Documentation
 

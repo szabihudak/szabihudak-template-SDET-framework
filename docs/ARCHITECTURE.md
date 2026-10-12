@@ -801,7 +801,7 @@ quality
 └── framework unit tests (ai project)
         ↓
         ├── template-selftest
-        │   └── setup in a temporary copy → checks → doctor → starter tests
+        │   └── setup in a temporary copy → checks → doctor → login tests, rendered templates
         │
 build-images
 ├── build Playwright test image

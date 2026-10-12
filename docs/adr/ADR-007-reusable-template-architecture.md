@@ -54,10 +54,10 @@ Dependencies flow one way: `src/app` and `tests` may import `src/framework`; `sr
 Installation is deterministic and does not involve AI:
 
 ```text
-npm ci → npm run setup → .env → npm run doctor → npm run test:starter
+npm ci → npm run setup → .env → npm run doctor
 ```
 
-Test creation after installation is tool-neutral: humans or any AI tool follow `AGENTS.md`, the golden templates, and the same lint, typecheck, CI, and review gates.
+Setup configures no login and installs no tests. Login and roles are configured with the first tests, because they need evidence from the application; credentials stay with the human (`.env`, GitHub secrets), and `npm run qa:sync-ci-secrets` adds the role secrets to the workflows. Test creation after installation is tool-neutral: humans or any AI tool follow `AGENTS.md`, the golden templates, and the same lint, typecheck, CI, and review gates.
 
 ### Reference Implementation
 
@@ -75,7 +75,7 @@ UPEX stays in this repository as the reference implementation, alongside the tem
 - validated configuration, environment permissions, required `TEST_ENV`;
 - `bearer` and `nextAuth` authentication strategies;
 - golden templates, index, catalogue, editor snippets, round-trip check;
-- `setup`, `doctor`, starter tests;
+- `setup`, `doctor`, `qa:sync-ci-secrets`;
 - architecture lint rules in the CI quality gate;
 - short `AGENTS.md` and a tool-neutral first-tests prompt;
 - generic GitHub Actions workflows installed by `setup`: a quality gate, test jobs planned from the enabled modules and run in the official Playwright image against the `TEST_ENV` repository variable, and a manual performance workflow; GitHub Actions only.
@@ -92,7 +92,7 @@ UPEX stays in this repository as the reference implementation, alongside the tem
 
 ## Definition of Done
 
-- a fresh clone reaches green starter tests against a new application in under 15 minutes;
+- a fresh clone passes `npm run doctor` against a new application in under 15 minutes;
 - two API and two UI tests written from the golden templates pass lint, typecheck, and a real run, and are accepted in review with only minor changes;
 - this is proven on at least one application other than UPEX.
 

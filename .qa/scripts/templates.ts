@@ -7,7 +7,9 @@ type TemplateEntry = {
   id: string;
   need: string;
   template: string;
-  canonical: string;
+  // null for patterns the reference implementation does not contain; those
+  // are validated by the setup self-test instead of the round trip.
+  canonical: string | null;
   output: string;
   rules: string;
 };
@@ -97,6 +99,11 @@ async function extract(ids: string[]): Promise<void> {
   );
 
   for (const entry of selected) {
+    if (!entry.canonical) {
+      console.log(`skipped ${entry.id}: no canonical file`);
+      continue;
+    }
+
     const canonical = read(entry.canonical);
     const existingTokens = canonical.match(TOKEN_PATTERN);
 
@@ -221,10 +228,12 @@ async function check(): Promise<void> {
   // The round trip runs where the canonical reference implementation lives;
   // setup removes it, together with the values file, from new projects.
   const roundTrip = exists(VALUES_PATH);
+  let roundTripped = 0;
 
   for (const entry of index.templates) {
-    const required = roundTrip
-      ? [entry.template, entry.canonical]
+    const canonicalPath = roundTrip ? entry.canonical : null;
+    const required = canonicalPath
+      ? [entry.template, canonicalPath]
       : [entry.template];
 
     for (const file of required) {
@@ -250,17 +259,19 @@ async function check(): Promise<void> {
       }
     }
 
-    if (!roundTrip) continue;
+    if (!canonicalPath) continue;
+
+    roundTripped += 1;
 
     const rendered = await format(
       render(template, valuesFor(entry.id)),
-      entry.canonical,
+      canonicalPath,
     );
-    const canonical = await format(read(entry.canonical), entry.canonical);
+    const canonical = await format(read(canonicalPath), canonicalPath);
 
     if (rendered !== canonical) {
       problems.push(
-        `${entry.id}: template does not reproduce ${entry.canonical}. Change both together, or run npm run qa:templates:extract -- ${entry.id} after an intended canonical change.`,
+        `${entry.id}: template does not reproduce ${canonicalPath}. Change both together, or run npm run qa:templates:extract -- ${entry.id} after an intended canonical change.`,
       );
     }
   }
@@ -292,7 +303,7 @@ async function check(): Promise<void> {
 
   console.log(
     roundTrip
-      ? `✔ ${index.templates.length} golden templates reproduce their canonical files`
+      ? `✔ ${index.templates.length} golden templates are consistent; ${roundTripped} reproduce their canonical files`
       : `✔ ${index.templates.length} golden templates are consistent (round trip runs in the reference implementation)`,
   );
 }

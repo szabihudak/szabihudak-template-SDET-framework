@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { request as playwrightRequest } from "@playwright/test";
 import { Client } from "pg";
 
@@ -7,6 +10,7 @@ import { getRoleCredentials } from "../../src/framework/auth/credentials";
 import { getFrameworkConfig } from "../../src/framework/config/frameworkConfig";
 import { loadDotEnv } from "../../src/framework/utils/dotenv";
 import { getCurrentEnvironment } from "../../src/framework/utils/env";
+import { assertSupportedNode } from "./runtime";
 
 type Check = {
   name: string;
@@ -17,6 +21,7 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message.split("\n")[0] : String(error);
 
 async function main(): Promise<void> {
+  assertSupportedNode();
   loadDotEnv();
 
   const checks: Check[] = [];
@@ -31,6 +36,13 @@ async function main(): Promise<void> {
     console.log(`✔ TEST_ENV=${environment.name} is configured`);
   } catch (error) {
     console.error(`✖ ${message(error)}`);
+
+    if (!fs.existsSync(path.resolve(__dirname, "../../.env"))) {
+      console.error(
+        "  No .env file found. Run npm run setup, then cp .env.example .env and fill in TEST_ENV and the credentials.",
+      );
+    }
+
     process.exit(1);
   }
 
@@ -50,6 +62,12 @@ async function main(): Promise<void> {
         return `HTTP ${response.status}`;
       },
     });
+  }
+
+  if (Object.keys(config.roles).length === 0) {
+    console.log(
+      "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). See docs/FIRST_TESTS_PROMPT.md, step 1.",
+    );
   }
 
   for (const role of Object.keys(config.roles)) {
@@ -131,7 +149,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log("\nAll checks passed. Next: npm run test:starter");
+  console.log(
+    "\nAll checks passed. Next: write tests from the golden templates (docs/FIRST_TESTS_PROMPT.md).",
+  );
 }
 
 main().catch((error: unknown) => {

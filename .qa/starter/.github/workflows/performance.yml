@@ -103,7 +103,9 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # @qa:secrets
+      TEST_ENV: ${{ inputs.environment }}
+      # @qa:secrets:start (managed by npm run qa:sync-ci-secrets)
+      # @qa:secrets:end
 
     steps:
       - name: Checkout

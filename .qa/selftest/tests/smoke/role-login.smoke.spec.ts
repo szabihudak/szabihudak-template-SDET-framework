@@ -5,7 +5,7 @@ import { getFrameworkConfig } from "../../src/framework/config/frameworkConfig";
 const { auth, roles } = getFrameworkConfig();
 
 for (const role of Object.keys(roles)) {
-  test.describe(`${role} role browser login`, { tag: "@starter" }, () => {
+  test.describe(`${role} role browser login`, { tag: "@selftest" }, () => {
     test("reaches the landing page with a browser session", async ({
       authenticatedPageFor,
     }) => {

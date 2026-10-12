@@ -1,7 +1,7 @@
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 import { formatAccessibilityViolations } from "../../src/framework/accessibility/utils/AccessibilityFormatter";
 
-test.describe("Accessibility", { tag: "@starter" }, () => {
+test.describe("Accessibility", { tag: "@selftest" }, () => {
   test("home page has no accessibility violations", async ({
     page,
     accessibility,

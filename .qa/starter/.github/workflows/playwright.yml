@@ -78,7 +78,8 @@ jobs:
     env:
       # Firefox refuses to start when HOME belongs to another user in containers.
       HOME: /root
-      # @qa:secrets
+      # @qa:secrets:start (managed by npm run qa:sync-ci-secrets)
+      # @qa:secrets:end
 
     steps:
       - name: Checkout
