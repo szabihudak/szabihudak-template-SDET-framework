@@ -4,7 +4,11 @@
     "selftest": {
       "webBaseUrl": "http://localhost:4510",
       "apiBaseUrl": "http://localhost:4510/api",
-      "allow": { "database": false, "destructive": false, "performance": false }
+      "allow": {
+        "database": false,
+        "destructive": false,
+        "performance": false
+      }
     }
   },
   "modules": {
@@ -36,5 +40,6 @@
     }
   },
   "roles": ["user"],
+  "aiTools": "both",
   "installStarter": true
 }

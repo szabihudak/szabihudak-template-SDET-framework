@@ -39,6 +39,9 @@ const BROWSER_MODULES = [
   "performance",
 ] as const;
 
+const AI_TOOLS = ["copilot", "claude", "both", "none"] as const;
+const AI_TOOLS_DIR = ".qa/ai-tools";
+
 const MODULES = [
   "api",
   "ui",
@@ -63,12 +66,18 @@ const answersSchema = Type.Object(
         uniqueItems: true,
       }),
     ),
+    aiTools: Type.Optional(
+      Type.Union(AI_TOOLS.map((tool) => Type.Literal(tool))),
+    ),
     installStarter: Type.Boolean(),
   },
   { additionalProperties: false },
 );
 
 type Answers = Static<typeof answersSchema>;
+
+// Secrets are never part of the answers, so an answers file stays shareable.
+type Secrets = { databaseUrl?: string };
 
 const rootPath = (file: string) => path.join(ROOT, file);
 
@@ -143,6 +152,28 @@ const isBrowserList: Validator = (value) => {
     : `Unknown browser: ${unknown.join(", ")}. Choose from ${BROWSERS.join(", ")}.`;
 };
 
+const isDatabaseUrl: Validator = (value) =>
+  value === "" || /^postgres(ql)?:\/\/\S+$/.test(value)
+    ? undefined
+    : "Enter a PostgreSQL URL such as postgresql://user:password@host:5432/test_db, or press Enter to skip.";
+
+const isAiTool: Validator = (value) =>
+  (AI_TOOLS as readonly string[]).includes(value)
+    ? undefined
+    : `Choose one of ${AI_TOOLS.join(", ")}.`;
+
+// Removes the characters a raw-mode terminal sends for backspace.
+function applyBackspaces(value: string): string {
+  const characters: string[] = [];
+
+  for (const character of value) {
+    if (character === "\x7f" || character === "\b") characters.pop();
+    else if (character >= " ") characters.push(character);
+  }
+
+  return characters.join("");
+}
+
 // Checks the answers file mode cannot express through the schema alone.
 function semanticErrors(answers: Answers): string[] {
   const errors: string[] = [];
@@ -173,7 +204,7 @@ function semanticErrors(answers: Answers): string[] {
   return errors;
 }
 
-async function askAnswers(): Promise<Answers> {
+async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
   // Lines are pulled on demand so piped answers are not dropped between
   // questions, which readline's question() does with non-TTY input.
   const rl = createInterface({ input: stdin, terminal: false });
@@ -214,53 +245,45 @@ async function askAnswers(): Promise<Answers> {
       .map((item) => item.trim())
       .filter(Boolean);
 
+  // Reads a value without echoing it; the terminal echoes typed characters
+  // unless raw mode is on.
+  const askSecret = async (
+    question: string,
+    validate: Validator,
+  ): Promise<string> => {
+    for (;;) {
+      stdout.write(`? ${question}: `);
+      if (stdin.isTTY) stdin.setRawMode(true);
+
+      let line: IteratorResult<string>;
+      try {
+        line = await lines.next();
+      } finally {
+        if (stdin.isTTY) stdin.setRawMode(false);
+      }
+      stdout.write("\n");
+
+      const raw = line.done ? "" : String(line.value);
+      if (raw.includes("\u0003")) process.exit(130);
+
+      const answer = applyBackspaces(raw).trim();
+      const error = validate(answer);
+      if (!error) return answer;
+
+      if (!stdin.isTTY || line.done) {
+        throw new Error(`Invalid answer for "${question}": ${error}`);
+      }
+
+      stdout.write(`  ✖ ${error}\n`);
+    }
+  };
+
   stdout.write(
-    "Setup asks about your application. Never type credentials here: after setup, put test-account credentials into .env.\n\n",
+    "Setup asks about your application, not about login. The only secret it asks for is the test database URL, with hidden input, written only to the git-ignored .env file.\n\n",
   );
 
   try {
     const appName = await ask("Project name", "my-app-tests", isProjectName);
-
-    const environments: Answers["environments"] = {};
-
-    for (const { name, fallback } of ENVIRONMENTS) {
-      const webBaseUrl = await ask(
-        `${name}: web URL ("${SKIP}" to skip)`,
-        fallback,
-        (value) => (value === SKIP ? undefined : isUrl(value)),
-      );
-
-      if (webBaseUrl === SKIP) continue;
-
-      const apiBaseUrl = await ask(
-        `${name}: API URL`,
-        `${webBaseUrl.replace(/\/$/, "")}/api`,
-        isUrl,
-      );
-      const database = await confirm(
-        `${name}: allow direct database access (dedicated test database only)`,
-        false,
-      );
-      const destructive =
-        database &&
-        (await confirm(`${name}: allow destructive database reset`, false));
-      const performance = await confirm(
-        `${name}: allow performance measurement`,
-        false,
-      );
-
-      environments[name] = {
-        webBaseUrl,
-        apiBaseUrl,
-        allow: { database, destructive, performance },
-      };
-    }
-
-    if (Object.keys(environments).length === 0) {
-      throw new Error(
-        "At least one environment needs a URL. Run npm run setup again and enter the staging or local URL.",
-      );
-    }
 
     const defaults: Answers["modules"] = {
       api: true,
@@ -295,17 +318,80 @@ async function askAnswers(): Promise<Answers> {
         : ["chromium"]
     ) as Answers["browsers"];
 
+    const environments: Answers["environments"] = {};
+
+    for (const { name, fallback } of ENVIRONMENTS) {
+      const webBaseUrl = await ask(
+        `${name}: web URL ("${SKIP}" to skip)`,
+        fallback,
+        (value) => (value === SKIP ? undefined : isUrl(value)),
+      );
+
+      if (webBaseUrl === SKIP) continue;
+
+      const apiBaseUrl = await ask(
+        `${name}: API URL`,
+        `${webBaseUrl.replace(/\/$/, "")}/api`,
+        isUrl,
+      );
+      const database =
+        modules.database &&
+        (await confirm(
+          `${name}: allow direct database access (dedicated test database only)`,
+          false,
+        ));
+      const destructive =
+        database &&
+        (await confirm(`${name}: allow destructive database reset`, false));
+      const performance = await confirm(
+        `${name}: allow performance measurement`,
+        false,
+      );
+
+      environments[name] = {
+        webBaseUrl,
+        apiBaseUrl,
+        allow: { database, destructive, performance },
+      };
+    }
+
+    if (Object.keys(environments).length === 0) {
+      throw new Error(
+        "At least one environment needs a URL. Run npm run setup again and enter the staging or local URL.",
+      );
+    }
+
+    const secrets: Secrets = {};
+
+    if (Object.values(environments).some(({ allow }) => allow.database)) {
+      secrets.databaseUrl =
+        (await askSecret(
+          "DATABASE_URL of the dedicated test database (hidden, Enter to skip)",
+          isDatabaseUrl,
+        )) || undefined;
+    }
+
+    const aiTools = (await ask(
+      `AI coding tool (${AI_TOOLS.join(", ")})`,
+      "none",
+      isAiTool,
+    )) as NonNullable<Answers["aiTools"]>;
+
     const installStarter = await confirm(
       "Replace the UPEX reference implementation with the starter application layer and CI workflows",
       true,
     );
 
     return {
-      appName,
-      environments,
-      modules,
-      browsers,
-      installStarter,
+      answers: {
+        appName,
+        environments,
+        modules,
+        browsers,
+        aiTools,
+        installStarter,
+      },
+      secrets,
     };
   } finally {
     rl.close();
@@ -429,6 +515,90 @@ function installStarterFiles(): void {
   );
 }
 
+// Instructions and the /first-tests command for the chosen AI tools. AGENTS.md
+// stays the single source of rules for every tool.
+function installAiTools(choice: NonNullable<Answers["aiTools"]>): void {
+  const tools =
+    choice === "both"
+      ? ["copilot", "claude"]
+      : choice === "none"
+        ? []
+        : [choice];
+
+  if (!tools.includes("copilot")) {
+    fs.rmSync(rootPath(".github/copilot-instructions.md"), { force: true });
+  }
+
+  for (const tool of tools) {
+    for (const file of copyDirectory(path.join(AI_TOOLS_DIR, tool), ".")) {
+      console.log(`  added ${file}`);
+    }
+  }
+}
+
+// .env is git-ignored, so it is the only place setup writes a secret to. An
+// existing .env is kept; only its database URL is updated when one was given.
+function writeEnvFile(envExample: string, secrets: Secrets): string {
+  const envFile = rootPath(".env");
+  const databaseLine = secrets.databaseUrl
+    ? `DATABASE_URL=${secrets.databaseUrl}`
+    : undefined;
+
+  if (!fs.existsSync(envFile)) {
+    fs.writeFileSync(
+      envFile,
+      databaseLine
+        ? envExample.replace(/^DATABASE_URL=$/m, databaseLine)
+        : envExample,
+    );
+
+    return `Created .env from .env.example${databaseLine ? " with DATABASE_URL" : ""}.`;
+  }
+
+  if (!databaseLine) {
+    return ".env already exists and was left unchanged; compare it with .env.example.";
+  }
+
+  const current = fs.readFileSync(envFile, "utf8");
+  fs.writeFileSync(
+    envFile,
+    /^DATABASE_URL=.*$/m.test(current)
+      ? current.replace(/^DATABASE_URL=.*$/m, databaseLine)
+      : `${current.replace(/\n?$/, "\n")}${databaseLine}\n`,
+  );
+
+  return ".env already exists; its DATABASE_URL was updated.";
+}
+
+function databaseWarnings(
+  answers: Answers,
+  secrets: Secrets,
+  envStatus: string,
+): string {
+  if (!answers.modules.database) return "";
+
+  const warnings: string[] = [];
+  const allowed = Object.entries(answers.environments)
+    .filter(([, environment]) => environment.allow.database)
+    .map(([name]) => name);
+
+  if (allowed.length === 0) {
+    warnings.push(
+      "Database tests are enabled, but no environment allows database access, so they will not run. Set allow.database in config/environments/environments.json for the dedicated test environment.",
+    );
+  } else if (!secrets.databaseUrl && !envStatus.startsWith(".env already")) {
+    warnings.push(
+      "DATABASE_URL is empty in .env. Add the dedicated test database URL before running database tests.",
+    );
+  }
+
+  warnings.push(
+    "CI/CD: database tests in GitHub Actions need the DATABASE_URL repository secret (Settings → Secrets and variables → Actions).",
+  );
+
+  return `\n${warnings.map((warning) => `⚠ ${warning}`).join("\n")}\n`;
+}
+
 function assertCleanWorkingTree(force: boolean): void {
   if (force) return;
 
@@ -449,11 +619,15 @@ async function main(): Promise<void> {
   assertSupportedNode();
   assertCleanWorkingTree(force);
 
-  const answers: unknown =
+  // Non-interactive runs take the database URL from the environment.
+  const { answers, secrets }: { answers: unknown; secrets: Secrets } =
     answersIndex >= 0
-      ? JSON.parse(
-          fs.readFileSync(path.resolve(args[answersIndex + 1]), "utf8"),
-        )
+      ? {
+          answers: JSON.parse(
+            fs.readFileSync(path.resolve(args[answersIndex + 1]), "utf8"),
+          ),
+          secrets: { databaseUrl: process.env.DATABASE_URL || undefined },
+        }
       : await askAnswers();
 
   try {
@@ -482,6 +656,9 @@ async function main(): Promise<void> {
     syncWorkflowSecrets(ROOT, secretNames);
   }
 
+  const aiTools = answers.aiTools ?? "none";
+  installAiTools(aiTools);
+
   await writeFormatted(
     "config/environments/environments.json",
     JSON.stringify(answers.environments),
@@ -490,10 +667,9 @@ async function main(): Promise<void> {
     "config/framework.config.ts",
     `import { defineFrameworkConfig } from "../src/framework/config/frameworkConfigSchema";\n\nexport default defineFrameworkConfig(${JSON.stringify(frameworkConfig)});\n`,
   );
-  fs.writeFileSync(
-    rootPath(".env.example"),
-    buildEnvExample(answers, frameworkConfig),
-  );
+  const envExample = buildEnvExample(answers, frameworkConfig);
+  fs.writeFileSync(rootPath(".env.example"), envExample);
+  const envStatus = writeEnvFile(envExample, secrets);
 
   const packageJson = JSON.parse(
     fs.readFileSync(rootPath("package.json"), "utf8"),
@@ -505,20 +681,27 @@ async function main(): Promise<void> {
   );
 
   const loginConfigured = Object.keys(frameworkConfig.roles).length > 0;
+  const firstTests = {
+    copilot: "run /first-tests in GitHub Copilot Chat (agent mode)",
+    claude: "run /first-tests in Claude Code",
+    both: "run /first-tests in GitHub Copilot Chat (agent mode) or Claude Code",
+    none: "follow docs/FIRST_TESTS_PROMPT.md with your AI tool or by hand",
+  }[aiTools];
+  const steps = [
+    "npm run doctor   (checks the configuration and that the URLs are reachable)",
+    loginConfigured
+      ? "Add the role test accounts to .env and run npm run doctor again."
+      : `Configure login and roles, then write the first tests: ${firstTests}.`,
+  ];
 
   console.log(`
 Setup complete for ${answers.appName}.
 
+${envStatus}
+
 Next steps:
-  1. cp .env.example .env   (TEST_ENV is preset)
-  2. npm run doctor         (checks that the URLs are reachable)
-  3. ${
-    loginConfigured
-      ? "Add the role test accounts to .env and run npm run doctor again."
-      : "Configure login and roles, then write the first tests: follow docs/FIRST_TESTS_PROMPT.md with your AI tool (or by hand)."
-  }
-  4. Write tests from the golden templates: .qa/templates/README.md
-${answers.installStarter ? `\n${describeCiSettings(defaultEnvironment(answers), secretNames)}` : ""}`);
+${steps.map((step, index) => `  ${index + 1}. ${step}`).join("\n")}
+${databaseWarnings(answers, secrets, envStatus)}${answers.installStarter ? `\n${describeCiSettings(defaultEnvironment(answers), secretNames)}\n` : ""}`);
 }
 
 main().catch((error: unknown) => {
