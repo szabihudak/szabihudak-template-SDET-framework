@@ -172,7 +172,8 @@ function semanticErrors(answers: Answers): string[] {
   const errors: string[] = [];
 
   for (const [name, environment] of Object.entries(answers.environments)) {
-    for (const key of ["webBaseUrl", "apiBaseUrl"] as const) {
+    for (const key of ["webBaseUrl", "apiBaseUrl", "openApiUrl"] as const) {
+      if (environment[key] === undefined) continue;
       const error = isUrl(environment[key]);
       if (error) errors.push(`environments.${name}.${key}: ${error}`);
     }
@@ -257,6 +258,22 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
 
     return value || suggested || "";
   };
+  // An optional field: Enter leaves it empty.
+  const askOptional = async (
+    message: string,
+    validator: Validator,
+    example: string,
+  ) =>
+    answer(
+      await prompts.text({
+        message: `${message} (leave empty if none)`,
+        placeholder: `e.g. ${example}`,
+        validate: (input) => {
+          const value = (input ?? "").trim();
+          return value === "" ? undefined : validator(value);
+        },
+      }),
+    ).trim() || undefined;
   const confirm = async (message: string) =>
     answer(await prompts.confirm({ message, initialValue: false }));
 
@@ -317,6 +334,13 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
     const apiBaseUrl = await ask(`${name}: API URL`, isUrl, {
       suggested: `${webBaseUrl.replace(/\/$/, "")}/api`,
     });
+    const openApiUrl = modules.api
+      ? await askOptional(
+          `${name}: public OpenAPI (Swagger) JSON or YAML URL, if there is one`,
+          isUrl,
+          `${apiBaseUrl.replace(/\/$/, "")}/openapi.json`,
+        )
+      : undefined;
     const database =
       modules.database &&
       (await confirm(
@@ -331,6 +355,7 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
     environments[name] = {
       webBaseUrl,
       apiBaseUrl,
+      ...(openApiUrl ? { openApiUrl } : {}),
       allow: { database, destructive, performance },
     };
   }
@@ -648,6 +673,71 @@ function installAiTools(
     copyDirectory(path.join(AI_TOOLS_DIR, tool), project);
 }
 
+// Versions are pinned: the servers run through npx on the developer's machine.
+const PLAYWRIGHT_MCP = "@playwright/mcp@0.0.83";
+const OPENAPI_MCP = "@ivotoby/openapi-mcp-server@1.16.1";
+
+// MCP servers for /first-tests: Playwright MCP explores the UI, the OpenAPI
+// MCP server reads the default environment's API contract. Its dynamic mode
+// lists endpoints and schemas; the prompt forbids invoking them.
+function mcpServers(answers: Answers): Record<string, string[]> {
+  const servers: Record<string, string[]> = {};
+  const environment = answers.environments[defaultEnvironment(answers)];
+
+  if (BROWSER_MODULES.some((module) => answers.modules[module])) {
+    servers.playwright = ["-y", PLAYWRIGHT_MCP];
+  }
+  if (answers.modules.api && environment.openApiUrl) {
+    servers.openapi = [
+      "-y",
+      OPENAPI_MCP,
+      "--api-base-url",
+      environment.apiBaseUrl,
+      "--openapi-spec",
+      environment.openApiUrl,
+      "--tools",
+      "dynamic",
+    ];
+  }
+
+  return servers;
+}
+
+async function writeMcpConfig(
+  project: string,
+  answers: Answers,
+  choice: NonNullable<Answers["aiTools"]>,
+): Promise<void> {
+  const servers = Object.entries(mcpServers(answers));
+  if (servers.length === 0) return;
+
+  if (choice === "copilot" || choice === "both") {
+    await writeFormatted(
+      project,
+      ".vscode/mcp.json",
+      JSON.stringify({
+        servers: Object.fromEntries(
+          servers.map(([name, args]) => [
+            name,
+            { type: "stdio", command: "npx", args },
+          ]),
+        ),
+      }),
+    );
+  }
+  if (choice === "claude" || choice === "both") {
+    await writeFormatted(
+      project,
+      ".mcp.json",
+      JSON.stringify({
+        mcpServers: Object.fromEntries(
+          servers.map(([name, args]) => [name, { command: "npx", args }]),
+        ),
+      }),
+    );
+  }
+}
+
 // Without the performance module, the Lighthouse packages (and their audit
 // warnings) stay out of the project. npm regenerates the lockfile so npm ci
 // still matches package.json; the remaining versions keep their locked values.
@@ -903,6 +993,7 @@ async function main(): Promise<void> {
   installStarterFiles(project, answers);
   syncWorkflowSecrets(project, secretNames);
   installAiTools(project, aiTools);
+  await writeMcpConfig(project, answers, aiTools);
   await createSkeleton(project, answers);
 
   await writeFormatted(

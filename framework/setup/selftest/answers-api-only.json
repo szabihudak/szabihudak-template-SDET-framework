@@ -4,6 +4,7 @@
     "selftest": {
       "webBaseUrl": "http://localhost:4510",
       "apiBaseUrl": "http://localhost:4510/api",
+      "openApiUrl": "http://localhost:4510/api/openapi.json",
       "allow": {
         "database": false,
         "destructive": false,
