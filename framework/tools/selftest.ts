@@ -154,6 +154,22 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     assert(!exists(file), `${file} must not be in a project`);
   }
 
+  // Playwright MCP only with browser tests, OpenAPI MCP when a contract URL is set.
+  if (exists(".vscode/mcp.json")) {
+    const servers = Object.keys(
+      JSON.parse(
+        fs.readFileSync(path.join(project, ".vscode/mcp.json"), "utf8"),
+      ).servers,
+    ).sort();
+    const expected = scenario.needsBrowser
+      ? ["openapi", "playwright"]
+      : ["openapi"];
+    assert(
+      servers.join() === expected.join(),
+      `.vscode/mcp.json has ${servers.join(", ")}, expected ${expected.join(", ")}`,
+    );
+  }
+
   const config = fs.readFileSync(
     path.join(project, "config/framework.config.ts"),
     "utf8",
@@ -326,8 +342,13 @@ const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
 const COPILOT_FILES = [
   ".github/copilot-instructions.md",
   ".github/prompts/first-tests.prompt.md",
+  ".vscode/mcp.json",
 ];
-const CLAUDE_FILES = ["CLAUDE.md", ".claude/commands/first-tests.md"];
+const CLAUDE_FILES = [
+  "CLAUDE.md",
+  ".claude/commands/first-tests.md",
+  ".mcp.json",
+];
 // The minimal scenario enables database tests without an environment that
 // allows them; setup must still record the URL and the CI secret.
 const SELFTEST_DATABASE_URL = "postgresql://selftest@localhost:5432/selftest";
