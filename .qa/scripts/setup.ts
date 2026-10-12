@@ -15,16 +15,21 @@ import {
   type FrameworkConfig,
 } from "../../src/framework/config/frameworkConfigSchema";
 
+import {
+  ciSecretNames,
+  describeCiSettings,
+  syncWorkflowSecrets,
+} from "./ci-secrets";
 import { assertSupportedNode } from "./runtime";
 
 const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = ".qa/starter";
 const PILOT_PATHS = ".qa/pilot-paths.json";
-const STARTER_WORKFLOWS = [
-  ".github/workflows/playwright.yml",
-  ".github/workflows/performance.yml",
-];
-const SECRETS_MARKER = /^([ \t]*)# @qa:secrets[ \t]*\n/m;
+const ENVIRONMENTS = [
+  { name: "staging", fallback: "-" },
+  { name: "local", fallback: "http://localhost:3000" },
+] as const;
+const SKIP = "-";
 
 const BROWSER_MODULES = [
   "ui",
@@ -51,10 +56,13 @@ const answersSchema = Type.Object(
     environments: environmentsSchema,
     modules: frameworkConfigSchema.properties.modules,
     browsers: frameworkConfigSchema.properties.browsers,
-    auth: frameworkConfigSchema.properties.auth,
-    roles: Type.Array(Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }), {
-      uniqueItems: true,
-    }),
+    // Login is configured after setup; answers files may still provide it.
+    auth: Type.Optional(frameworkConfigSchema.properties.auth),
+    roles: Type.Optional(
+      Type.Array(Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }), {
+        uniqueItems: true,
+      }),
+    ),
     installStarter: Type.Boolean(),
   },
   { additionalProperties: false },
@@ -119,26 +127,10 @@ const isPath: Validator = (value) =>
     ? undefined
     : "Enter a path that starts with /, for example /dashboard.";
 
-const isFieldName: Validator = (value) =>
-  /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(value)
-    ? undefined
-    : "Enter the NAME of the field in the login request (for example email), not your username or password.";
-
 const isProjectName: Validator = (value) =>
   /^[a-z0-9][a-z0-9-]*$/.test(value)
     ? undefined
     : "Use lower-case letters, digits and hyphens, for example my-app-tests.";
-
-const isNameList =
-  (pattern: RegExp, example: string): Validator =>
-  (value) =>
-    value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .every((item) => pattern.test(item))
-      ? undefined
-      : `Enter a comma-separated list such as ${example}.`;
 
 const isBrowserList: Validator = (value) => {
   const unknown = value
@@ -163,10 +155,10 @@ function semanticErrors(answers: Answers): string[] {
   }
 
   const paths: [string, string][] = [];
-  if (answers.auth.api.strategy === "bearer") {
+  if (answers.auth?.api.strategy === "bearer") {
     paths.push(["auth.api.loginPath", answers.auth.api.loginPath]);
   }
-  if (answers.auth.browser.strategy === "nextAuth") {
+  if (answers.auth?.browser.strategy === "nextAuth") {
     paths.push(
       ["auth.browser.csrfPath", answers.auth.browser.csrfPath],
       ["auth.browser.callbackPath", answers.auth.browser.callbackPath],
@@ -230,20 +222,16 @@ async function askAnswers(): Promise<Answers> {
     const appName = await ask("Project name", "my-app-tests", isProjectName);
 
     const environments: Answers["environments"] = {};
-    const environmentNames = list(
-      await ask(
-        "Environments",
-        "staging,local",
-        isNameList(/^[A-Za-z][A-Za-z0-9_-]*$/, "staging,local"),
-      ),
-    );
 
-    for (const name of environmentNames) {
+    for (const { name, fallback } of ENVIRONMENTS) {
       const webBaseUrl = await ask(
-        `${name}: web URL`,
-        "http://localhost:3000",
-        isUrl,
+        `${name}: web URL ("${SKIP}" to skip)`,
+        fallback,
+        (value) => (value === SKIP ? undefined : isUrl(value)),
       );
+
+      if (webBaseUrl === SKIP) continue;
+
       const apiBaseUrl = await ask(
         `${name}: API URL`,
         `${webBaseUrl.replace(/\/$/, "")}/api`,
@@ -266,6 +254,12 @@ async function askAnswers(): Promise<Answers> {
         apiBaseUrl,
         allow: { database, destructive, performance },
       };
+    }
+
+    if (Object.keys(environments).length === 0) {
+      throw new Error(
+        "At least one environment needs a URL. Run npm run setup again and enter the staging or local URL.",
+      );
     }
 
     const defaults: Answers["modules"] = {
@@ -301,78 +295,8 @@ async function askAnswers(): Promise<Answers> {
         : ["chromium"]
     ) as Answers["browsers"];
 
-    let fieldNames:
-      { usernameField: string; passwordField: string } | undefined;
-    const askFieldNames = async () => {
-      fieldNames ??= {
-        usernameField: await ask(
-          "Name of the username field in the login request (a field name, not your username)",
-          "email",
-          isFieldName,
-        ),
-        passwordField: await ask(
-          "Name of the password field in the login request (a field name, not your password)",
-          "password",
-          isFieldName,
-        ),
-      };
-
-      return fieldNames;
-    };
-
-    const api: Answers["auth"]["api"] = (await confirm(
-      "API uses bearer-token login",
-      true,
-    ))
-      ? {
-          strategy: "bearer",
-          loginPath: await ask("API login path", "/auth/login", isPath),
-          ...(await askFieldNames()),
-          tokenField: await ask(
-            "Token field in the login response",
-            "access_token",
-            isFieldName,
-          ),
-        }
-      : { strategy: "none" };
-
-    const browser: Answers["auth"]["browser"] =
-      usesBrowser &&
-      (await confirm(
-        "Browser uses NextAuth / Auth.js credentials login",
-        false,
-      ))
-        ? {
-            strategy: "nextAuth",
-            csrfPath: await ask("CSRF path", "/api/auth/csrf", isPath),
-            callbackPath: await ask(
-              "Credentials callback path",
-              "/api/auth/callback/credentials",
-              isPath,
-            ),
-            landingPath: await ask(
-              "Landing path after login",
-              "/dashboard",
-              isPath,
-            ),
-            ...(await askFieldNames()),
-          }
-        : { strategy: "none" };
-
-    // Role credentials serve both API tokens and browser sessions.
-    const roles =
-      api.strategy === "none" && browser.strategy === "none"
-        ? []
-        : list(
-            await ask(
-              "Roles, comma-separated (each gets its own test account in .env)",
-              "user",
-              isNameList(/^[a-z][a-zA-Z0-9]*$/, "user,admin"),
-            ),
-          );
-
     const installStarter = await confirm(
-      "Replace the UPEX reference implementation with the starter application layer, tests and CI workflows",
+      "Replace the UPEX reference implementation with the starter application layer and CI workflows",
       true,
     );
 
@@ -381,8 +305,6 @@ async function askAnswers(): Promise<Answers> {
       environments,
       modules,
       browsers,
-      auth: { api, browser },
-      roles,
       installStarter,
     };
   } finally {
@@ -395,9 +317,12 @@ function buildFrameworkConfig(answers: Answers): FrameworkConfig {
     modules: answers.modules,
     browsers: answers.browsers,
     execution: { ciRetries: 2, ciWorkers: "50%" },
-    auth: answers.auth,
+    auth: answers.auth ?? {
+      api: { strategy: "none" },
+      browser: { strategy: "none" },
+    },
     roles: Object.fromEntries(
-      answers.roles.map((role) => [
+      (answers.roles ?? []).map((role) => [
         role,
         {
           usernameEnv: `${roleEnvPrefix(role)}_USERNAME`,
@@ -411,9 +336,16 @@ function buildFrameworkConfig(answers: Answers): FrameworkConfig {
 function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   const lines = [
     "# Copy to .env and fill in. .env is git-ignored.",
-    `TEST_ENV=${Object.keys(answers.environments)[0]}`,
+    `TEST_ENV=${defaultEnvironment(answers)}`,
     "",
   ];
+
+  if (Object.keys(config.roles).length === 0) {
+    lines.push(
+      "# Test accounts: add one USERNAME/PASSWORD pair per role after configuring",
+      "# login and roles (docs/FIRST_TESTS_PROMPT.md, step 1).",
+    );
+  }
 
   for (const [role, { usernameEnv, passwordEnv }] of Object.entries(
     config.roles,
@@ -436,46 +368,10 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   return `${lines.join("\n")}\n`;
 }
 
-function ciSecretNames(answers: Answers, config: FrameworkConfig): string[] {
-  const names = Object.values(config.roles).flatMap(
-    ({ usernameEnv, passwordEnv }) => [usernameEnv, passwordEnv],
-  );
-
-  if (answers.modules.database) names.push("DATABASE_URL");
-
-  return names;
-}
-
-// Workflow env blocks cannot read secrets dynamically, so each one is listed.
-function injectWorkflowSecrets(file: string, secretNames: string[]): void {
-  const workflow = fs.readFileSync(rootPath(file), "utf8");
-  const match = workflow.match(SECRETS_MARKER);
-
-  if (!match) return;
-
-  const indent = match[1];
-  let updated = workflow.replace(
-    SECRETS_MARKER,
-    secretNames
-      .map((name) => `${indent}${name}: \${{ secrets.${name} }}\n`)
-      .join(""),
-  );
-
-  // An env key left without entries is invalid workflow syntax.
-  updated = updated.replace(/^[ \t]*env:[ \t]*\n[ \t]*\n/m, "");
-
-  fs.writeFileSync(rootPath(file), updated);
-}
-
-function ciInstructions(answers: Answers, secretNames: string[]): string {
-  const environments = Object.keys(answers.environments);
-  const ciEnvironment =
-    environments.find((name) => name !== "local") ?? environments[0];
-
-  return `
-GitHub Actions (Settings → Secrets and variables → Actions):
-  Variable  TEST_ENV = ${ciEnvironment}
-${secretNames.map((name) => `  Secret    ${name}`).join("\n") || "  No secrets required."}`;
+function defaultEnvironment(answers: Answers): string {
+  return "staging" in answers.environments
+    ? "staging"
+    : Object.keys(answers.environments)[0];
 }
 
 function copyDirectory(from: string, to: string): string[] {
@@ -576,19 +472,14 @@ async function main(): Promise<void> {
   const frameworkConfig = buildFrameworkConfig(answers);
   validateSchema(frameworkConfigSchema, frameworkConfig);
 
-  const secretNames = ciSecretNames(answers, frameworkConfig);
+  const secretNames = ciSecretNames(frameworkConfig);
 
   if (answers.installStarter) {
     console.log(
       "Replacing the UPEX reference implementation with starter files:",
     );
     installStarterFiles();
-
-    for (const workflow of STARTER_WORKFLOWS) {
-      if (fs.existsSync(rootPath(workflow))) {
-        injectWorkflowSecrets(workflow, secretNames);
-      }
-    }
+    syncWorkflowSecrets(ROOT, secretNames);
   }
 
   await writeFormatted(
@@ -613,15 +504,21 @@ async function main(): Promise<void> {
     `${JSON.stringify(packageJson, null, 2)}\n`,
   );
 
+  const loginConfigured = Object.keys(frameworkConfig.roles).length > 0;
+
   console.log(`
 Setup complete for ${answers.appName}.
 
 Next steps:
-  1. cp .env.example .env   and fill in the credentials
-  2. npm run doctor
-  3. npm run test:starter
+  1. cp .env.example .env   (TEST_ENV is preset)
+  2. npm run doctor         (checks that the URLs are reachable)
+  3. ${
+    loginConfigured
+      ? "Add the role test accounts to .env and run npm run doctor again."
+      : "Configure login and roles, then write the first tests: follow docs/FIRST_TESTS_PROMPT.md with your AI tool (or by hand)."
+  }
   4. Write tests from the golden templates: .qa/templates/README.md
-${answers.installStarter ? ciInstructions(answers, secretNames) : ""}`);
+${answers.installStarter ? `\n${describeCiSettings(defaultEnvironment(answers), secretNames)}` : ""}`);
 }
 
 main().catch((error: unknown) => {

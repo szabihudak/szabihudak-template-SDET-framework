@@ -9,7 +9,6 @@
   "description": "Production-oriented Playwright + TypeScript test automation framework for API, UI, contract, Docker, and CI testing.",
   "scripts": {
     "test": "playwright test",
-    "test:starter": "playwright test --grep @starter",
     "test:list": "playwright test --list",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
@@ -22,6 +21,7 @@
     "lint:architecture": "tsx .qa/scripts/architecture.ts",
     "setup": "tsx .qa/scripts/setup.ts",
     "doctor": "tsx .qa/scripts/doctor.ts",
+    "qa:sync-ci-secrets": "tsx .qa/scripts/sync-ci-secrets.ts",
     "qa:templates:check": "tsx .qa/scripts/templates.ts check",
     "qa:templates:build": "tsx .qa/scripts/templates.ts build",
     "qa:templates:extract": "tsx .qa/scripts/templates.ts extract",

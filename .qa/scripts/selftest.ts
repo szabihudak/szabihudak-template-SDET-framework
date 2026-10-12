@@ -38,22 +38,32 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Self-test failed: ${message}`);
 }
 
-// Validates the workflows setup installed: parseable YAML, secrets injected for
-// each role, and the container image matching the installed Playwright version.
-function checkWorkflows(project: string, expectedPlan: string[]): void {
+function ciPlan(project: string): string {
+  return execSync("npx tsx .qa/scripts/ci-plan.ts", {
+    cwd: project,
+    env: { ...process.env, TEST_ENV: "selftest", GITHUB_OUTPUT: "" },
+  }).toString();
+}
+
+function assertPlan(project: string, expected: string[]): void {
+  const plan = ciPlan(project);
+
+  assert(
+    plan.includes(JSON.stringify(expected)),
+    `unexpected CI plan: ${plan.trim()}`,
+  );
+  console.log(`✔ CI plan is ${JSON.stringify(expected)}`);
+}
+
+// Validates the workflows setup installed: parseable YAML, the managed secrets
+// block listing exactly the expected secrets, and the container image matching
+// the installed Playwright version.
+function checkWorkflows(project: string, expectedSecrets: string[]): void {
   const read = (file: string) =>
     fs.readFileSync(path.join(project, file), "utf8");
   const playwrightVersion: string = JSON.parse(
     read("node_modules/@playwright/test/package.json"),
   ).version;
-  const roleSecrets = ["USER_USERNAME", "USER_PASSWORD"];
-
-  for (const file of [
-    ".github/workflows/playwright.yml",
-    ".github/workflows/performance.yml",
-  ]) {
-    assert(!read(file).includes("@qa:secrets"), `${file} still has a marker`);
-  }
 
   const functional = parse(read(".github/workflows/playwright.yml"));
   assert(
@@ -63,15 +73,34 @@ function checkWorkflows(project: string, expectedPlan: string[]): void {
   );
 
   const performance = parse(read(".github/workflows/performance.yml"));
+  const browserPerformanceEnv = performance.jobs["browser-performance"].env;
+  assert(
+    browserPerformanceEnv?.TEST_ENV === "${{ inputs.environment }}",
+    "browser-performance job does not select TEST_ENV",
+  );
 
-  for (const env of [
-    functional.jobs.tests.env,
-    performance.jobs["browser-performance"].env,
+  for (const [file, env] of [
+    [".github/workflows/playwright.yml", functional.jobs.tests.env],
+    [".github/workflows/performance.yml", browserPerformanceEnv],
   ]) {
-    for (const secret of roleSecrets) {
+    assert(
+      read(file).includes("# @qa:secrets:start") &&
+        read(file).includes("# @qa:secrets:end"),
+      `${file} lost its managed secrets markers`,
+    );
+
+    const secrets = Object.keys(env ?? {}).filter((name) =>
+      String(env[name]).startsWith("${{ secrets."),
+    );
+    assert(
+      JSON.stringify(secrets) === JSON.stringify(expectedSecrets),
+      `${file} injects ${JSON.stringify(secrets)}, expected ${JSON.stringify(expectedSecrets)}`,
+    );
+
+    for (const secret of expectedSecrets) {
       assert(
-        env?.[secret] === `\${{ secrets.${secret} }}`,
-        `workflow env is missing ${secret}`,
+        env[secret] === `\${{ secrets.${secret} }}`,
+        `${file} does not read ${secret} from secrets`,
       );
     }
   }
@@ -88,16 +117,72 @@ function checkWorkflows(project: string, expectedPlan: string[]): void {
     );
   }
 
-  const plan = execSync("npx tsx .qa/scripts/ci-plan.ts", {
-    cwd: project,
-    env: { ...process.env, TEST_ENV: "selftest", GITHUB_OUTPUT: "" },
-  }).toString();
-  assert(
-    plan.includes(JSON.stringify(expectedPlan)),
-    `unexpected CI plan: ${plan.trim()}`,
+  console.log(
+    `✔ generated workflows are valid (secrets: ${expectedSecrets.join(", ") || "none"})`,
+  );
+}
+
+// Renders golden templates the way a project uses them, so templates without a
+// canonical file (and their combination with the starter layer) are compiled.
+const RENDERED_TEMPLATES = [
+  "domain-constants",
+  "request-schema",
+  "update-request-schema",
+  "response-schema",
+  "api-client",
+  "factory",
+  "page-object",
+  "app-fixtures",
+];
+const RENDER_VALUES: Record<string, string> = {
+  __Domain__: "Item",
+  __domain__: "item",
+  __Domains__: "Items",
+  __domains__: "items",
+  __DOMAIN__: "ITEM",
+  __Page__: "Items",
+  __page__: "items",
+  __Component__: "ItemCard",
+};
+
+function renderTemplates(project: string): void {
+  const index: {
+    templates: { id: string; template: string; output: string }[];
+  } = JSON.parse(fs.readFileSync(path.join(ROOT, ".qa/index.json"), "utf8"));
+  const replaceTokens = (text: string) =>
+    Object.entries(RENDER_VALUES).reduce(
+      (result, [token, value]) => result.replaceAll(token, value),
+      text,
+    );
+
+  for (const id of RENDERED_TEMPLATES) {
+    const entry = index.templates.find((template) => template.id === id);
+    assert(entry, `template ${id} is not in .qa/index.json`);
+
+    const source = fs
+      .readFileSync(path.join(ROOT, entry.template), "utf8")
+      .replace(/^[ \t]*\/\/ @template\b.*(?:\r?\n|$)/gm, "");
+    const output = path.join(project, replaceTokens(entry.output));
+
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, replaceTokens(source));
+  }
+
+  console.log(`✔ rendered ${RENDERED_TEMPLATES.length} golden templates`);
+}
+
+// Login is configured after setup; adding a role and synchronising the CI
+// secrets is the step a project takes once its accounts exist.
+function addUserRole(project: string): void {
+  const configFile = path.join(project, "config/framework.config.ts");
+  const config = fs.readFileSync(configFile, "utf8");
+  const updated = config.replace(
+    /roles: \{\}/,
+    'roles: { user: { usernameEnv: "USER_USERNAME", passwordEnv: "USER_PASSWORD" } }',
   );
 
-  console.log("✔ generated workflows are valid");
+  assert(updated !== config, "generated config has no empty roles object");
+  fs.writeFileSync(configFile, updated);
 }
 
 async function waitForApp(url: string): Promise<void> {
@@ -116,24 +201,47 @@ async function waitForApp(url: string): Promise<void> {
 type Scenario = {
   name: string;
   answers: string;
-  expectedPlan: string[];
+  // Secrets the workflows inject right after setup.
+  secrets: string[];
+  // CI plan once the self-test login tests are in place; null runs the
+  // minimal flow instead (no tests, role added later, templates rendered).
+  plan: string[] | null;
   needsBrowser: boolean;
 };
 
+const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
+
 const SCENARIOS: Scenario[] = [
   {
-    name: "full (API + browser)",
+    name: "minimal (no login, no tests)",
+    answers: "answers-minimal.json",
+    secrets: [],
+    plan: null,
+    needsBrowser: false,
+  },
+  {
+    name: "login configured (API + browser)",
     answers: "answers.json",
-    expectedPlan: ["api", "accessibility", "chromium"],
+    secrets: ROLE_SECRETS,
+    plan: ["api", "accessibility", "chromium"],
     needsBrowser: true,
   },
   {
-    name: "API only",
+    name: "login configured (API only)",
     answers: "answers-api-only.json",
-    expectedPlan: ["api"],
+    secrets: ROLE_SECRETS,
+    plan: ["api"],
     needsBrowser: false,
   },
 ];
+
+function staticChecks(project: string, hasTests: boolean): void {
+  run("npx prettier --check .", project);
+  run("npx tsc --noEmit", project);
+  run("npx tsx .qa/scripts/architecture.ts", project);
+  run("npx tsx .qa/scripts/templates.ts check", project);
+  if (hasTests) run("npx playwright test --list", project);
+}
 
 async function runScenario(
   scenario: Scenario,
@@ -163,25 +271,54 @@ async function runScenario(
       );
     }
 
+    // tests/ai holds the framework's own AI module tests.
+    for (const directory of [
+      "tests/api",
+      "tests/smoke",
+      "tests/accessibility",
+    ]) {
+      assert(
+        !fs.existsSync(path.join(project, directory)),
+        `setup installed ${directory}; first tests are written from the golden templates`,
+      );
+    }
+
     // setup removes .qa/selftest from projects, so fixtures come from the template.
     fs.copyFileSync(
       path.join(ROOT, SELFTEST_DIR, "selftest.env"),
       path.join(project, ".env"),
     );
 
-    run("npx prettier --check .", project);
-    run("npx tsc --noEmit", project);
-    run("npx tsx .qa/scripts/architecture.ts", project);
-    run("npx tsx .qa/scripts/templates.ts check", project);
-    run("npx playwright test --list", project);
-    checkWorkflows(project, scenario.expectedPlan);
+    checkWorkflows(project, scenario.secrets);
+    assertPlan(project, []);
 
+    if (!scenario.plan) {
+      run("npx tsx .qa/scripts/doctor.ts", project);
+
+      addUserRole(project);
+      run("npx tsx .qa/scripts/sync-ci-secrets.ts", project);
+      checkWorkflows(project, ROLE_SECRETS);
+
+      renderTemplates(project);
+      run("npx prettier --write --log-level warn src config", project);
+      staticChecks(project, false);
+      return;
+    }
+
+    fs.cpSync(
+      path.join(ROOT, SELFTEST_DIR, "tests"),
+      path.join(project, "tests"),
+      { recursive: true },
+    );
+
+    staticChecks(project, true);
+    assertPlan(project, scenario.plan);
     run("npx tsx .qa/scripts/doctor.ts", project);
 
     if (scenario.needsBrowser && options.skipBrowser) {
-      console.log("Skipping starter tests: they need a browser.");
+      console.log("Skipping login tests: they need a browser.");
     } else {
-      run("npx playwright test --grep @starter --reporter=list", project);
+      run("npx playwright test --grep @selftest --reporter=list", project);
     }
   } finally {
     if (options.keep) {

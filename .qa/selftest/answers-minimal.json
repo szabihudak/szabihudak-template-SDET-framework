@@ -1,0 +1,22 @@
+{
+  "appName": "selftest-minimal-tests",
+  "environments": {
+    "selftest": {
+      "webBaseUrl": "http://localhost:4510",
+      "apiBaseUrl": "http://localhost:4510/api",
+      "allow": { "database": false, "destructive": false, "performance": false }
+    }
+  },
+  "modules": {
+    "api": true,
+    "ui": true,
+    "smoke": true,
+    "accessibility": true,
+    "database": false,
+    "visual": false,
+    "performance": false,
+    "ai": false
+  },
+  "browsers": ["chromium"],
+  "installStarter": true
+}

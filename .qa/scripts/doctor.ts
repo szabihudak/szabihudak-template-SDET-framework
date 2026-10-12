@@ -64,6 +64,12 @@ async function main(): Promise<void> {
     });
   }
 
+  if (Object.keys(config.roles).length === 0) {
+    console.log(
+      "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). See docs/FIRST_TESTS_PROMPT.md, step 1.",
+    );
+  }
+
   for (const role of Object.keys(config.roles)) {
     checks.push({
       name: `credentials for role "${role}" are set`,
@@ -143,7 +149,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log("\nAll checks passed. Next: npm run test:starter");
+  console.log(
+    "\nAll checks passed. Next: write tests from the golden templates (docs/FIRST_TESTS_PROMPT.md).",
+  );
 }
 
 main().catch((error: unknown) => {

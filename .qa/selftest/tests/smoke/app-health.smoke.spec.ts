@@ -1,6 +1,6 @@
 import { test, expect } from "../../src/app/fixtures/test-fixtures";
 
-test.describe("Application health", { tag: "@starter" }, () => {
+test.describe("Application health", { tag: "@selftest" }, () => {
   test("home page loads without server or console errors", async ({ page }) => {
     const serverErrors: string[] = [];
     const consoleErrors: string[] = [];

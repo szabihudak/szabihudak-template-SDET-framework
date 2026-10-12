@@ -14,7 +14,7 @@ type Rule = {
 };
 
 const ROOT = path.resolve(__dirname, "../..");
-const SOURCE_ROOTS = ["src", "tests", ".qa/starter"];
+const SOURCE_ROOTS = ["src", "tests", ".qa/starter", ".qa/selftest/tests"];
 const SOURCE_FILE = /\.(ts|js|mjs)$/;
 
 const inDirectory =
@@ -112,8 +112,9 @@ function main(): void {
 
   for (const file of files) {
     const lines = fs.readFileSync(path.join(ROOT, file), "utf8").split("\n");
-    // Starter files are checked as if they were already in their target place.
-    const logicalFile = file.replace(/^\.qa\/starter\//, "");
+    // Starter and self-test files are checked as if they were already in their
+    // target place.
+    const logicalFile = file.replace(/^\.qa\/(starter|selftest)\//, "");
 
     lines.forEach((line, index) => {
       if (isComment(line)) return;

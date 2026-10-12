@@ -4,7 +4,7 @@ import { getFrameworkConfig } from "../../src/framework/config/frameworkConfig";
 const { auth, roles } = getFrameworkConfig();
 
 for (const role of Object.keys(roles)) {
-  test.describe(`${role} role API authentication`, { tag: "@starter" }, () => {
+  test.describe(`${role} role API authentication`, { tag: "@selftest" }, () => {
     test("receives an API access token", async ({ apiTokenFor }) => {
       test.skip(auth.api.strategy === "none", "API authentication is disabled");
 

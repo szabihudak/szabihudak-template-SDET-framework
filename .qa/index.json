@@ -84,6 +84,14 @@
       "rules": "docs/TESTING_STANDARDS.md#mock-standard"
     },
     {
+      "id": "app-fixtures",
+      "need": "Application fixtures that provide API clients, Page Objects for a logged-in role and test-owned data with cleanup",
+      "template": ".qa/templates/fixtures/app-fixtures.template.ts",
+      "canonical": null,
+      "output": "src/app/fixtures/test-fixtures.ts",
+      "rules": "docs/TESTING_STANDARDS.md#fixture-standard"
+    },
+    {
       "id": "database-client",
       "need": "Domain-specific parameterized SQL and persisted record mapping",
       "template": ".qa/templates/database/database-client.template.ts",
