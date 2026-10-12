@@ -341,7 +341,14 @@ async function runScenario(
     ? workspace
     : path.join(workspace, "project");
   const answers = path.join(ROOT, SELFTEST_DIR, scenario.answers);
-  const env = { DATABASE_URL: scenario.plan ? "" : SELFTEST_DATABASE_URL };
+  // CI runners have no git identity; setup commits the new project with it.
+  const env = {
+    DATABASE_URL: scenario.plan ? "" : SELFTEST_DATABASE_URL,
+    GIT_AUTHOR_NAME: "Template Self-Test",
+    GIT_AUTHOR_EMAIL: "selftest@example.com",
+    GIT_COMMITTER_NAME: "Template Self-Test",
+    GIT_COMMITTER_EMAIL: "selftest@example.com",
+  };
 
   try {
     if (scenario.inPlace) {
