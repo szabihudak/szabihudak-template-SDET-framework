@@ -368,7 +368,7 @@ function checkNextSteps(): void {
       tools: { copilot: false, claude: false },
       expected: [
         "Open the project in your IDE",
-        "framework/docs/FIRST_TESTS_PROMPT.md",
+        "framework/prompts/first-tests.md",
       ],
     },
   ];
@@ -483,7 +483,7 @@ async function checkInstaller(project: string): Promise<void> {
       "| - Dijkstra |",
       "👉 The installer is done. Continue in your IDE:",
       "1. npm run onboard (adds the test account to .env)",
-      "3. Give your AI tool framework/docs/FIRST_TESTS_PROMPT.md",
+      "3. Give your AI tool framework/prompts/first-tests.md",
     ]) {
       assert(
         terminal.output.includes(expected),

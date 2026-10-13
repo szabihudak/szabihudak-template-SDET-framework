@@ -79,7 +79,7 @@ async function main(): Promise<void> {
 
   if (Object.keys(config.roles).length === 0) {
     console.log(
-      "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). See framework/docs/FIRST_TESTS_PROMPT.md, step 1.",
+      "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). /first-tests proposes it (framework/prompts/first-tests.md).",
     );
   } else if (
     config.auth.api.strategy === "none" &&
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   ) {
     // npm run onboard adds the role before /first-tests configures the login.
     console.log(
-      "ℹ The login method is not configured yet (auth in config/framework.config.ts), so the test account cannot be tried. See framework/docs/FIRST_TESTS_PROMPT.md, step 1.",
+      "ℹ The login method is not configured yet (auth in config/framework.config.ts), so the test account cannot be tried. /first-tests proposes it (framework/prompts/first-tests.md).",
     );
   }
 
@@ -179,7 +179,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `\nAll checks passed${warnings > 0 ? ` with ${warnings} warning(s)` : ""}. Next: write tests from the golden templates (framework/docs/FIRST_TESTS_PROMPT.md).`,
+    `\nAll checks passed${warnings > 0 ? ` with ${warnings} warning(s)` : ""}. Next: /first-tests, or write tests from the golden templates (framework/prompts/first-tests.md).`,
   );
 }
 

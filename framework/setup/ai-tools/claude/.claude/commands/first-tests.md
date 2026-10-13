@@ -1,10 +1,9 @@
 ---
-description: Configure login and write the first tests from the golden templates
+description: Propose the login setup and the first tests (read-only)
 argument-hint: "[optional hints: UI flow, API resource, API contract URL]"
+disallowed-tools: Edit Write NotebookEdit
 ---
 
-Read `framework/docs/FIRST_TESTS_PROMPT.md` and follow the prompt block in it, step by step, with its stops for human review.
+Run phases 1 and 2 of @framework/prompts/first-tests.md under the rules in @AGENTS.md. Do not change any file. Stop after the proposal.
 
-Optional hints from the user: $ARGUMENTS
-
-Gather the application context yourself in step 0 and ask only for what you could not find. Never ask for, write or log credentials.
+Hints from the user: $ARGUMENTS

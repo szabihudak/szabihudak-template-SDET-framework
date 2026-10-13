@@ -139,6 +139,7 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/templates/index.json",
     "framework/tools/doctor.ts",
     "framework/docs/TESTING_STANDARDS.md",
+    "framework/prompts/first-tests.md",
     "src/fixtures/test-fixtures.ts",
     "config/approved-examples.json",
     "AGENTS.md",
@@ -388,11 +389,13 @@ const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
 const COPILOT_FILES = [
   ".github/copilot-instructions.md",
   ".github/prompts/first-tests.prompt.md",
+  ".github/prompts/first-tests-build.prompt.md",
   ".vscode/mcp.json",
 ];
 const CLAUDE_FILES = [
   "CLAUDE.md",
   ".claude/commands/first-tests.md",
+  ".claude/commands/first-tests-build.md",
   ".mcp.json",
 ];
 // The minimal scenario enables database tests without an environment that

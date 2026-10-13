@@ -261,7 +261,7 @@ The assistant should not immediately modify files.
 
 ## Test Generation Prompt
 
-The test generation prompt is `framework/docs/FIRST_TESTS_PROMPT.md`, run as `/first-tests` in Copilot or Claude Code. It reads the project context and the architecture and testing standards, proposes before it implements, starts every file from a golden example and validates the result.
+The test generation prompt is `framework/prompts/first-tests.md`, run in Copilot or Claude Code as two commands: `/first-tests` discovers the project context and proposes the login setup and the tests without changing files (the edit tools are disabled for it), and `/first-tests-build` implements the approved proposal from the golden examples and validates it. Both commands include `AGENTS.md` and the prompt file directly, so the rules are always in context.
 
 For later tests, follow the same steps with the project's approved examples (`config/approved-examples.json`) as the first reference.
 
