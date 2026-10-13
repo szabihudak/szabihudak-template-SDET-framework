@@ -939,6 +939,32 @@ function displayPath(target: string): string {
   return relative.startsWith(`..${path.sep}..`) ? target : relative || ".";
 }
 
+// The punk robot, for a terminal only: CI logs and the self-test stay clean.
+// install.sh prints it first and sets QA_BANNER_SHOWN.
+function printBanner(): void {
+  if (!process.stdout.isTTY || process.env.QA_BANNER_SHOWN) return;
+
+  const lines = fs
+    .readFileSync(templatePath("framework/setup/banner.txt"), "utf8")
+    .trimEnd()
+    .split(/\r?\n/);
+  const color = !process.env.NO_COLOR && process.stdout.hasColors();
+  const style = (code: number, line: string) =>
+    color ? `\x1b[${code}m${line}\x1b[0m` : line;
+
+  console.log(
+    lines
+      .map((line, index) =>
+        index < 3
+          ? style(35, line)
+          : line.includes("SDET FRAMEWORK")
+            ? style(1, line)
+            : line,
+      )
+      .join("\n"),
+  );
+}
+
 function option(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
 
@@ -950,6 +976,7 @@ async function main(): Promise<void> {
   const answersFile = option(args, "--answers");
   const inPlace = args.includes("--in-place");
 
+  printBanner();
   assertSupportedNode();
   if (inPlace) assertCleanWorkingTree(args.includes("--force"));
 
