@@ -77,7 +77,8 @@ framework/       template-owned; replaced as a whole on a template update
   core/          the framework itself, imported as @framework/...
   templates/     golden templates and their catalogue (index.json)
   tools/         doctor, lint, ci-plan, sync-ci-secrets
-  docs/          standards, architecture, first-tests prompt, ADRs
+  prompts/       first-tests task, run by /first-tests and /first-tests-build
+  docs/          standards, architecture, ADRs
 src/             project-owned application layer, imported as @app/...
 tests/           project-owned specs
 config/          project-owned configuration and approved examples

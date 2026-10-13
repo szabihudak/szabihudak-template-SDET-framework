@@ -47,7 +47,8 @@ framework/            template-owned (see ADR-007)
   templates/          golden templates, catalogue (index.json), roundtrip/ values for the UPEX check
   tools/              setup, doctor, ci-plan, architecture and template checks
   setup/              starter files, AI tool files, self-test (not copied to projects)
-  docs/               architecture, standards, prompts, ADRs
+  prompts/            first-tests task for /first-tests and /first-tests-build
+  docs/               architecture, standards, ADRs
 
 src/                  application layer, imported as @app/... (UPEX reference here)
   api/  clients/  constants/  models/  schemas/

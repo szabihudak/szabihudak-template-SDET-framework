@@ -424,7 +424,7 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   if (Object.keys(config.roles).length === 0) {
     lines.push(
       "# Test accounts: add one USERNAME/PASSWORD pair per role after configuring",
-      "# login and roles (framework/docs/FIRST_TESTS_PROMPT.md, step 1).",
+      "# login and roles (/first-tests, framework/prompts/first-tests.md).",
     );
   }
 
@@ -791,7 +791,7 @@ function buildReadme(answers: Answers, config: FrameworkConfig): string {
     copilot: "run `/first-tests` in GitHub Copilot Chat (agent mode)",
     claude: "run `/first-tests` in Claude Code",
     both: "run `/first-tests` in GitHub Copilot Chat (agent mode) or Claude Code",
-    none: "give your AI tool the prompt in [framework/docs/FIRST_TESTS_PROMPT.md](framework/docs/FIRST_TESTS_PROMPT.md), or follow it by hand",
+    none: "give your AI tool [framework/prompts/first-tests.md](framework/prompts/first-tests.md), or follow it by hand",
   }[answers.aiTools ?? "none"];
   const scripts = Object.entries(testScripts(config));
   const width = Math.max(
@@ -815,7 +815,7 @@ Playwright tests created from the SDET framework template.
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
 2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
-3. Configure login and write the first tests: ${firstTests}. The AI proposes the login setup and the tests and waits for your approval at each step ([framework/docs/FIRST_TESTS_PROMPT.md](framework/docs/FIRST_TESTS_PROMPT.md)).
+3. Configure login and write the first tests: ${firstTests}. The AI proposes the login setup and the tests without changing files; after you approve, \`/first-tests-build\` implements and validates them ([framework/prompts/first-tests.md](framework/prompts/first-tests.md)).
 4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
 5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
 
@@ -1091,7 +1091,7 @@ async function main(): Promise<void> {
     copilot: "run /first-tests in GitHub Copilot Chat (agent mode)",
     claude: "run /first-tests in Claude Code",
     both: "run /first-tests in GitHub Copilot Chat (agent mode) or Claude Code",
-    none: "follow framework/docs/FIRST_TESTS_PROMPT.md with your AI tool or by hand",
+    none: "give your AI tool framework/prompts/first-tests.md, or follow it by hand",
   }[aiTools];
   const steps = [
     ...(inPlace ? [] : [`cd ${displayPath(project)}`]),

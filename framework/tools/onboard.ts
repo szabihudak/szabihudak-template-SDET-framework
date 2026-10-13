@@ -46,7 +46,7 @@ function firstTestsCommand(): string {
   }
   if (claude) return "run /first-tests in Claude Code";
   if (copilot) return "run /first-tests in GitHub Copilot Chat (agent mode)";
-  return "follow framework/docs/FIRST_TESTS_PROMPT.md with your AI tool";
+  return "give your AI tool framework/prompts/first-tests.md";
 }
 
 function laterInstructions(roles: Role[]): string {

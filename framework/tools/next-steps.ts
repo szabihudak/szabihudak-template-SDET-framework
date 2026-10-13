@@ -90,7 +90,7 @@ function aiToolSteps({ tools, mcp }: ProjectState): string[] {
   }
   return [
     "Open the project in your IDE",
-    "Give your AI tool framework/docs/FIRST_TESTS_PROMPT.md, or follow it by hand",
+    "Give your AI tool framework/prompts/first-tests.md, or follow it by hand",
   ];
 }
 
@@ -132,8 +132,15 @@ export function nextSteps(options: FinishOptions, mark = "->"): string[] {
     `${mark} The installer is done. Continue in your IDE:`,
     ...steps.map((step, index) => `   ${index + 1}. ${step}`),
     "",
-    `${options.tools.copilot || options.tools.claude ? "/first-tests" : "The prompt"} configures the login, checks it with npm run doctor and`,
-    "proposes the first tests. It waits for your approval before writing them.",
+    ...(options.tools.copilot || options.tools.claude
+      ? [
+          "/first-tests proposes the login setup and the first tests without changing",
+          "files. After you approve, /first-tests-build implements and validates them.",
+        ]
+      : [
+          "The prompt proposes the login setup and the first tests, and waits for your",
+          "approval before writing them.",
+        ]),
     ...(options.testScripts?.length
       ? [
           "",

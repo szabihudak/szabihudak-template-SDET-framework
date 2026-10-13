@@ -1,7 +1,19 @@
 ---
-description: Configure login and write the first tests from the golden templates
+description: Propose the login setup and the first tests (read-only)
+argument-hint: "[optional hints: UI flow, API resource, API contract URL]"
+agent: agent
+tools:
+  [
+    "read",
+    "search",
+    "execute",
+    "web",
+    "vscode/askQuestions",
+    "playwright/*",
+    "openapi/*",
+  ]
 ---
 
-Read [framework/docs/FIRST_TESTS_PROMPT.md](../../framework/docs/FIRST_TESTS_PROMPT.md) and follow the prompt block in it, step by step, with its stops for human review.
+Run phases 1 and 2 of [framework/prompts/first-tests.md](../../framework/prompts/first-tests.md) under the rules in [AGENTS.md](../../AGENTS.md). Do not change any file. Stop after the proposal.
 
-Treat anything the user wrote after the command as optional hints. Gather the application context yourself in step 0 and ask only for what you could not find. Never ask for, write or log credentials.
+Treat anything the user wrote after the command as hints.
