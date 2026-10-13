@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { categoryScriptNames } from "./test-scripts";
+
 // What the installer tells the user to do once it is done: the rest happens
 // in their IDE, so the steps follow the AI tools setup installed.
 
@@ -11,6 +13,8 @@ export type ProjectState = {
   tools: AiTools;
   // MCP server names from .vscode/mcp.json and .mcp.json.
   mcp: { vscode: string[]; claude: string[] };
+  // Category scripts from package.json (test:api, test:ui, test:chromium...).
+  testScripts?: string[];
 };
 
 export type FinishOptions = ProjectState & {
@@ -43,6 +47,10 @@ export function readProjectState(root: string): ProjectState {
       vscode: mcpServerNames(path.join(root, ".vscode/mcp.json"), "servers"),
       claude: mcpServerNames(path.join(root, ".mcp.json"), "mcpServers"),
     },
+    testScripts: categoryScriptNames(
+      JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
+        .scripts ?? {},
+    ),
   };
 }
 
@@ -106,5 +114,12 @@ export function nextSteps(options: FinishOptions): string[] {
     "",
     `${options.tools.copilot || options.tools.claude ? "/first-tests" : "The prompt"} configures the login, checks it with npm run doctor and`,
     "proposes the first tests. It waits for your approval before writing them.",
+    ...(options.testScripts?.length
+      ? [
+          "",
+          "Run one test category: npm run <script>",
+          `   ${options.testScripts.join(", ")}`,
+        ]
+      : []),
   ];
 }

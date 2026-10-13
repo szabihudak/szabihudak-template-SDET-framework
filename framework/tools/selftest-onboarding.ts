@@ -406,6 +406,18 @@ function checkNextSteps(): void {
       !failed.includes("cd "),
     `a failed doctor and an incomplete account are not the first steps:\n${failed}`,
   );
+  const categories = nextSteps({
+    tools: { copilot: true, claude: false },
+    mcp: { vscode: [], claude: [] },
+    testScripts: ["test:api", "test:chromium"],
+    onboarding: "done",
+    doctorOk: true,
+  }).join("\n");
+  assert(
+    categories.includes("Run one test category: npm run <script>") &&
+      categories.includes("test:api, test:chromium"),
+    `the next steps do not name the category scripts:\n${categories}`,
+  );
   console.log(
     "✔ installer: next steps for Copilot, Claude Code, both and none, with stage 2 done, skipped or incomplete",
   );
