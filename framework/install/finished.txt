@@ -1,0 +1,8 @@
+  +==========================================+
+  |   [x]  INSTALLER FINISHED                |
+  |        SDET FRAMEWORK is ready to use    |
+  |                                          |
+  |   "Program testing can show the presence |
+  |    of bugs, never their absence."        |
+  |                            - Dijkstra    |
+  +==========================================+

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { nextSteps, type Onboarding } from "./next-steps";
 import { readEnvValues } from "./onboarding";
 
 // Stage 2 of the installer (npm run onboard) and the installer's stage
@@ -329,6 +330,87 @@ exec ${shellQuote(npx)} "$@"
   return bin;
 }
 
+// The closing steps for every AI tool choice, with stage 2 done or skipped.
+function checkNextSteps(): void {
+  const mcp = { vscode: ["playwright", "openapi"], claude: ["playwright"] };
+  const cases = [
+    {
+      tools: { copilot: true, claude: false },
+      expected: [
+        "code .",
+        "Start the MCP servers when VS Code asks (playwright, openapi)",
+        "Copilot Chat -> Agent mode -> /first-tests",
+      ],
+    },
+    {
+      tools: { copilot: false, claude: true },
+      expected: [
+        "claude",
+        "Approve the MCP servers when Claude Code asks (playwright)",
+        ". /first-tests",
+      ],
+    },
+    {
+      tools: { copilot: true, claude: true },
+      expected: [
+        "code . (VS Code with Copilot) or claude (Claude Code)",
+        "(playwright, openapi)",
+        "Copilot Chat -> Agent mode, or the Claude Code prompt",
+      ],
+    },
+    {
+      tools: { copilot: false, claude: false },
+      expected: [
+        "Open the project in your IDE",
+        "framework/docs/FIRST_TESTS_PROMPT.md",
+      ],
+    },
+  ];
+
+  for (const { tools, expected } of cases) {
+    for (const onboarding of ["skipped", "done"] as Onboarding[]) {
+      const steps = nextSteps({
+        tools,
+        mcp,
+        onboarding,
+        doctorOk: true,
+        cd: "../my-project",
+      });
+      const text = steps.join("\n");
+      const label = `${JSON.stringify(tools)} with stage 2 ${onboarding}`;
+
+      assert(
+        steps[1] === "   1. cd ../my-project",
+        `${label}: the first step is not cd:\n${text}`,
+      );
+      assert(
+        text.includes("2. npm run onboard") === (onboarding === "skipped"),
+        `${label}: npm run onboard ${onboarding === "skipped" ? "is not step 2" : "is listed"}:\n${text}`,
+      );
+      for (const line of expected) {
+        assert(text.includes(line), `${label}: "${line}" is missing:\n${text}`);
+      }
+    }
+  }
+
+  const failed = nextSteps({
+    tools: { copilot: true, claude: false },
+    mcp: { vscode: [], claude: [] },
+    onboarding: "incomplete",
+    doctorOk: false,
+  }).join("\n");
+  assert(
+    failed.includes("1. Fix what npm run doctor reported") &&
+      failed.includes("2. Fill in the empty values in .env") &&
+      !failed.includes("Start the MCP servers") &&
+      !failed.includes("cd "),
+    `a failed doctor and an incomplete account are not the first steps:\n${failed}`,
+  );
+  console.log(
+    "✔ installer: next steps for Copilot, Claude Code, both and none, with stage 2 done, skipped or incomplete",
+  );
+}
+
 async function checkInstaller(project: string): Promise<void> {
   const bin = stubTools(project);
   const env = { PATH: `${bin}:${process.env.PATH}` };
@@ -355,9 +437,17 @@ async function checkInstaller(project: string): Promise<void> {
       "[>] Stage 1: Framework setup ====> [ ] Stage 2: First tests (optional)",
       "| [x] project | -> | [x] install | -> | [x] browsers | -> | doctor |",
       "[x] Stage 1: Framework setup ====> [>] Stage 2: First tests (optional)",
-      "| test account | -> | /first-tests (AI) | -> | review & run |",
+      " INSTALLER | NEXT: IN YOUR IDE",
+      "| test account | | | /first-tests | -> | review & run |",
       "[x] Stage 1 Framework setup done",
       "[-] Stage 2 First tests skipped -> run: npm run onboard",
+      "| [x] INSTALLER FINISHED |",
+      '| "Program testing can show the presence |',
+      '| of bugs, never their absence." |',
+      "| - Dijkstra |",
+      "The installer is done. Continue in your IDE:",
+      "1. npm run onboard (adds the test account to .env)",
+      "3. Give your AI tool framework/docs/FIRST_TESTS_PROMPT.md",
     ]) {
       assert(
         terminal.output.includes(expected),
@@ -368,6 +458,43 @@ async function checkInstaller(project: string): Promise<void> {
       /\+=+\+ +\+-+\+/.test(terminal.output),
       "install.sh did not highlight the current step",
     );
+
+    const filled = await interact(
+      "bash install.sh",
+      project,
+      [
+        {
+          expect: "Set up the test account for the first tests now?",
+          send: ENTER,
+        },
+        { expect: "username or email", send: `qa-user@example.com${ENTER}` },
+        { expect: "password", send: `${PASSWORD}${ENTER}` },
+      ],
+      env,
+    );
+
+    assert(
+      filled.code === 0,
+      `install.sh with a test account exited with ${filled.code}:\n${filled.output}`,
+    );
+    for (const expected of [
+      // /first-tests relies on this doctor line to find the account in .env.
+      '✔ credentials for role "user" are set',
+      "| [x] test account | | | /first-tests | -> | review & run |",
+      "[x] Stage 2 First tests test account in .env -> next: /first-tests",
+      "| [x] INSTALLER FINISHED |",
+      "1. Open the project in your IDE",
+    ]) {
+      assert(
+        filled.output.includes(expected),
+        `install.sh with a test account did not show "${expected}":\n${filled.output}`,
+      );
+    }
+    assert(
+      !filled.output.includes("npm run onboard (adds"),
+      "install.sh asked for npm run onboard after the account was entered",
+    );
+    assert(!filled.output.includes(PASSWORD), "install.sh showed the password");
 
     const unattended = execSync("bash install.sh < /dev/null 2>&1", {
       cwd: project,
@@ -385,15 +512,26 @@ async function checkInstaller(project: string): Promise<void> {
       "install.sh without a terminal printed no summary",
     );
     assert(
-      !unattended.includes("+===") && !unattended.includes("STAGE 1"),
+      !unattended.includes("+===") &&
+        !unattended.includes("STAGE 1") &&
+        !unattended.includes("NEXT: IN YOUR IDE"),
       "install.sh drew the stage figures without a terminal",
+    );
+    assert(
+      !unattended.includes("INSTALLER FINISHED") &&
+        !unattended.includes("Dijkstra"),
+      "install.sh drew the finish box without a terminal",
+    );
+    assert(
+      /Continue in your IDE:\n\s+1\. npm run onboard/.test(unattended),
+      "install.sh without a terminal did not list the next steps",
     );
     assert(
       !unattended.includes("Set up the test account"),
       "install.sh prompted without a terminal",
     );
     console.log(
-      "✔ installer: stage overview, step flows and summary on a terminal; plain stage names without one",
+      "✔ installer: stage overview, split stage 2 flow, finish box and next steps on a terminal; plain stage names and next steps without one",
     );
   } finally {
     fs.rmSync(bin, { recursive: true, force: true });
@@ -423,6 +561,8 @@ export async function checkOnboardingFlows(project: string): Promise<void> {
     restore();
     fs.rmSync(result, { force: true });
   }
+
+  checkNextSteps();
 
   try {
     await checkInstaller(project);
