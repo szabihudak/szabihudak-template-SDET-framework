@@ -1,4 +1,6 @@
-# AI-Assisted QA Workflow
+# AI-Assisted QA Validation
+
+> Historical record of the proofs of concept that validated the AI-assisted workflow against the UPEX reference implementation. The rules agents follow are in `AGENTS.md`; the decision and a summary of these results are in `framework/docs/adr/ADR-008-ai-assisted-engineering.md`. Prompts below name the documents and file locations that applied when each run was made. This folder is not copied into projects.
 
 ## Purpose
 
@@ -161,15 +163,9 @@ Failure analysis is advisory. The agent does not change test expectations, weake
 
 AI-assisted implementation must be grounded in repository-owned engineering context.
 
-Before proposing or modifying code, the AI assistant must read and follow:
+Before proposing or modifying code, the AI assistant follows `AGENTS.md`. It names what to read for each kind of change: the approved examples, the golden template catalogue and the `TESTING_STANDARDS.md` section each template links to for a change that follows a golden pattern, and additionally `ARCHITECTURE.md`, the relevant standards and the ADRs for a change without a golden pattern or to the architecture itself. In a project set up for them, Claude Code loads `AGENTS.md` through `CLAUDE.md` and Copilot through `.github/copilot-instructions.md`.
 
-```text
-.github/copilot-instructions.md
-AGENTS.md
-framework/docs/ARCHITECTURE.md
-framework/docs/TESTING_STANDARDS.md
-relevant ADRs
-```
+The prompts recorded in the validation examples below name the documents that were required when each example was run.
 
 The assistant must also inspect existing implementations analogous to the requested change.
 
@@ -1425,7 +1421,7 @@ targeted test execution
 
 Broader affected regression should run when the change affects shared behavior.
 
-Repository-specific validation rules in `framework/docs/TESTING_STANDARDS.md` remain authoritative.
+The validation commands in `AGENTS.md` remain authoritative.
 
 ## Commit Gate
 

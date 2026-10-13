@@ -57,7 +57,7 @@
       "template": "framework/templates/data/factory.template.ts",
       "canonical": "src/data/taskFactory.ts",
       "output": "src/data/__domain__Factory.ts",
-      "rules": "framework/docs/TESTING_STANDARDS.md#canonical-factory-and-payload-pattern"
+      "rules": "framework/docs/TESTING_STANDARDS.md#factory-standard"
     },
     {
       "id": "page-object",

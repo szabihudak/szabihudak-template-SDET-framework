@@ -9,6 +9,9 @@ export class TasksDashboardPage {
   readonly newTaskButton: Locator;
   readonly taskTitleInput: Locator;
   readonly createTaskButton: Locator;
+  readonly editMenuItem: Locator;
+  readonly priorityCombobox: Locator;
+  readonly saveChangesButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -21,6 +24,9 @@ export class TasksDashboardPage {
     this.createTaskButton = page.getByRole("button", {
       name: "Create Task",
     });
+    this.editMenuItem = page.getByRole("menuitem", { name: "Edit" });
+    this.priorityCombobox = page.getByRole("combobox", { name: "Priority" });
+    this.saveChangesButton = page.getByRole("button", { name: "Save Changes" });
   }
 
   async goto(): Promise<void> {
@@ -39,15 +45,21 @@ export class TasksDashboardPage {
     taskId: string,
     priority: TaskPriority,
   ): Promise<void> {
-    await this.page.getByTestId(`task-menu-${taskId}`).click();
-    await this.page.getByRole("menuitem", { name: "Edit" }).click();
-    await this.page.getByRole("combobox", { name: "Priority" }).click();
-    await this.page
-      .getByRole("option", {
-        name: priority.charAt(0).toUpperCase() + priority.slice(1),
-      })
-      .click();
-    await this.page.getByRole("button", { name: "Save Changes" }).click();
+    await this.taskMenuButton(taskId).click();
+    await this.editMenuItem.click();
+    await this.priorityCombobox.click();
+    await this.priorityOption(priority).click();
+    await this.saveChangesButton.click();
+  }
+
+  taskMenuButton(taskId: string): Locator {
+    return this.page.getByTestId(`task-menu-${taskId}`);
+  }
+
+  priorityOption(priority: TaskPriority): Locator {
+    return this.page.getByRole("option", {
+      name: priority.charAt(0).toUpperCase() + priority.slice(1),
+    });
   }
 
   taskCardByTitle(title: string): Locator {
