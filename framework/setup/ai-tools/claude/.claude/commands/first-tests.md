@@ -4,6 +4,6 @@ argument-hint: "[optional hints: UI flow, API resource, API contract URL]"
 disallowed-tools: Edit Write NotebookEdit
 ---
 
-Run phases 1 and 2 of @framework/prompts/first-tests.md under the rules in @AGENTS.md. Do not change any file. Stop after the proposal.
+Run phases 1 and 2 of @framework/prompts/first-tests.md. Do not change any file. Stop after the proposal.
 
 Hints from the user: $ARGUMENTS

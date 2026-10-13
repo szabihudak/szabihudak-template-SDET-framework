@@ -135,7 +135,7 @@ Enforced by review: test intent, golden-template choice, realistic mocks, no inv
 
 ## AI-Assisted Engineering
 
-The framework has no AI provider integration (ADR-007). Coding agents follow `AGENTS.md`; in a project set up for them, Claude Code loads it through `CLAUDE.md` and Copilot through `.github/copilot-instructions.md`. `/first-tests` proposes without changing files and `/first-tests-build` implements after approval; both include `AGENTS.md` and `framework/prompts/first-tests.md` directly. Repository rules decide structure; OpenAPI and Playwright MCP provide evidence about the application, never architecture. ADR-008 records the decision and the validation behind it.
+The framework has no AI provider integration (ADR-007). Coding agents follow `AGENTS.md`; in a project set up for them, Claude Code loads it through `CLAUDE.md` and Copilot through `.github/copilot-instructions.md`. `/first-tests` proposes without changing files and `/first-tests-build` implements after approval; both run the task in `framework/prompts/first-tests.md`, with `AGENTS.md` in context (loaded through `CLAUDE.md` in Claude Code, linked from the prompt in Copilot). Repository rules decide structure; OpenAPI and Playwright MCP provide evidence about the application, never architecture. ADR-008 records the decision and the validation behind it.
 
 ## Known Gaps
 
