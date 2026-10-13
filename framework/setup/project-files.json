@@ -18,7 +18,8 @@
   "templateOnly": [
     "framework/setup",
     "framework/tools/setup.ts",
-    "framework/tools/selftest.ts"
+    "framework/tools/selftest.ts",
+    "framework/tools/selftest-onboarding.ts"
   ],
   "scripts": ["setup", "db:test:reset", "qa:selftest"],
   "performance": {

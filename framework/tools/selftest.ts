@@ -12,6 +12,7 @@ import {
   readEnvValues,
   setEnvValues,
 } from "./onboarding";
+import { checkOnboardingFlows } from "./selftest-onboarding";
 
 const ROOT = path.resolve(__dirname, "../..");
 const SELFTEST_DIR = "framework/setup/selftest";
@@ -303,27 +304,8 @@ function renderTemplates(project: string): void {
   console.log(`✔ rendered ${RENDERED_TEMPLATES.length} golden templates`);
 }
 
-// Stage 2 (npm run onboard) asks nothing without a terminal and changes
-// nothing; the role and .env helpers it uses are checked directly.
-function checkOnboarding(project: string): void {
-  const configFile = path.join(project, "config/framework.config.ts");
-  const config = fs.readFileSync(configFile, "utf8");
-  const resultFile = path.join(project, "onboard-result");
-
-  run("npx tsx framework/tools/onboard.ts", project, {
-    QA_NONINTERACTIVE: "1",
-    QA_ONBOARD_RESULT: resultFile,
-  });
-  assert(
-    fs.readFileSync(resultFile, "utf8") === "skipped",
-    "unattended onboarding did not report skipped",
-  );
-  assert(
-    fs.readFileSync(configFile, "utf8") === config,
-    "unattended onboarding changed the config",
-  );
-  fs.rmSync(resultFile);
-
+// Values npm run onboard writes must read back unchanged from .env.
+function checkEnvQuoting(): void {
   const envFile = path.join(os.tmpdir(), `qa-selftest-env-${process.pid}`);
   const values = {
     USER_USERNAME: "qa+user@example.com",
@@ -518,7 +500,8 @@ async function runScenario(
     if (!scenario.plan) {
       run("npx tsx framework/tools/doctor.ts", project);
 
-      checkOnboarding(project);
+      checkEnvQuoting();
+      await checkOnboardingFlows(project);
       addUserRole(project);
       run("npx tsx framework/tools/sync-ci-secrets.ts", project);
       checkWorkflows(project, [...ROLE_SECRETS, "DATABASE_URL"]);
