@@ -1,16 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { nextSteps, type Onboarding, readProjectState } from "./next-steps";
+import {
+  cdTarget,
+  nextSteps,
+  type Onboarding,
+  readProjectState,
+} from "./next-steps";
 
 // The installer's last words: the finish box from framework/install (on a
 // terminal only, like the banner) and what to do next in the IDE.
 //
-// install.sh runs it as: finish.ts <onboarding outcome> <doctor ok: 1|0> [<cd path>]
+// install.sh runs it as:
+//   finish.ts <onboarding outcome> <doctor ok: 1|0> <start folder> [<project folder>]
 // with QA_COLOR=1 for color and QA_EMOJI=1 for emoji marks, decided there.
 
 const ROOT = path.resolve(__dirname, "../..");
-const [onboarding = "skipped", doctor = "1", cd] = process.argv.slice(2);
+const [onboarding = "skipped", doctor = "1", start = "", project = ""] =
+  process.argv.slice(2);
 const color = process.env.QA_COLOR === "1";
 const emoji = process.env.QA_EMOJI === "1";
 
@@ -63,7 +70,7 @@ console.log(
       ...readProjectState(ROOT),
       onboarding: onboarding as Onboarding,
       doctorOk: doctor === "1",
-      cd: cd || undefined,
+      cd: project ? cdTarget(start, project) : undefined,
     },
     emoji ? "👉" : "->",
   ).join("\n"),

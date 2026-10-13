@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { nextSteps, type Onboarding } from "./next-steps";
+import { cdTarget, nextSteps, type Onboarding } from "./next-steps";
 import { readEnvValues } from "./onboarding";
 
 // Stage 2 of the installer (npm run onboard) and the installer's stage
@@ -412,8 +412,22 @@ function checkNextSteps(): void {
       !failed.includes("cd "),
     `a failed doctor and an incomplete account are not the first steps:\n${failed}`,
   );
+  for (const [start, project, expected] of [
+    ["/work/template", "/work/my-tests", "../my-tests"],
+    ["/work", "/work/my-tests", "my-tests"],
+    ["/home/qa", "/work/projects/my-tests", "/work/projects/my-tests"],
+    ["/home/qa", "/work/my tests", '"/work/my tests"'],
+    ["/work/my-tests", "/work/my-tests", undefined],
+  ] as const) {
+    const target = cdTarget(start, project);
+    assert(
+      target === expected,
+      `from ${start} to ${project} the cd step is ${target}, not ${expected}`,
+    );
+  }
+
   console.log(
-    "✔ installer: next steps for Copilot, Claude Code, both and none, with stage 2 done, skipped or incomplete",
+    "✔ installer: next steps for Copilot, Claude Code, both and none, with stage 2 done, skipped or incomplete; cd by project name next to the template, else the absolute path",
   );
 }
 

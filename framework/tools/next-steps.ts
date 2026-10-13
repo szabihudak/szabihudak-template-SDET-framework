@@ -86,6 +86,25 @@ function aiToolSteps({ tools, mcp }: ProjectState): string[] {
   ];
 }
 
+const shellWord = (text: string) =>
+  /^[\w@%+=:,./~-]+$/.test(text)
+    ? text
+    : `"${text.replace(/(["\\$`])/g, "\\$1")}"`;
+
+// What to cd to from the folder the installer was started in: the project's
+// name when it is in that folder, ../<name> next to it (the default: next to
+// the template), otherwise the absolute path. Undefined when already there.
+export function cdTarget(start: string, project: string): string | undefined {
+  const from = path.resolve(start);
+  const to = path.resolve(project);
+  const name = path.basename(to);
+
+  if (from === to) return undefined;
+  if (path.dirname(to) === from) return shellWord(name);
+  if (path.dirname(to) === path.dirname(from)) return shellWord(`../${name}`);
+  return shellWord(to);
+}
+
 // mark leads the heading: an emoji on terminals that show one, else ASCII.
 export function nextSteps(options: FinishOptions, mark = "->"): string[] {
   const steps = [

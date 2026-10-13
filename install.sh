@@ -217,15 +217,11 @@ summary() {
 # tools setup installed: framework/tools/finish.ts.
 finish() {
   summary
-  local cd_path=''
   if [ -n "${1:-}" ]; then
     echo
     echo "Your project is in $1"
-    if [ "$1" != "$START_DIR" ]; then
-      cd_path="$(node -p 'const p = require("path").relative(process.argv[1], process.argv[2]); /^[\w@%+=:,.\/-]+$/.test(p) ? p : JSON.stringify(p)' "$START_DIR" "$1")"
-    fi
   fi
-  QA_COLOR="$COLOR" QA_EMOJI="$EMOJI" npx tsx framework/tools/finish.ts "$ONBOARD" "$DOCTOR_OK" "$cd_path"
+  QA_COLOR="$COLOR" QA_EMOJI="$EMOJI" npx tsx framework/tools/finish.ts "$ONBOARD" "$DOCTOR_OK" "$START_DIR" "${1:-}"
   if [ "$DOCTOR_OK" != 1 ]; then exit 1; fi
 }
 
