@@ -19,6 +19,7 @@
     "lint:architecture": "tsx framework/tools/architecture.ts",
     "setup": "tsx framework/tools/setup.ts",
     "doctor": "tsx framework/tools/doctor.ts",
+    "onboard": "tsx framework/tools/onboard.ts",
     "qa:sync-ci-secrets": "tsx framework/tools/sync-ci-secrets.ts",
     "qa:templates:check": "tsx framework/tools/templates.ts check",
     "qa:templates:build": "tsx framework/tools/templates.ts build",

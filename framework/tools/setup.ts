@@ -279,7 +279,7 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
 
   prompts.intro("SDET framework setup");
   prompts.log.info(
-    "Setup creates a new project folder next to the template. It asks nothing about login; the only secret is the test database URL (masked, written only to the git-ignored .env).",
+    "Setup creates a new project folder next to the template. It asks nothing about login: the test account comes in the optional stage 2 (npm run onboard). The only secret here is the test database URL (masked, written only to the git-ignored .env).",
   );
 
   const appName = await ask(
@@ -793,9 +793,10 @@ Playwright tests created from the SDET framework template.
 ## Getting started
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
-2. Configure login and write the first tests: ${firstTests}. The AI proposes the login setup and the tests and waits for your approval at each step ([framework/docs/FIRST_TESTS_PROMPT.md](framework/docs/FIRST_TESTS_PROMPT.md)).
-3. Create the test accounts yourself and put them into \`.env\` (never into a prompt), then run \`npm run doctor\` and \`npm run qa:sync-ci-secrets\`.
-4. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
+2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
+3. Configure login and write the first tests: ${firstTests}. The AI proposes the login setup and the tests and waits for your approval at each step ([framework/docs/FIRST_TESTS_PROMPT.md](framework/docs/FIRST_TESTS_PROMPT.md)).
+4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
+5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
 
 ## Structure
 
@@ -811,7 +812,8 @@ Each folder under \`src/\` and \`tests/\` has a README naming what belongs there
 ## Commands
 
 \`\`\`bash
-./install.sh                  # teammates: dependencies, .env, browsers, doctor
+./install.sh                  # teammates: dependencies, .env, browsers, doctor, test account
+npm run onboard               # test account into .env (optional; rerunnable)
 npm run doctor                # configuration, reachability and login checks
 npx playwright test           # all enabled projects
 npm run lint:architecture     # layer and import rules
@@ -1061,16 +1063,18 @@ async function main(): Promise<void> {
     ...(inPlace ? [] : [`cd ${displayPath(project)}`]),
     "npm run doctor   (checks the configuration and that the URLs are reachable)",
     loginConfigured
-      ? "Add the role test accounts to .env and run npm run doctor again."
-      : `Configure login and roles, then write the first tests: ${firstTests}.`,
+      ? "npm run onboard  (puts the role test accounts into .env), then npm run doctor again."
+      : `Optional: npm run onboard  (puts the test account into .env). Then configure login and write the first tests: ${firstTests}.`,
   ];
+  // install.sh continues with the installation and stage 2.
+  const nextSteps = process.env.QA_SETUP_RESULT
+    ? ""
+    : `\nNext steps:\n${steps.map((step, index) => `  ${index + 1}. ${step}`).join("\n")}`;
 
   console.log(`
 Created ${answers.appName} in ${project}.
 ${envStatus}${gitStatus}
-
-Next steps:
-${steps.map((step, index) => `  ${index + 1}. ${step}`).join("\n")}
+${nextSteps}
 ${databaseWarnings(answers, secrets, envStatus)}
 ${describeCiSettings(defaultEnvironment(answers), secretNames)}
 ${inPlace ? "" : "\nTo publish it: create an empty GitHub repository, then git remote add origin <url> && git push -u origin main\n"}`);

@@ -4,7 +4,7 @@ Use this prompt with any AI coding tool (Copilot, Claude Code, Cursor, Codex) af
 
 The AI reads what the project already knows (environment, base URLs, OpenAPI URL, login settings, roles) and discovers the rest itself: the login flow and pages through Playwright MCP, and the API contract, including the login endpoint, through the OpenAPI MCP server. Setup configures both servers for Copilot (`.vscode/mcp.json`) and Claude Code (`.mcp.json`): Playwright MCP when browser tests are enabled, the OpenAPI MCP server when you gave a public OpenAPI (Swagger) URL. Start them when your tool asks. Without them, the AI falls back to reading the docs over HTTP. It asks you only for what it could not find, with a suggested default for each answer. You can skip the questions by writing hints after `/first-tests`, for example "UI: open the events list and one event; API: events list and get one".
 
-Credentials never go into the prompt or the chat. You create the test accounts and put them into `.env` (and GitHub secrets) yourself.
+Credentials never go into the prompt or the chat. You create the test accounts and put them into `.env` (and GitHub secrets) yourself. `npm run onboard` (stage 2 of `./install.sh`) does this for one account, called `user`: it adds the role and writes the username and password only to `.env`. Skipping it is fine; step 1 then proposes the roles and you fill in `.env` afterwards.
 
 If setup installed the `/first-tests` command (GitHub Copilot Chat in agent mode, or Claude Code), run it; it follows this prompt. Otherwise paste the whole block, with any hints at the end.
 
@@ -42,6 +42,8 @@ Never ask for passwords, tokens or other secrets.
 Step 1 – Discover and configure login (read-only until approved)
 - Read config/approved-examples.json, framework/templates/index.json and the templates you will use.
 - Use the login evidence from step 0 (Playwright MCP observations and the contract's login endpoint).
+- If roles already lists an account (npm run onboard adds one called user), keep it: propose only
+  auth, and further roles only when the tests need them.
 - Propose auth and roles for config/framework.config.ts (strategies: bearer or none for the API,
   nextAuth or none for the browser), with the evidence for each endpoint and field name.
   If the application uses another login method, say so; do not edit framework/core.
