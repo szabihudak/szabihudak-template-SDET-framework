@@ -336,54 +336,35 @@ exec ${shellQuote(npx)} "$@"
   return bin;
 }
 
-// The closing steps for every AI tool choice, with stage 2 done or skipped.
+// The closing steps with and without MCP servers, with stage 2 done or skipped.
 function checkNextSteps(): void {
-  const mcp = { vscode: ["playwright", "openapi"], claude: ["playwright"] };
   const cases = [
     {
-      tools: { copilot: true, claude: false },
+      mcp: ["playwright", "openapi"],
       expected: [
         "code .",
         "Start the MCP servers when VS Code asks (playwright, openapi)",
-        "Copilot Chat -> Agent mode -> /first-tests",
+        "Copilot Chat -> select the test-planner agent",
       ],
+      absent: [],
     },
     {
-      tools: { copilot: false, claude: true },
-      expected: [
-        "claude",
-        "Approve the MCP servers when Claude Code asks (playwright)",
-        ". /first-tests",
-      ],
-    },
-    {
-      tools: { copilot: true, claude: true },
-      expected: [
-        "code . (VS Code with Copilot) or claude (Claude Code)",
-        "(playwright, openapi)",
-        "Copilot Chat -> Agent mode, or the Claude Code prompt",
-      ],
-    },
-    {
-      tools: { copilot: false, claude: false },
-      expected: [
-        "Open the project in your IDE",
-        "framework/prompts/first-tests.md",
-      ],
+      mcp: [],
+      expected: ["code .", "Copilot Chat -> select the test-planner agent"],
+      absent: ["Start the MCP servers"],
     },
   ];
 
-  for (const { tools, expected } of cases) {
+  for (const { mcp, expected, absent } of cases) {
     for (const onboarding of ["skipped", "done"] as Onboarding[]) {
       const steps = nextSteps({
-        tools,
         mcp,
         onboarding,
         doctorOk: true,
         cd: "../my-project",
       });
       const text = steps.join("\n");
-      const label = `${JSON.stringify(tools)} with stage 2 ${onboarding}`;
+      const label = `MCP ${JSON.stringify(mcp)} with stage 2 ${onboarding}`;
 
       assert(
         steps[1] === "   1. cd ../my-project",
@@ -396,12 +377,14 @@ function checkNextSteps(): void {
       for (const line of expected) {
         assert(text.includes(line), `${label}: "${line}" is missing:\n${text}`);
       }
+      for (const line of absent) {
+        assert(!text.includes(line), `${label}: "${line}" is listed:\n${text}`);
+      }
     }
   }
 
   const failed = nextSteps({
-    tools: { copilot: true, claude: false },
-    mcp: { vscode: [], claude: [] },
+    mcp: [],
     onboarding: "incomplete",
     doctorOk: false,
   }).join("\n");
@@ -413,8 +396,7 @@ function checkNextSteps(): void {
     `a failed doctor and an incomplete account are not the first steps:\n${failed}`,
   );
   const categories = nextSteps({
-    tools: { copilot: true, claude: false },
-    mcp: { vscode: [], claude: [] },
+    mcp: [],
     testScripts: ["test:api", "test:chromium"],
     onboarding: "done",
     doctorOk: true,
@@ -440,7 +422,7 @@ function checkNextSteps(): void {
   }
 
   console.log(
-    "✔ installer: next steps for Copilot, Claude Code, both and none, with stage 2 done, skipped or incomplete; cd by project name next to the template, else the absolute path",
+    "✔ installer: next steps for the Copilot agents, with and without MCP servers, with stage 2 done, skipped or incomplete; cd by project name next to the template, else the absolute path",
   );
 }
 
@@ -471,7 +453,7 @@ async function checkInstaller(project: string): Promise<void> {
       "| [x] project | -> | [x] install | -> | [x] browsers | -> | doctor |",
       "[x] Stage 1: Framework setup ====> [>] Stage 2: First tests (optional)",
       " INSTALLER | NEXT: IN YOUR IDE",
-      "| test account | | | /first-tests | -> | review & run |",
+      "| test account | | | test-planner | -> | review & run |",
       "🚀 STAGE 1 - Framework setup",
       "🧪 STAGE 2 - First tests (optional)",
       "✅ Stage 1 Framework setup done",
@@ -483,7 +465,7 @@ async function checkInstaller(project: string): Promise<void> {
       "| - Dijkstra |",
       "👉 The installer is done. Continue in your IDE:",
       "1. npm run onboard (adds the test account to .env)",
-      "3. Give your AI tool framework/prompts/first-tests.md",
+      "Copilot Chat -> select the test-planner agent",
     ]) {
       assert(
         terminal.output.includes(expected),
@@ -529,12 +511,12 @@ async function checkInstaller(project: string): Promise<void> {
       `install.sh with a test account exited with ${filled.code}:\n${filled.output}`,
     );
     for (const expected of [
-      // /first-tests relies on this doctor line to find the account in .env.
+      // The test-planner agent relies on this doctor line to find the account in .env.
       '✔ credentials for role "user" are set',
-      "| [x] test account | | | /first-tests | -> | review & run |",
+      "| [x] test account | | | test-planner | -> | review & run |",
       ">> STAGE 2 - First tests (optional)",
       "[x] Stage 1 Framework setup done",
-      "[x] Stage 2 First tests test account in .env -> next: /first-tests",
+      "[x] Stage 2 First tests test account in .env -> next: test-planner",
       "\\m/\n +=====",
       "| [x] INSTALLER FINISHED |",
       "-> The installer is done. Continue in your IDE:",

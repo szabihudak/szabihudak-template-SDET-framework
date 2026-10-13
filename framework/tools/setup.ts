@@ -41,7 +41,8 @@ const BROWSER_MODULES = [
   "performance",
 ] as const;
 
-const AI_TOOLS = ["copilot", "claude", "both", "none"] as const;
+// GitHub Copilot files: instructions and the planner, builder and validator
+// agents (ADR-009).
 const AI_TOOLS_DIR = "framework/setup/ai-tools";
 
 const MODULES = [
@@ -66,9 +67,6 @@ const answersSchema = Type.Object(
       Type.Array(Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }), {
         uniqueItems: true,
       }),
-    ),
-    aiTools: Type.Optional(
-      Type.Union(AI_TOOLS.map((tool) => Type.Literal(tool))),
     ),
   },
   { additionalProperties: false },
@@ -207,13 +205,6 @@ const MODULE_LABELS: Record<(typeof MODULES)[number], string> = {
   database: "Database",
   visual: "Visual regression",
   performance: "Performance (k6, Lighthouse)",
-};
-
-const AI_TOOL_LABELS: Record<(typeof AI_TOOLS)[number], string> = {
-  copilot: "GitHub Copilot",
-  claude: "Claude Code",
-  both: "Both",
-  none: "None",
 };
 
 // Menus for choices, text fields for names and URLs. @clack/prompts is an ES
@@ -374,21 +365,10 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
       ).trim() || undefined;
   }
 
-  const aiTools = answer(
-    await prompts.select({
-      message: "AI coding tool for the /first-tests command",
-      options: AI_TOOLS.map((tool) => ({
-        value: tool,
-        label: AI_TOOL_LABELS[tool],
-      })),
-      initialValue: "copilot" as (typeof AI_TOOLS)[number],
-    }),
-  );
-
   prompts.outro(`Creating ${appName}…`);
 
   return {
-    answers: { appName, environments, modules, browsers, aiTools },
+    answers: { appName, environments, modules, browsers },
     secrets,
   };
 }
@@ -424,7 +404,7 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   if (Object.keys(config.roles).length === 0) {
     lines.push(
       "# Test accounts: add one USERNAME/PASSWORD pair per role after configuring",
-      "# login and roles (/first-tests, framework/prompts/first-tests.md).",
+      "# login and roles (the test-planner agent proposes them).",
     );
   }
 
@@ -564,8 +544,6 @@ function installStarterFiles(project: string, answers: Answers): void {
   }
 }
 
-// Instructions and the /first-tests command for the chosen AI tools. AGENTS.md
-// stays the single source of rules for every tool.
 // Empty folders for the enabled test types, each with a README naming what
 // belongs there and the golden templates that start it, so the layout is
 // visible before the first test exists.
@@ -653,34 +631,19 @@ async function createSkeleton(
   }
 }
 
-function installAiTools(
-  project: string,
-  choice: NonNullable<Answers["aiTools"]>,
-): void {
-  const tools =
-    choice === "both"
-      ? ["copilot", "claude"]
-      : choice === "none"
-        ? []
-        : [choice];
-
-  if (!tools.includes("copilot")) {
-    fs.rmSync(path.join(project, ".github/copilot-instructions.md"), {
-      force: true,
-    });
-  }
-
-  for (const tool of tools)
-    copyDirectory(path.join(AI_TOOLS_DIR, tool), project);
+// The Copilot agents and their instructions. AGENTS.md stays the single source
+// of rules; the task logic lives in framework/prompts.
+function installAiTools(project: string): void {
+  copyDirectory(path.join(AI_TOOLS_DIR, "copilot"), project);
 }
 
 // Versions are pinned: the servers run through npx on the developer's machine.
 const PLAYWRIGHT_MCP = "@playwright/mcp@0.0.83";
 const OPENAPI_MCP = "@ivotoby/openapi-mcp-server@1.16.1";
 
-// MCP servers for /first-tests: Playwright MCP explores the UI, the OpenAPI
-// MCP server reads the default environment's API contract. Its dynamic mode
-// lists endpoints and schemas; the prompt forbids invoking them.
+// MCP servers for the test-planner agent: Playwright MCP explores the UI, the
+// OpenAPI MCP server reads the default environment's API contract. Its dynamic
+// mode lists endpoints and schemas; AGENTS.md forbids invoking them.
 function mcpServers(answers: Answers): Record<string, string[]> {
   const servers: Record<string, string[]> = {};
   const environment = answers.environments[defaultEnvironment(answers)];
@@ -707,36 +670,22 @@ function mcpServers(answers: Answers): Record<string, string[]> {
 async function writeMcpConfig(
   project: string,
   answers: Answers,
-  choice: NonNullable<Answers["aiTools"]>,
 ): Promise<void> {
   const servers = Object.entries(mcpServers(answers));
   if (servers.length === 0) return;
 
-  if (choice === "copilot" || choice === "both") {
-    await writeFormatted(
-      project,
-      ".vscode/mcp.json",
-      JSON.stringify({
-        servers: Object.fromEntries(
-          servers.map(([name, args]) => [
-            name,
-            { type: "stdio", command: "npx", args },
-          ]),
-        ),
-      }),
-    );
-  }
-  if (choice === "claude" || choice === "both") {
-    await writeFormatted(
-      project,
-      ".mcp.json",
-      JSON.stringify({
-        mcpServers: Object.fromEntries(
-          servers.map(([name, args]) => [name, { command: "npx", args }]),
-        ),
-      }),
-    );
-  }
+  await writeFormatted(
+    project,
+    ".vscode/mcp.json",
+    JSON.stringify({
+      servers: Object.fromEntries(
+        servers.map(([name, args]) => [
+          name,
+          { type: "stdio", command: "npx", args },
+        ]),
+      ),
+    }),
+  );
 }
 
 // Without the performance module, the Lighthouse packages (and their audit
@@ -787,12 +736,6 @@ function npmCommand(): string {
 }
 
 function buildReadme(answers: Answers, config: FrameworkConfig): string {
-  const firstTests = {
-    copilot: "run `/first-tests` in GitHub Copilot Chat (agent mode)",
-    claude: "run `/first-tests` in Claude Code",
-    both: "run `/first-tests` in GitHub Copilot Chat (agent mode) or Claude Code",
-    none: "give your AI tool [framework/prompts/first-tests.md](framework/prompts/first-tests.md), or follow it by hand",
-  }[answers.aiTools ?? "none"];
   const scripts = Object.entries(testScripts(config));
   const width = Math.max(
     "npx playwright test".length,
@@ -815,7 +758,7 @@ Playwright tests created from the SDET framework template.
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
 2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
-3. Configure login and write the first tests: ${firstTests}. The AI proposes the login setup and the tests without changing files; after you approve, \`/first-tests-build\` implements and validates them ([framework/prompts/first-tests.md](framework/prompts/first-tests.md)).
+3. Configure login and write the first tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It proposes the login setup and the tests without changing files; **Build the approved proposal** hands over to **test-builder**, and **Validate** to **test-validator**. See [Testing with the agents](#testing-with-the-agents).
 4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
 5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
 
@@ -829,6 +772,18 @@ Playwright tests created from the SDET framework template.
 | \`config/\` | this project | \`framework.config.ts\`, environments, \`approved-examples.json\` |
 
 Each folder under \`src/\` and \`tests/\` has a README naming what belongs there and its golden templates.
+
+## Testing with the agents
+
+Open the project in VS Code, start the MCP servers when asked, and select an agent in GitHub Copilot Chat. The agents follow \`AGENTS.md\`, the approved examples and the golden templates.
+
+| Agent | Does | Changes files |
+| --- | --- | --- |
+| **test-planner** | Reads the configuration, the API contract and the pages, and proposes the tests (and, in a new project, the login setup). Ends with an Approved scope | No |
+| **test-builder** | Implements the approved scope from the approved examples and golden templates, then runs the validation commands | Yes |
+| **test-validator** | Runs the quality gates and reviews the result against the rules, citing a rule for every finding | No |
+
+Approve a proposal with **Build the approved proposal**, check the result with **Validate**, send findings back with **Fix the findings**, and accept the tests with **Register approved examples**. Each step waits for your click.
 
 ## Commands
 
@@ -1045,14 +1000,13 @@ async function main(): Promise<void> {
         option(args, "--target") ?? path.join(ROOT, "..", answers.appName),
       );
   const secretNames = ciSecretNames(frameworkConfig);
-  const aiTools = answers.aiTools ?? "none";
 
   if (inPlace) stageResources();
   prepareProject(project, inPlace);
   installStarterFiles(project, answers);
   syncWorkflowSecrets(project, secretNames);
-  installAiTools(project, aiTools);
-  await writeMcpConfig(project, answers, aiTools);
+  installAiTools(project);
+  await writeMcpConfig(project, answers);
   await createSkeleton(project, answers);
 
   await writeFormatted(
@@ -1087,18 +1041,12 @@ async function main(): Promise<void> {
   }
 
   const loginConfigured = Object.keys(frameworkConfig.roles).length > 0;
-  const firstTests = {
-    copilot: "run /first-tests in GitHub Copilot Chat (agent mode)",
-    claude: "run /first-tests in Claude Code",
-    both: "run /first-tests in GitHub Copilot Chat (agent mode) or Claude Code",
-    none: "give your AI tool framework/prompts/first-tests.md, or follow it by hand",
-  }[aiTools];
   const steps = [
     ...(inPlace ? [] : [`cd ${displayPath(project)}`]),
     "npm run doctor   (checks the configuration and that the URLs are reachable)",
     loginConfigured
       ? "npm run onboard  (puts the role test accounts into .env), then npm run doctor again."
-      : `Optional: npm run onboard  (puts the test account into .env). Then configure login and write the first tests: ${firstTests}.`,
+      : "Optional: npm run onboard  (puts the test account into .env). Then configure login and write the first tests: select the test-planner agent in GitHub Copilot Chat.",
   ];
   // install.sh continues with the installation and stage 2.
   const nextSteps = process.env.QA_SETUP_RESULT

@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
-import { installedAiTools, readProjectState } from "./next-steps";
+import { readProjectState } from "./next-steps";
 import {
   addRoleToConfig,
   addRoleToEnvExample,
@@ -139,12 +139,11 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/templates/index.json",
     "framework/tools/doctor.ts",
     "framework/docs/TESTING_STANDARDS.md",
-    "framework/prompts/first-tests.md",
     "src/fixtures/test-fixtures.ts",
     "config/approved-examples.json",
     "AGENTS.md",
     "install.sh",
-    ...scenario.aiFiles.present,
+    ...AGENT_FILES,
   ]) {
     assert(exists(file), `${file} is missing`);
   }
@@ -160,26 +159,18 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     ".github/workflows/ghcr-cleanup.yml",
     "Dockerfile",
     "docker-compose.yml",
-    ...scenario.aiFiles.absent,
+    ...REMOVED_AI_FILES,
   ]) {
     assert(!exists(file), `${file} must not be in a project`);
   }
 
-  // Playwright MCP only with browser tests, OpenAPI MCP when a contract URL is set.
-  if (exists(".vscode/mcp.json")) {
-    const servers = Object.keys(
-      JSON.parse(
-        fs.readFileSync(path.join(project, ".vscode/mcp.json"), "utf8"),
-      ).servers,
-    ).sort();
-    const expected = scenario.needsBrowser
-      ? ["openapi", "playwright"]
-      : ["openapi"];
-    assert(
-      servers.join() === expected.join(),
-      `.vscode/mcp.json has ${servers.join(", ")}, expected ${expected.join(", ")}`,
-    );
-  }
+  // Playwright MCP only with browser tests, OpenAPI MCP when a contract URL is
+  // set; the installer's next steps name the same servers.
+  const servers = readProjectState(project).mcp.sort();
+  assert(
+    servers.join() === scenario.mcpServers.join(),
+    `.vscode/mcp.json has ${servers.join(", ") || "no servers"}, expected ${scenario.mcpServers.join(", ")}`,
+  );
 
   const config = fs.readFileSync(
     path.join(project, "config/framework.config.ts"),
@@ -377,8 +368,8 @@ type Scenario = {
   needsBrowser: boolean;
   // Transforms a copy of the template instead of creating a new folder.
   inPlace: boolean;
-  // Files the chosen AI tool installs, and files it must not leave behind.
-  aiFiles: { present: string[]; absent: string[] };
+  // MCP servers .vscode/mcp.json must list, sorted.
+  mcpServers: string[];
   // Category scripts setup adds for the enabled modules and browsers, and the
   // ones that list self-test specs once the tests are in place.
   testScripts: { all: string[]; withTests: string[] };
@@ -386,17 +377,23 @@ type Scenario = {
 
 const PERFORMANCE_PACKAGES = ["@lhci/cli", "chrome-launcher", "lighthouse"];
 const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
-const COPILOT_FILES = [
+// Every project gets the GitHub Copilot agents and their task files (ADR-009).
+const AGENT_FILES = [
   ".github/copilot-instructions.md",
-  ".github/prompts/first-tests.prompt.md",
-  ".github/prompts/first-tests-build.prompt.md",
-  ".vscode/mcp.json",
+  ".github/agents/test-planner.agent.md",
+  ".github/agents/test-builder.agent.md",
+  ".github/agents/test-validator.agent.md",
+  "framework/prompts/planner.md",
+  "framework/prompts/builder.md",
+  "framework/prompts/validator.md",
 ];
-const CLAUDE_FILES = [
+// Files of the earlier Claude Code and /first-tests setup that must not return.
+const REMOVED_AI_FILES = [
   "CLAUDE.md",
-  ".claude/commands/first-tests.md",
-  ".claude/commands/first-tests-build.md",
+  ".claude",
   ".mcp.json",
+  ".github/prompts",
+  "framework/prompts/first-tests.md",
 ];
 // The minimal scenario enables database tests without an environment that
 // allows them; setup must still record the URL and the CI secret.
@@ -410,7 +407,7 @@ const SCENARIOS: Scenario[] = [
     plan: null,
     needsBrowser: false,
     inPlace: false,
-    aiFiles: { present: [], absent: [...COPILOT_FILES, ...CLAUDE_FILES] },
+    mcpServers: ["playwright"],
     testScripts: {
       all: [
         "test:api",
@@ -430,7 +427,7 @@ const SCENARIOS: Scenario[] = [
     plan: ["api", "accessibility", "chromium"],
     needsBrowser: true,
     inPlace: false,
-    aiFiles: { present: [...COPILOT_FILES, ...CLAUDE_FILES], absent: [] },
+    mcpServers: ["openapi", "playwright"],
     testScripts: {
       all: [
         "test:api",
@@ -455,22 +452,10 @@ const SCENARIOS: Scenario[] = [
     plan: ["api"],
     needsBrowser: false,
     inPlace: true,
-    aiFiles: { present: COPILOT_FILES, absent: CLAUDE_FILES },
+    mcpServers: ["openapi"],
     testScripts: { all: ["test:api"], withTests: ["test:api"] },
   },
 ];
-
-// The installer's closing steps name the AI tools setup installed.
-function checkAiToolSteps(project: string, scenario: Scenario): void {
-  const tools = installedAiTools(project);
-  const present = new Set(scenario.aiFiles.present);
-
-  assert(
-    tools.copilot === present.has(".github/prompts/first-tests.prompt.md") &&
-      tools.claude === present.has(".claude/commands/first-tests.md"),
-    `the next steps detect the wrong AI tools: ${JSON.stringify(tools)}`,
-  );
-}
 
 const GENERAL_TEST_SCRIPTS = ["test", "test:list", "test:headed", "test:debug"];
 
@@ -579,7 +564,6 @@ async function runScenario(
     }
 
     checkProjectFiles(project, scenario);
-    checkAiToolSteps(project, scenario);
     checkTestScripts(project, scenario);
 
     // setup removes framework/setup/selftest from projects, so fixtures come from the template.

@@ -18,7 +18,6 @@ import {
   readEnvValues,
   setEnvValues,
 } from "./onboarding";
-import { installedAiTools } from "./next-steps";
 import { assertSupportedNode } from "./runtime";
 
 // Stage 2 of the installer, and rerunnable on its own: puts the test account
@@ -39,14 +38,7 @@ function finish(outcome: Outcome): void {
 }
 
 function firstTestsCommand(): string {
-  const { claude, copilot } = installedAiTools(ROOT);
-
-  if (claude && copilot) {
-    return "run /first-tests in GitHub Copilot Chat (agent mode) or Claude Code";
-  }
-  if (claude) return "run /first-tests in Claude Code";
-  if (copilot) return "run /first-tests in GitHub Copilot Chat (agent mode)";
-  return "give your AI tool framework/prompts/first-tests.md";
+  return "select the test-planner agent in GitHub Copilot Chat";
 }
 
 function laterInstructions(roles: Role[]): string {
@@ -55,7 +47,7 @@ function laterInstructions(roles: Role[]): string {
     "  - run npm run onboard (it asks only for the account), or",
     roles.length > 0
       ? `  - put ${roles.flatMap((role) => [role.usernameEnv, role.passwordEnv]).join(" and ")} into .env yourself.`
-      : "  - let /first-tests configure the roles, then fill in their USERNAME/PASSWORD pairs in .env.",
+      : "  - let the test-planner agent propose the roles, then fill in their USERNAME/PASSWORD pairs in .env.",
     "Then run npm run doctor. For CI, add the same names as GitHub Actions secrets.",
   ].join("\n");
 }

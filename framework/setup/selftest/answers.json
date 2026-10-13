@@ -39,6 +39,5 @@
       "passwordField": "password"
     }
   },
-  "roles": ["user"],
-  "aiTools": "both"
+  "roles": ["user"]
 }

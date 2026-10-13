@@ -4,15 +4,13 @@ import path from "node:path";
 import { categoryScriptNames } from "./test-scripts";
 
 // What the installer tells the user to do once it is done: the rest happens
-// in their IDE, so the steps follow the AI tools setup installed.
+// in VS Code with the GitHub Copilot agents (ADR-009).
 
-export type AiTools = { copilot: boolean; claude: boolean };
 export type Onboarding = "done" | "incomplete" | "skipped";
 
 export type ProjectState = {
-  tools: AiTools;
-  // MCP server names from .vscode/mcp.json and .mcp.json.
-  mcp: { vscode: string[]; claude: string[] };
+  // MCP server names from .vscode/mcp.json.
+  mcp: string[];
   // Category scripts from package.json (test:api, test:ui, test:chromium...).
   testScripts?: string[];
 };
@@ -24,15 +22,6 @@ export type FinishOptions = ProjectState & {
   doctorOk: boolean;
 };
 
-export function installedAiTools(root: string): AiTools {
-  return {
-    copilot: fs.existsSync(
-      path.join(root, ".github/prompts/first-tests.prompt.md"),
-    ),
-    claude: fs.existsSync(path.join(root, ".claude/commands/first-tests.md")),
-  };
-}
-
 function mcpServerNames(file: string, key: string): string[] {
   if (!fs.existsSync(file)) return [];
 
@@ -42,11 +31,7 @@ function mcpServerNames(file: string, key: string): string[] {
 
 export function readProjectState(root: string): ProjectState {
   return {
-    tools: installedAiTools(root),
-    mcp: {
-      vscode: mcpServerNames(path.join(root, ".vscode/mcp.json"), "servers"),
-      claude: mcpServerNames(path.join(root, ".mcp.json"), "mcpServers"),
-    },
+    mcp: mcpServerNames(path.join(root, ".vscode/mcp.json"), "servers"),
     testScripts: categoryScriptNames(
       JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
         .scripts ?? {},
@@ -56,41 +41,13 @@ export function readProjectState(root: string): ProjectState {
 
 const serverList = (names: string[]) => `(${names.join(", ")})`;
 
-function aiToolSteps({ tools, mcp }: ProjectState): string[] {
-  if (tools.copilot && tools.claude) {
-    const servers = [...new Set([...mcp.vscode, ...mcp.claude])];
-
-    return [
-      "Open the project: code . (VS Code with Copilot) or claude (Claude Code)",
-      ...(servers.length > 0
-        ? [`Start the MCP servers when your tool asks ${serverList(servers)}`]
-        : []),
-      "Run /first-tests: Copilot Chat -> Agent mode, or the Claude Code prompt",
-    ];
-  }
-  if (tools.copilot) {
-    return [
-      "code .   (opens the project in VS Code)",
-      ...(mcp.vscode.length > 0
-        ? [`Start the MCP servers when VS Code asks ${serverList(mcp.vscode)}`]
-        : []),
-      "Copilot Chat -> Agent mode -> /first-tests",
-    ];
-  }
-  if (tools.claude) {
-    return [
-      "claude   (starts Claude Code in the project)",
-      ...(mcp.claude.length > 0
-        ? [
-            `Approve the MCP servers when Claude Code asks ${serverList(mcp.claude)}`,
-          ]
-        : []),
-      "/first-tests",
-    ];
-  }
+function agentSteps({ mcp }: ProjectState): string[] {
   return [
-    "Open the project in your IDE",
-    "Give your AI tool framework/prompts/first-tests.md, or follow it by hand",
+    "code .   (opens the project in VS Code)",
+    ...(mcp.length > 0
+      ? [`Start the MCP servers when VS Code asks ${serverList(mcp)}`]
+      : []),
+    "Copilot Chat -> select the test-planner agent",
   ];
 }
 
@@ -125,22 +82,15 @@ export function nextSteps(options: FinishOptions, mark = "->"): string[] {
       : options.onboarding === "incomplete"
         ? ["Fill in the empty values in .env, or run npm run onboard"]
         : []),
-    ...aiToolSteps(options),
+    ...agentSteps(options),
   ];
 
   return [
     `${mark} The installer is done. Continue in your IDE:`,
     ...steps.map((step, index) => `   ${index + 1}. ${step}`),
     "",
-    ...(options.tools.copilot || options.tools.claude
-      ? [
-          "/first-tests proposes the login setup and the first tests without changing",
-          "files. After you approve, /first-tests-build implements and validates them.",
-        ]
-      : [
-          "The prompt proposes the login setup and the first tests, and waits for your",
-          "approval before writing them.",
-        ]),
+    "test-planner proposes the login setup and the first tests without changing",
+    "files. You approve; test-builder implements them and test-validator checks them.",
     ...(options.testScripts?.length
       ? [
           "",

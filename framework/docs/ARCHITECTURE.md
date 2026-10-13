@@ -23,9 +23,9 @@ framework/     template-owned; replaced as a whole on a template update
   core/        the framework, imported as @framework/...
   templates/   golden templates and their catalogue (index.json)
   tools/       setup, doctor, onboard, ci-plan, sync-ci-secrets, lint, template checks
-  prompts/     first-tests task for /first-tests and /first-tests-build
+  prompts/     planner, builder and validator tasks for the Copilot agents
   docs/        architecture, testing standards, AI workflow, ADRs
-  setup/       starter files, AI tool files, self-test (template only)
+  setup/       starter files, Copilot agent files, self-test (template only)
 src/           project-owned application layer, imported as @app/...
 tests/         project-owned specs
 config/        project-owned configuration and approved examples
@@ -135,7 +135,7 @@ Enforced by review: test intent, golden-template choice, realistic mocks, no inv
 
 ## AI-Assisted Engineering
 
-The framework has no AI provider integration (ADR-007). Coding agents follow `AGENTS.md`; in a project set up for them, Claude Code loads it through `CLAUDE.md` and Copilot through `.github/copilot-instructions.md`. `/first-tests` proposes without changing files and `/first-tests-build` implements after approval; both run the task in `framework/prompts/first-tests.md`, with `AGENTS.md` in context (loaded through `CLAUDE.md` in Claude Code, linked from the prompt in Copilot). Repository rules decide structure; OpenAPI and Playwright MCP provide evidence about the application, never architecture. ADR-008 records the decision and the validation behind it.
+The framework has no AI provider integration (ADR-007). Generated projects use three GitHub Copilot agents (ADR-009): **test-planner** proposes without changing files, **test-builder** implements the approved scope, and **test-validator** runs the gates and reviews the result; each hand-over waits for the user. Their tasks are in `framework/prompts/`, and every agent follows `AGENTS.md`. Repository rules decide structure; OpenAPI and Playwright MCP provide evidence about the application, never architecture. ADR-008 records the approach and the validation behind it; ADR-009 records the Copilot agents.
 
 ## Known Gaps
 
