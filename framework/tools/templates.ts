@@ -92,6 +92,64 @@ function headingAnchors(markdownFile: string): Set<string> {
   );
 }
 
+type Section = { anchor: string; title: string; level: number; body: string };
+
+function sections(markdownFile: string): Section[] {
+  const lines = read(markdownFile).split("\n");
+  const headings = lines.flatMap((line, index) => {
+    const match = /^(#{2,3}) (.+)$/.exec(line);
+    return match ? [{ index, level: match[1].length, title: match[2] }] : [];
+  });
+
+  return headings.map((heading, position) => {
+    // A section runs to the next heading of the same or a higher level, so a
+    // linked "##" section includes its "###" subsections.
+    const next = headings
+      .slice(position + 1)
+      .find((other) => other.level <= heading.level);
+
+    return {
+      anchor: slugify(heading.title),
+      title: heading.title,
+      level: heading.level,
+      body: lines.slice(heading.index, next?.index).join("\n"),
+    };
+  });
+}
+
+// Agents read a rules document only through the sections templates link to,
+// so every section must be reachable from a template link, directly, as part
+// of a linked section, or through a link in a reachable section.
+function unreachableSections(rulesFile: string, linked: string[]): string[] {
+  const all = sections(rulesFile);
+  const reached = new Set(["purpose", ...linked]);
+  let grew = true;
+
+  while (grew) {
+    grew = false;
+
+    for (const section of all.filter(({ anchor }) => reached.has(anchor))) {
+      const contained = all
+        .filter(({ body }) => section.body.includes(body))
+        .map(({ anchor }) => anchor);
+      const referenced = [...section.body.matchAll(/\]\(#([\w-]+)\)/g)].map(
+        ([, anchor]) => anchor,
+      );
+
+      for (const anchor of [...contained, ...referenced]) {
+        if (!reached.has(anchor)) {
+          reached.add(anchor);
+          grew = true;
+        }
+      }
+    }
+  }
+
+  return all
+    .filter(({ anchor }) => !reached.has(anchor))
+    .map(({ title }) => title);
+}
+
 async function extract(ids: string[]): Promise<void> {
   const index = loadIndex();
   const selected = index.templates.filter(
@@ -272,6 +330,26 @@ async function check(): Promise<void> {
     if (rendered !== canonical) {
       problems.push(
         `${entry.id}: template does not reproduce ${canonicalPath}. Change both together, or run npm run qa:templates:extract -- ${entry.id} after an intended canonical change.`,
+      );
+    }
+  }
+
+  const linkedAnchors = new Map<string, string[]>();
+
+  for (const entry of index.templates) {
+    const [rulesFile, anchor] = entry.rules.split("#");
+    linkedAnchors.set(rulesFile, [
+      ...(linkedAnchors.get(rulesFile) ?? []),
+      anchor,
+    ]);
+  }
+
+  for (const [rulesFile, anchors] of linkedAnchors) {
+    if (!exists(rulesFile)) continue;
+
+    for (const title of unreachableSections(rulesFile, anchors)) {
+      problems.push(
+        `${rulesFile}: section "${title}" is not linked from a golden template or from a linked section. Link it, or remove it.`,
       );
     }
   }

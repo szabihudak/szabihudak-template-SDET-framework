@@ -1419,7 +1419,7 @@ targeted test execution
 
 Broader affected regression should run when the change affects shared behavior.
 
-Repository-specific validation rules in `framework/docs/TESTING_STANDARDS.md` remain authoritative.
+The validation commands in `AGENTS.md` remain authoritative; the completion checks for database, visual and performance work are in their `TESTING_STANDARDS.md` sections.
 
 ## Commit Gate
 

@@ -67,8 +67,16 @@ Import the framework as `@framework/...` and the application layer as `@app/...`
 - Visual: native `toHaveScreenshot()` with the shared options. Never run `--update-snapshots` to make a failure pass; baselines are generated in the Docker/Linux runtime and approved by a human.
 - Performance: never change thresholds or Lighthouse severities to make an unexplained failure pass. Keep setup traffic outside the measured operation.
 - Never weaken an assertion, skip a test, or suppress a real failure to get a green run. Report it.
+- Retries are diagnostics, not a fix. A test that passes only on retry is flaky and is investigated; a temporary quarantine needs a reason, an owner and a way back.
 - Never invent provider behavior. When evidence is missing or conflicting, say so.
+- In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
 - Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
+
+## Code Style
+
+- Names state the domain responsibility (`TaskApiClient`, `createTask`). Same-role files follow the same structure; different roles are not forced to look alike.
+- External imports first, then internal ones, separated by one blank line. Prettier is the formatting authority.
+- Comments explain why something non-obvious exists. No comments that restate the code, and no Arrange/Act/Assert comments.
 
 ## Validation
 
