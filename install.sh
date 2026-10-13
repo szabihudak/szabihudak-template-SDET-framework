@@ -12,6 +12,22 @@ cd "$(dirname "$0")"
 
 step() { printf '\n==> %s\n' "$1"; }
 
+# The punk robot from framework/setup/banner.txt (template only), printed to a
+# terminal only so CI logs stay clean; color unless NO_COLOR is set.
+# npm run setup is told not to print it again.
+banner() {
+  local file=framework/setup/banner.txt
+  [ -t 1 ] && [ -f "$file" ] || return 0
+  if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
+    awk 'NR <= 3 { printf "\033[35m%s\033[0m\n", $0; next }
+      /SDET FRAMEWORK/ { printf "\033[1m%s\033[0m\n", $0; next }
+      { print }' "$file"
+  else
+    cat "$file"
+  fi
+  export QA_BANNER_SHOWN=1
+}
+
 check_runtime() {
   step "Checking Node.js and npm"
   if ! command -v node >/dev/null 2>&1; then
@@ -58,6 +74,7 @@ install_project() {
   fi
 }
 
+banner
 check_runtime
 
 # setup.ts is template-only: projects do not contain it.
