@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
+import { installedAiTools } from "./next-steps";
 import {
   addRoleToConfig,
   addRoleToEnvExample,
@@ -425,6 +426,18 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
+// The installer's closing steps name the AI tools setup installed.
+function checkAiToolSteps(project: string, scenario: Scenario): void {
+  const tools = installedAiTools(project);
+  const present = new Set(scenario.aiFiles.present);
+
+  assert(
+    tools.copilot === present.has(".github/prompts/first-tests.prompt.md") &&
+      tools.claude === present.has(".claude/commands/first-tests.md"),
+    `the next steps detect the wrong AI tools: ${JSON.stringify(tools)}`,
+  );
+}
+
 function staticChecks(project: string, hasTests: boolean): void {
   run("npx prettier --check .", project);
   run("npx tsc --noEmit", project);
@@ -487,6 +500,7 @@ async function runScenario(
     }
 
     checkProjectFiles(project, scenario);
+    checkAiToolSteps(project, scenario);
 
     // setup removes framework/setup/selftest from projects, so fixtures come from the template.
     fs.copyFileSync(

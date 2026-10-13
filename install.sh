@@ -10,6 +10,8 @@
 #
 # Arguments are passed to setup, for example ./install.sh --answers answers.json
 set -euo pipefail
+# Where the user started, so the closing steps can say how to reach the project.
+START_DIR="$PWD"
 cd "$(dirname "$0")"
 
 step() { printf '\n==> %s\n' "$1"; }
@@ -33,7 +35,8 @@ banner() {
 # The two stages, on a terminal only: the overview from framework/install
 # once at the start, a progress line at the start of each stage, and the
 # stage's steps as a small flow, redrawn as it advances: [x] marks a finished
-# step and = borders (in color unless NO_COLOR) the current one.
+# step and = borders (in color unless NO_COLOR) the current one. Stage 2 is
+# split: the installer asks for the test account, the rest happens in the IDE.
 overview() {
   [ -t 1 ] && [ -f framework/install/stages.txt ] || return 0
   echo
@@ -59,13 +62,14 @@ stage() {
 # flow <stage> <current step, counted from 0>
 flow() {
   [ -t 1 ] || return 0
-  local title labels i label edge sep top='' middle='' bottom='' on='' off=''
+  local title labels i label edge sep split=-1 width=0 top='' middle='' bottom='' on='' off=''
   if [ "$1" = 1 ]; then
     title="STAGE 1 - Framework setup"
     labels=(project install browsers doctor)
   else
     title="STAGE 2 - First tests (optional)"
-    labels=("test account" "/first-tests (AI)" "review & run")
+    labels=("test account" "/first-tests" "review & run")
+    split=1
   fi
   if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
     on=$'\033[1;36m'
@@ -75,19 +79,28 @@ flow() {
     label="${labels[$i]}"
     if [ "$i" -lt "$2" ]; then label="[x] $label"; fi
     edge="$(printf '%*s' $((${#label} + 2)) '' | tr ' ' "$([ "$i" -eq "$2" ] && echo = || echo -)")"
-    sep=''
-    if [ "$i" -gt 0 ]; then sep='    '; fi
+    sep='' arrow=''
+    if [ "$i" -eq "$split" ]; then
+      sep='  |  ' arrow='  |  '
+    elif [ "$i" -gt 0 ]; then
+      sep='    ' arrow=' -> '
+    fi
     if [ "$i" -eq "$2" ]; then
       top+="$sep$on+$edge+$off"
       bottom+="$sep$on+$edge+$off"
-      middle+="${sep:+ -> }$on| $label |$off"
+      middle+="$arrow$on| $label |$off"
     else
       top+="$sep+$edge+"
       bottom+="$sep+$edge+"
-      middle+="${sep:+ -> }| $label |"
+      middle+="$arrow| $label |"
     fi
+    if [ "$i" -lt "$split" ]; then width=$((width + ${#sep} + ${#label} + 4)); fi
   done
-  printf '\n  %s\n  %s\n  %s\n  %s\n' "$title" "$top" "$middle" "$bottom"
+  printf '\n  %s\n' "$title"
+  if [ "$split" -gt 0 ]; then
+    printf '  %-*s  |  %s\n' "$width" "   INSTALLER" "NEXT: IN YOUR IDE"
+  fi
+  printf '  %s\n  %s\n  %s\n' "$top" "$middle" "$bottom"
 }
 
 check_runtime() {
@@ -166,11 +179,19 @@ summary() {
   esac
 }
 
+# The finish box (on a terminal) and the next steps in the IDE, for the AI
+# tools setup installed: framework/tools/finish.ts.
 finish() {
   summary
-  echo
-  if [ -n "${1:-}" ]; then echo "Your project is in $1"; fi
-  echo "Next: ${1:+cd \"$1\", then }write the first tests with /first-tests (or framework/docs/FIRST_TESTS_PROMPT.md)."
+  local cd_path=''
+  if [ -n "${1:-}" ]; then
+    echo
+    echo "Your project is in $1"
+    if [ "$1" != "$START_DIR" ]; then
+      cd_path="$(node -p 'const p = require("path").relative(process.argv[1], process.argv[2]); /^[\w@%+=:,.\/-]+$/.test(p) ? p : JSON.stringify(p)' "$START_DIR" "$1")"
+    fi
+  fi
+  npx tsx framework/tools/finish.ts "$ONBOARD" "$DOCTOR_OK" "$cd_path"
   if [ "$DOCTOR_OK" != 1 ]; then exit 1; fi
 }
 

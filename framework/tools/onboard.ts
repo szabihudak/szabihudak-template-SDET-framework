@@ -18,6 +18,7 @@ import {
   readEnvValues,
   setEnvValues,
 } from "./onboarding";
+import { installedAiTools } from "./next-steps";
 import { assertSupportedNode } from "./runtime";
 
 // Stage 2 of the installer, and rerunnable on its own: puts the test account
@@ -38,8 +39,7 @@ function finish(outcome: Outcome): void {
 }
 
 function firstTestsCommand(): string {
-  const claude = fs.existsSync(file(".claude/commands/first-tests.md"));
-  const copilot = fs.existsSync(file(".github/prompts/first-tests.prompt.md"));
+  const { claude, copilot } = installedAiTools(ROOT);
 
   if (claude && copilot) {
     return "run /first-tests in GitHub Copilot Chat (agent mode) or Claude Code";
