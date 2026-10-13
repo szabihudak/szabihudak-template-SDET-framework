@@ -25,7 +25,7 @@ understand the behavior
 → human approval
 ```
 
-Do not start by generating code. Do not create an abstraction for hypothetical reuse or symmetry. Implementing from a golden template means the same structure, naming, assertion placement and style, not only the same behavior.
+Do not start by generating code. Do not create an abstraction for hypothetical reuse or symmetry. Implementing from a golden template means the same structure, naming, assertion placement and style, not only the same behavior. Name files and symbols after their domain responsibility (`OrderApiClient`, `createOrder`, `OrdersPage`); a new kind of file without a template follows the naming of the closest one.
 
 ## Ownership
 
@@ -46,16 +46,18 @@ Import the framework as `@framework/...` and the application layer as `@app/...`
 
 ## Layer Rules
 
-| Layer                   | Owns                                                       | Never                                                                                                                          |
-| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Schema (TypeBox)        | provider request/response contracts                        | duplicate TypeScript interfaces                                                                                                |
-| API client              | HTTP requests; raw responses; fail-fast setup helpers      | assertions                                                                                                                     |
-| Factory                 | valid defaults + overrides; partial payloads               | API calls, UI, assertions, lifecycle; importing Playwright, API or database clients, Page/Component Objects, fixtures or mocks |
-| Fixture                 | setup, state, dependencies, cleanup                        | hiding a single line of code                                                                                                   |
-| Page / Component Object | locators and user actions for the `Page` it was built from | assertions; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures)      |
-| Domain database client  | parameterized SQL and record mapping                       | assertions; string-interpolated SQL                                                                                            |
-| Mock                    | only the network behavior the scenario needs               | inventing states the UI does not support                                                                                       |
-| Spec                    | scenario orchestration and all assertions                  | raw locators, raw SQL, fixed waits                                                                                             |
+The golden templates show what each layer owns. This table lists what it must never do.
+
+| Layer                   | Never                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Schema (TypeBox)        | duplicate TypeScript interfaces                                                                                                |
+| API client              | assertions                                                                                                                     |
+| Factory                 | API calls, UI, assertions, lifecycle; importing Playwright, API or database clients, Page/Component Objects, fixtures or mocks |
+| Fixture                 | assertions; hiding a single line of code                                                                                       |
+| Page / Component Object | assertions; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures)      |
+| Domain database client  | assertions; string-interpolated SQL                                                                                            |
+| Mock                    | inventing states the UI does not support                                                                                       |
+| Spec                    | raw locators, raw SQL, fixed waits                                                                                             |
 
 ## Hard Rules
 
@@ -73,12 +75,6 @@ Import the framework as `@framework/...` and the application layer as `@app/...`
 - OpenAPI MCP reads the contract and never invokes endpoints. Playwright MCP navigates and reads; it does not submit forms or change data unless the task requires it.
 - In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
 - Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
-
-## Code Style
-
-- Names state the domain responsibility (`TaskApiClient`, `createTask`). Same-role files follow the same structure; different roles are not forced to look alike.
-- External imports first, then internal ones, separated by one blank line. Prettier is the formatting authority.
-- Comments explain why something non-obvious exists. No comments that restate the code, and no Arrange/Act/Assert comments.
 
 ## Validation
 

@@ -37,7 +37,7 @@ In the template repository, `src/` and `tests/` hold the UPEX DOJO reference imp
 
 ## Layers
 
-What each layer owns and must never do is defined once, in the Layer Rules table of `AGENTS.md`. The reasoning:
+What each layer must never do is defined once, in the Layer Rules table of `AGENTS.md`; the golden templates show what each layer owns. The reasoning:
 
 A TypeBox schema gives both the compile-time type (`Static<typeof schema>`) and the runtime check (`validateSchema()`, AJV). A successful API test therefore asserts the HTTP status, validates the parsed body against the schema, then asserts business values on the typed result. Negative responses are not validated against success schemas.
 

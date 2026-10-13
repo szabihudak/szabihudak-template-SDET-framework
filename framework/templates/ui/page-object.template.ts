@@ -12,6 +12,9 @@ export class __Page__Page {
   readonly new__Domain__Button: Locator;
   readonly __domain__TitleInput: Locator;
   readonly create__Domain__Button: Locator;
+  readonly editMenuItem: Locator;
+  readonly priorityCombobox: Locator;
+  readonly saveChangesButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -24,6 +27,9 @@ export class __Page__Page {
     this.create__Domain__Button = page.getByRole("button", {
       name: "Create __Domain__",
     });
+    this.editMenuItem = page.getByRole("menuitem", { name: "Edit" });
+    this.priorityCombobox = page.getByRole("combobox", { name: "Priority" });
+    this.saveChangesButton = page.getByRole("button", { name: "Save Changes" });
   }
 
   async goto(): Promise<void> {
@@ -42,15 +48,21 @@ export class __Page__Page {
     __domain__Id: string,
     priority: __Domain__Priority,
   ): Promise<void> {
-    await this.page.getByTestId(`__domain__-menu-${__domain__Id}`).click();
-    await this.page.getByRole("menuitem", { name: "Edit" }).click();
-    await this.page.getByRole("combobox", { name: "Priority" }).click();
-    await this.page
-      .getByRole("option", {
-        name: priority.charAt(0).toUpperCase() + priority.slice(1),
-      })
-      .click();
-    await this.page.getByRole("button", { name: "Save Changes" }).click();
+    await this.__domain__MenuButton(__domain__Id).click();
+    await this.editMenuItem.click();
+    await this.priorityCombobox.click();
+    await this.priorityOption(priority).click();
+    await this.saveChangesButton.click();
+  }
+
+  __domain__MenuButton(__domain__Id: string): Locator {
+    return this.page.getByTestId(`__domain__-menu-${__domain__Id}`);
+  }
+
+  priorityOption(priority: __Domain__Priority): Locator {
+    return this.page.getByRole("option", {
+      name: priority.charAt(0).toUpperCase() + priority.slice(1),
+    });
   }
 
   __domain__CardByTitle(title: string): Locator {
