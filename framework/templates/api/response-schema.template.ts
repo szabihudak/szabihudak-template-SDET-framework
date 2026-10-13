@@ -6,15 +6,15 @@ import { __DOMAIN___PRIORITIES, __DOMAIN___STATUSES } from "@app/api/constants/_
 
 export const __domain__ResponseSchema = Type.Object(
   {
-    id: Type.String(),
-    userId: Type.String(),
+    id: Type.String({ format: "uuid" }),
+    userId: Type.String({ format: "uuid" }),
     title: Type.String(),
     description: Type.Union([Type.String(), Type.Null()]),
     status: Type.Union(__DOMAIN___STATUSES.map((status) => Type.Literal(status))),
     priority: Type.Union(
       __DOMAIN___PRIORITIES.map((priority) => Type.Literal(priority)),
     ),
-    position: Type.Number(),
+    position: Type.Integer(),
     createdAt: Type.String({
       format: "date-time",
     }),

@@ -111,7 +111,309 @@ const rules: Rule[] = [
     message:
       "Import the framework through @framework/ so the code does not depend on its location.",
   },
+  {
+    id: "web-first-assertions",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("src", "tests"),
+    pattern:
+      /expect\(\s*await\s+[^;]*\.(count|isVisible|isHidden|isEnabled|isDisabled|isChecked|isEditable|textContent|innerText|innerHTML|inputValue)\(\)/,
+    message:
+      "This assertion does not retry. Use a web-first assertion on the locator, such as await expect(locator).toHaveCount(n) or toBeVisible().",
+  },
+  {
+    id: "no-network-idle",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("src", "tests"),
+    pattern: /["']networkidle["']/,
+    message:
+      "Waiting for network idle is unreliable. Wait for the element or state the test needs with a web-first assertion.",
+  },
+  {
+    id: "no-wait-for-selector",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("src", "tests"),
+    pattern: /\.waitForSelector\s*\(/,
+    message:
+      "Use a locator with a web-first assertion instead of waitForSelector.",
+  },
+  {
+    id: "no-force-actions",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("src", "tests"),
+    pattern: /\bforce\s*:\s*true\b/,
+    message:
+      "Forced actions skip the checks a user would hit. Fix the state that blocks the action instead.",
+  },
+  {
+    id: "no-test-only",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("tests"),
+    pattern: /\b(test|describe)(\.describe)?\.only\s*\(/,
+    message: "Remove .only; it silently skips every other test.",
+  },
+  {
+    id: "no-test-step",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("tests"),
+    pattern: /\btest\.step\s*\(/,
+    message:
+      "Do not use test.step(); the test and its Page Object methods express the steps.",
+  },
 ];
+
+// Playwright matchers that retry and return a promise; without await they
+// assert nothing.
+const ASYNC_MATCHER =
+  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveURL|toHaveTitle|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveRole|toPass)\s*\(/;
+
+// Matchers that check what the page shows; toHaveURL and toHaveTitle do not.
+const PAGE_ASSERTION =
+  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveRole)\s*\(/;
+
+const UI_PAGE_ASSERTION_CHECK = {
+  id: "ui-tests-assert-the-page",
+  source: "framework/docs/TESTING_STANDARDS.md#ui-spec-standard",
+  message:
+    "This UI test never asserts what the page shows. Add an assertion on a visible element or text; a URL or response check alone is not enough.",
+};
+
+const API_BUSINESS_ASSERTION_CHECK = {
+  id: "api-tests-assert-business-fields",
+  source: "framework/docs/TESTING_STANDARDS.md#api-test-standard",
+  message:
+    "This test validates the schema but asserts no field of the body. Assert the business values of the response fields.",
+};
+
+// Bodies of the test(...) callbacks in a spec, with their line numbers.
+function testBodies(source: string): { line: number; body: string }[] {
+  return [...source.matchAll(/(?<![.\w])test\s*\(/g)].flatMap((match) => {
+    const body = callbackBody(source, match.index);
+
+    return body
+      ? [{ line: source.slice(0, match.index).split("\n").length, body }]
+      : [];
+  });
+}
+
+function uiTestsWithoutPageAssertion(source: string): number[] {
+  return testBodies(source)
+    .filter(({ body }) => !PAGE_ASSERTION.test(body))
+    .map(({ line }) => line);
+}
+
+// A test that validates a body against a schema must also assert at least one
+// of its fields. Whether every field is asserted is left to review.
+function schemaOnlyApiTests(source: string): number[] {
+  return testBodies(source)
+    .filter(({ body }) =>
+      [...body.matchAll(/validateSchema\(\s*\w+\s*,\s*(\w+)\s*\)/g)].some(
+        ([, variable]) => !new RegExp(`expect\\(\\s*${variable}\\b`).test(body),
+      ),
+    )
+    .map(({ line }) => line);
+}
+
+// Index just past the bracket that closes the one at `open`, skipping quoted
+// strings.
+function closingIndex(source: string, open: number): number {
+  const pairs: Record<string, string> = { "(": ")", "{": "}", "[": "]" };
+  const stack: string[] = [];
+  let quote: string | undefined;
+
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (quote) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = undefined;
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (pairs[char]) {
+      stack.push(pairs[char]);
+    } else if (char === stack[stack.length - 1]) {
+      stack.pop();
+      if (stack.length === 0) return index + 1;
+    }
+  }
+
+  return source.length;
+}
+
+const STRICT_SCHEMA_CHECK = {
+  id: "schemas-reject-unknown-fields",
+  source: "framework/docs/TESTING_STANDARDS.md#schema-standard",
+  message:
+    "This Type.Object does not declare additionalProperties: false, so unexpected fields would pass validation. Add { additionalProperties: false } as its options.",
+};
+
+// Type.Object(properties, options) calls whose own options do not set
+// additionalProperties: false. Nested objects are checked on their own.
+function looseSchemaObjects(source: string): number[] {
+  const lines: number[] = [];
+
+  for (const match of source.matchAll(/Type\.Object\s*\(/g)) {
+    const callOpen = match.index + match[0].length - 1;
+    const propertiesOpen = source.indexOf("{", callOpen);
+    const propertiesEnd = closingIndex(source, propertiesOpen);
+    const callEnd = closingIndex(source, callOpen);
+    const rest = source.slice(propertiesEnd, callEnd);
+    const optionsOpen = rest.indexOf("{");
+    const options =
+      optionsOpen === -1
+        ? ""
+        : rest.slice(optionsOpen, closingIndex(rest, optionsOpen));
+
+    if (!/additionalProperties\s*:\s*false/.test(options)) {
+      lines.push(source.slice(0, match.index).split("\n").length);
+    }
+  }
+
+  return lines;
+}
+
+const FIELD_COVERAGE_CHECK = {
+  id: "api-field-coverage",
+  source: "framework/docs/TESTING_STANDARDS.md#api-test-standard",
+};
+
+type SchemaLike = { properties?: Record<string, { format?: string }> };
+
+// Names imported by a spec, mapped to the repository file they come from.
+function importedNames(file: string, source: string): Map<string, string> {
+  const names = new Map<string, string>();
+
+  for (const [, list, specifier] of source.matchAll(
+    /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g,
+  )) {
+    for (const entry of list.split(",")) {
+      const name = entry
+        .replace(/^\s*type\s+/, "")
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim();
+
+      if (name) names.set(name, importTarget(file, specifier));
+    }
+  }
+
+  return names;
+}
+
+function loadSchema(target: string, name: string): SchemaLike | undefined {
+  const file = path.join(ROOT, `${target}.ts`);
+  if (!fs.existsSync(file)) return undefined;
+
+  // tsx runs this tool, so the schema module and its aliases load as is.
+  const schema = require(file)[name] as SchemaLike | undefined;
+
+  return schema?.properties ? schema : undefined;
+}
+
+// Every top-level field of a schema a spec validates against is asserted in
+// some test of the file, declares a format in the schema, or is listed in an
+// "// unasserted: field, field (reason)" comment.
+function uncoveredFields(file: string, source: string): string[] {
+  const problems: string[] = [];
+  const imports = importedNames(file, source);
+  const exempt = new Set<string>();
+
+  for (const [, fields, reason] of source.matchAll(
+    /\/\/\s*unasserted:\s*([^(\n]+?)\s*(?:\(([^)\n]*)\))?\s*$/gm,
+  )) {
+    if (!reason?.trim()) {
+      problems.push(
+        `the "unasserted: ${fields}" comment needs a reason in parentheses`,
+      );
+    }
+    for (const field of fields.split(",")) exempt.add(field.trim());
+  }
+
+  const variablesBySchema = new Map<string, Set<string>>();
+
+  for (const { body } of testBodies(source)) {
+    for (const [, schemaName, variable] of body.matchAll(
+      /validateSchema\(\s*(\w+)\s*,\s*(\w+)\s*\)/g,
+    )) {
+      const variables = variablesBySchema.get(schemaName) ?? new Set<string>();
+      variables.add(variable);
+      variablesBySchema.set(schemaName, variables);
+    }
+  }
+
+  for (const [schemaName, variables] of variablesBySchema) {
+    const target = imports.get(schemaName);
+    const schema = target ? loadSchema(target, schemaName) : undefined;
+    if (!schema?.properties) continue;
+
+    const names = [...variables].join("|");
+
+    for (const [field, definition] of Object.entries(schema.properties)) {
+      const asserted = new RegExp(
+        `expect\\(\\s*(?:${names})\\.${field}\\b`,
+      ).test(source);
+
+      if (!asserted && !definition.format && !exempt.has(field)) {
+        problems.push(
+          `${schemaName} field "${field}" is not asserted, has no format in the schema and is not listed in an "// unasserted: ${field} (reason)" comment`,
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
+const DESCRIBE_CHECK = {
+  id: "tests-inside-describe",
+  source: "AGENTS.md#playwright-rules",
+  message:
+    "Group the tests of a spec in test.describe(), even when there is only one.",
+};
+
+// Tests that are not nested in the callback of a test.describe(...).
+function testsOutsideDescribe(source: string): number[] {
+  const describeBodies = [
+    ...source.matchAll(/(?<![.\w])test\.describe(?:\.\w+)?\s*\(/g),
+  ].flatMap((match) => {
+    const body = callbackBody(source, match.index);
+    const start = body ? source.indexOf(body, match.index) : -1;
+
+    return start === -1 ? [] : [[start, start + body!.length]];
+  });
+
+  return [...source.matchAll(/(?<![.\w])test\s*\(/g)]
+    .filter(
+      (match) =>
+        !describeBodies.some(
+          ([start, end]) => match.index > start && match.index < end,
+        ),
+    )
+    .map((match) => source.slice(0, match.index).split("\n").length);
+}
+
+const MISSING_AWAIT_CHECK = {
+  id: "await-playwright-assertions",
+  source: "AGENTS.md#playwright-rules",
+  message:
+    "This Playwright assertion is not awaited, so it checks nothing. Add await.",
+};
+
+// Statements that start with expect( (no await or return before it) and use
+// an async matcher before the statement ends.
+function missingAwaitAssertions(source: string): number[] {
+  const lines: number[] = [];
+
+  for (const match of source.matchAll(/^[ \t]*expect(?:\.soft)?\s*\(/gm)) {
+    const end = source.indexOf(";", match.index);
+    const statement = source.slice(match.index, end === -1 ? undefined : end);
+
+    if (ASYNC_MATCHER.test(statement)) {
+      lines.push(source.slice(0, match.index).split("\n").length);
+    }
+  }
+
+  return lines;
+}
 
 const IMPORT_SPECIFIER =
   /(?:from\s+|import\s*\(\s*|require\s*\(\s*)["']((?:\.|@framework\/|@app\/)[^"']+)["']/g;
@@ -306,6 +608,12 @@ function main(): void {
     ...rules,
     ...forbiddenImports,
     NEGATIVE_RESPONSE_CHECK,
+    MISSING_AWAIT_CHECK,
+    DESCRIBE_CHECK,
+    STRICT_SCHEMA_CHECK,
+    FIELD_COVERAGE_CHECK,
+    UI_PAGE_ASSERTION_CHECK,
+    API_BUSINESS_ASSERTION_CHECK,
     SNAPSHOT_UPDATE_CHECK,
   ];
   const cite = (source: string) => citation(source) ?? `(${source})`;
@@ -358,10 +666,59 @@ function main(): void {
       }
     }
 
+    if (logicalFile.startsWith("src/api/schemas/")) {
+      for (const line of looseSchemaObjects(source)) {
+        problems.push(
+          `${file}:${line} [${STRICT_SCHEMA_CHECK.id}] ${STRICT_SCHEMA_CHECK.message} ${cite(STRICT_SCHEMA_CHECK.source)}`,
+        );
+      }
+    }
+
     if (isSpec(logicalFile)) {
+      if (logicalFile.startsWith("tests/api/")) {
+        for (const problem of uncoveredFields(logicalFile, source)) {
+          problems.push(
+            `${file} [${FIELD_COVERAGE_CHECK.id}] ${problem}. ${cite(FIELD_COVERAGE_CHECK.source)}`,
+          );
+        }
+      }
+
       for (const line of negativeResponsesValidated(source)) {
         problems.push(
           `${file}:${line} [${NEGATIVE_RESPONSE_CHECK.id}] ${NEGATIVE_RESPONSE_CHECK.message} ${cite(NEGATIVE_RESPONSE_CHECK.source)}`,
+        );
+      }
+
+      // The setup self-test smoke specs run against any application, so they
+      // cannot know its elements; they never become project tests.
+      if (
+        /^tests\/(ui|smoke)\//.test(logicalFile) &&
+        !file.startsWith("framework/setup/selftest/")
+      ) {
+        for (const line of uiTestsWithoutPageAssertion(source)) {
+          problems.push(
+            `${file}:${line} [${UI_PAGE_ASSERTION_CHECK.id}] ${UI_PAGE_ASSERTION_CHECK.message} ${cite(UI_PAGE_ASSERTION_CHECK.source)}`,
+          );
+        }
+      }
+
+      if (logicalFile.startsWith("tests/api/")) {
+        for (const line of schemaOnlyApiTests(source)) {
+          problems.push(
+            `${file}:${line} [${API_BUSINESS_ASSERTION_CHECK.id}] ${API_BUSINESS_ASSERTION_CHECK.message} ${cite(API_BUSINESS_ASSERTION_CHECK.source)}`,
+          );
+        }
+      }
+
+      for (const line of testsOutsideDescribe(source)) {
+        problems.push(
+          `${file}:${line} [${DESCRIBE_CHECK.id}] ${DESCRIBE_CHECK.message} ${cite(DESCRIBE_CHECK.source)}`,
+        );
+      }
+
+      for (const line of missingAwaitAssertions(source)) {
+        problems.push(
+          `${file}:${line} [${MISSING_AWAIT_CHECK.id}] ${MISSING_AWAIT_CHECK.message} ${cite(MISSING_AWAIT_CHECK.source)}`,
         );
       }
     }

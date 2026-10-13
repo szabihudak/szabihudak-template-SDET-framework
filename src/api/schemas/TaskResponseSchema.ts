@@ -3,15 +3,15 @@ import { TASK_PRIORITIES, TASK_STATUSES } from "@app/api/constants/task";
 
 export const taskResponseSchema = Type.Object(
   {
-    id: Type.String(),
-    userId: Type.String(),
+    id: Type.String({ format: "uuid" }),
+    userId: Type.String({ format: "uuid" }),
     title: Type.String(),
     description: Type.Union([Type.String(), Type.Null()]),
     status: Type.Union(TASK_STATUSES.map((status) => Type.Literal(status))),
     priority: Type.Union(
       TASK_PRIORITIES.map((priority) => Type.Literal(priority)),
     ),
-    position: Type.Number(),
+    position: Type.Integer(),
     createdAt: Type.String({
       format: "date-time",
     }),

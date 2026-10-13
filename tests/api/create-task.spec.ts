@@ -23,6 +23,7 @@ const missingTaskFieldScenarios = [
   },
 ] satisfies MissingTaskFieldScenario[];
 
+// unasserted: position (the API contract does not define its value on create)
 test.describe("Create a Task API", () => {
   test("creates a task matching the provider contract", async ({
     userApi,

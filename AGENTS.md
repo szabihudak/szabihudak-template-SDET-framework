@@ -76,6 +76,16 @@ The golden templates show what each layer owns. This table lists what it must ne
 - In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
 - Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
 
+## Playwright Rules
+
+- Every test is independent: it creates its own data, never relies on test order or another test's data, and can run in parallel.
+- Every test asserts an observable outcome of user-visible behavior; an action without an assertion proves nothing, and implementation details are not asserted.
+- Await every action and assertion. Use retrying, web-first assertions (`await expect(locator).toBeVisible()`, `toHaveText`, `toHaveCount`, `toHaveURL`); never `expect(await locator.count())`, `expect(await locator.isVisible())`, `waitForSelector`, `networkidle` or `{ force: true }`.
+- Locate by user-facing attributes: role, then label, then test id; never by position, CSS chains or XPath. Scope locators to a container and filter by content (`filter({ hasText })`, `filter({ has })`) instead of using an index.
+- Raise an assertion timeout only for a known slow operation, never to make a flaky test pass.
+- Never leave `test.only` in the code.
+- Group the tests of every spec in `test.describe()`, even a single test. Do not use `test.step()`; the test and its Page Object methods express the steps.
+
 ## Validation
 
 Run before considering work complete:

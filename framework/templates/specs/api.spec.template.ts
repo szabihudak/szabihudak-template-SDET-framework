@@ -26,6 +26,7 @@ const missing__Domain__FieldScenarios = [
   },
 ] satisfies Missing__Domain__FieldScenario[];
 
+// unasserted: position (the API contract does not define its value on create)
 test.describe("Create a __Domain__ API", () => {
   test("creates a __domain__ matching the provider contract", async ({
     userApi,

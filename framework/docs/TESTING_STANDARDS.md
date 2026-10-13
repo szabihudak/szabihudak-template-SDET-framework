@@ -10,6 +10,12 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 - Validate a successful response with `validateSchema()` before using its fields; the schema-derived type is safe only after that. Never cast `response.json()` to bypass validation.
 - API tests are browser-independent and run once, in the `api` project.
+- After the schema, assert as many values as the test can predict:
+  - deterministic fields (values from the request, documented defaults, the owner) by exact value;
+  - generated fields (ids, timestamps) by format, declared in the schema where the contract defines it (for example `format: "uuid"`, `format: "date-time"`), and by relations the contract or an observed response establishes (such as the same id on a later read);
+  - a field whose value the contract does not define is covered by its schema type; do not invent an expected value.
+- A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`; `npm run lint:architecture` checks that every schema field is asserted, has a format, or is listed this way.
+- The main success test of an operation covers every field this way; focused scenario tests (boundaries, single-field updates) assert the fields the scenario is about.
 - A test that expects an error status follows the [Negative API Test Standard](#negative-api-test-standard).
 
 ## Negative API Test Standard
@@ -17,6 +23,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 - Assert the status and the error fields. Never validate an error response against a success schema.
 - Assert an error field or message only when the provider contract or an observed response establishes it.
 - Add a reusable error schema only when the provider has a stable, meaningful error contract worth validating, not for symmetry with success schemas.
+- A successful response in the same spec follows the [API Test Standard](#api-test-standard).
 - Negative API tests stay browser-independent unless browser behavior is part of the scenario.
 
 ## API Client Standard
@@ -32,7 +39,6 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 - No raw SQL or `pg` in specs. Queries are parameterized, never built by interpolating test data. Record types reflect the persisted columns, values and nullability.
 - `DatabaseClient` owns the PostgreSQL transport and pool; database fixtures construct the clients and close the pool after the test.
 - Only a dedicated, test-owned environment sets `allow.database` (in the reference configuration, `localDocker`). Never enable it for a shared environment because a connection string is available, and never bypass the guard in a fixture.
-- Use unique generated data, so runs never depend on shared mutable records.
 - The `database` project runs without retries, and normal runs keep the data they create for investigation. Do not add per-test cleanup to make the database look clean.
 
 ### Database Reset Standard
@@ -45,6 +51,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 - A TypeBox schema is the single source of a provider contract. Derive the type with `Static<typeof schema>`; never keep a separate interface for the same contract.
 - Model the observed provider behavior: required and optional fields, nullable values, formats, enums and server-generated defaults.
+- Every `Type.Object`, including nested ones, declares `{ additionalProperties: false }`, so a response with unexpected fields fails validation instead of passing silently.
 
 ## Constants Standard
 
@@ -92,7 +99,6 @@ testUserData, registeredTestUser             → only where the application lets
 
 - Define locators in the constructor. Actions and queries use them instead of creating new locators; a locator that needs a parameter (such as an id) is a query method.
 - Expose meaningful user actions (`login(email, password)`) instead of making specs fill individual fields, unless the field interaction is the behavior under test.
-- Locate elements by role, then label, then test id.
 - Include only the sections the page needs.
 
 ## Component Object Standard
@@ -102,6 +108,7 @@ testUserData, registeredTestUser             → only where the application lets
 
 ## UI Spec Standard
 
+- Every UI test asserts what the page shows: at least one visible element or text that proves the outcome. A changed URL or a successful network response alone is not enough; they may be asserted in addition.
 - Keep related assertions together, without a blank line between each one. Do not add Arrange/Act/Assert comments; comments explain non-obvious reasons only.
 - Tests stay compatible with every browser project that runs them. Browser-specific behavior is added only when it is intentional and documented.
 
