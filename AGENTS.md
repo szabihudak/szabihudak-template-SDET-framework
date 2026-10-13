@@ -10,7 +10,7 @@ For every change that follows a golden pattern:
 2. `framework/templates/index.json`: the generic golden templates and when to use each.
 3. The `framework/docs/TESTING_STANDARDS.md` section each template you use links to (its `rules` field).
 
-Only when a change has no golden pattern, or alters a layer responsibility, an execution boundary, authentication, environment permissions, CI or a quality gate, also read `framework/docs/ARCHITECTURE.md`, the relevant `TESTING_STANDARDS.md` sections and `framework/docs/adr/` (ADR-007 for the template architecture). `framework/docs/AI_ASSISTED_QA_WORKFLOW.md` describes the evidence and review boundaries for AI work in detail.
+Only when a change has no golden pattern, or alters a layer responsibility, an execution boundary, authentication, environment permissions, CI or a quality gate, also read `framework/docs/ARCHITECTURE.md`, the relevant `TESTING_STANDARDS.md` sections and `framework/docs/adr/` (ADR-007 for the template architecture, ADR-008 for AI-assisted engineering).
 
 ## Workflow
 
@@ -25,7 +25,7 @@ understand the behavior
 → human approval
 ```
 
-Do not start by generating code. Do not create an abstraction for hypothetical reuse or symmetry.
+Do not start by generating code. Do not create an abstraction for hypothetical reuse or symmetry. Implementing from a golden template means the same structure, naming, assertion placement and style, not only the same behavior.
 
 ## Ownership
 
@@ -69,6 +69,8 @@ Import the framework as `@framework/...` and the application layer as `@app/...`
 - Never weaken an assertion, skip a test, or suppress a real failure to get a green run. Report it.
 - Retries are diagnostics, not a fix. A test that passes only on retry is flaky and is investigated; a temporary quarantine needs a reason, an owner and a way back.
 - Never invent provider behavior. When evidence is missing or conflicting, say so.
+- Report evidence by source (provider contract, repository, running application) and mark anything not verified as UNVERIFIED.
+- OpenAPI MCP reads the contract and never invokes endpoints. Playwright MCP navigates and reads; it does not submit forms or change data unless the task requires it.
 - In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
 - Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
 

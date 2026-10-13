@@ -1,4 +1,6 @@
-# AI-Assisted QA Workflow
+# AI-Assisted QA Validation
+
+> Historical record of the proofs of concept that validated the AI-assisted workflow against the UPEX reference implementation. The rules agents follow are in `AGENTS.md`; the decision and a summary of these results are in `framework/docs/adr/ADR-008-ai-assisted-engineering.md`. Prompts below name the documents and file locations that applied when each run was made. This folder is not copied into projects.
 
 ## Purpose
 
