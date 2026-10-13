@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
-import { installedAiTools } from "./next-steps";
+import { installedAiTools, readProjectState } from "./next-steps";
 import {
   addRoleToConfig,
   addRoleToEnvExample,
@@ -378,6 +378,9 @@ type Scenario = {
   inPlace: boolean;
   // Files the chosen AI tool installs, and files it must not leave behind.
   aiFiles: { present: string[]; absent: string[] };
+  // Category scripts setup adds for the enabled modules and browsers, and the
+  // ones that list self-test specs once the tests are in place.
+  testScripts: { all: string[]; withTests: string[] };
 };
 
 const PERFORMANCE_PACKAGES = ["@lhci/cli", "chrome-launcher", "lighthouse"];
@@ -405,6 +408,17 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: false,
     inPlace: false,
     aiFiles: { present: [], absent: [...COPILOT_FILES, ...CLAUDE_FILES] },
+    testScripts: {
+      all: [
+        "test:api",
+        "test:database",
+        "test:accessibility",
+        "test:ui",
+        "test:smoke",
+        "test:chromium",
+      ],
+      withTests: [],
+    },
   },
   {
     name: "login configured (API + browser)",
@@ -414,6 +428,22 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: true,
     inPlace: false,
     aiFiles: { present: [...COPILOT_FILES, ...CLAUDE_FILES], absent: [] },
+    testScripts: {
+      all: [
+        "test:api",
+        "test:accessibility",
+        "test:performance",
+        "test:ui",
+        "test:smoke",
+        "test:chromium",
+      ],
+      withTests: [
+        "test:api",
+        "test:accessibility",
+        "test:smoke",
+        "test:chromium",
+      ],
+    },
   },
   {
     name: "login configured (API only)",
@@ -423,6 +453,7 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: false,
     inPlace: true,
     aiFiles: { present: COPILOT_FILES, absent: CLAUDE_FILES },
+    testScripts: { all: ["test:api"], withTests: ["test:api"] },
   },
 ];
 
@@ -435,6 +466,51 @@ function checkAiToolSteps(project: string, scenario: Scenario): void {
     tools.copilot === present.has(".github/prompts/first-tests.prompt.md") &&
       tools.claude === present.has(".claude/commands/first-tests.md"),
     `the next steps detect the wrong AI tools: ${JSON.stringify(tools)}`,
+  );
+}
+
+const GENERAL_TEST_SCRIPTS = ["test", "test:list", "test:headed", "test:debug"];
+
+// Setup adds a script per enabled category next to the general test scripts,
+// and the installer's next steps name them.
+function checkTestScripts(project: string, scenario: Scenario): void {
+  const scripts: Record<string, string> = JSON.parse(
+    fs.readFileSync(path.join(project, "package.json"), "utf8"),
+  ).scripts;
+  const testNames = Object.keys(scripts).filter((name) =>
+    name.startsWith("test"),
+  );
+  const expected = [...GENERAL_TEST_SCRIPTS, ...scenario.testScripts.all];
+
+  assert(
+    JSON.stringify(testNames) === JSON.stringify(expected),
+    `package.json has the test scripts ${JSON.stringify(testNames)}, expected ${JSON.stringify(expected)}`,
+  );
+  assert(
+    JSON.stringify(readProjectState(project).testScripts) ===
+      JSON.stringify(scenario.testScripts.all),
+    "the next steps do not list the category scripts",
+  );
+  console.log(`✔ test scripts: ${scenario.testScripts.all.join(", ")}`);
+}
+
+// Every category script selects an existing project or folder: Playwright
+// rejects an unknown project. Categories with self-test specs list them.
+function listTestScripts(project: string, scenario: Scenario): void {
+  for (const script of scenario.testScripts.all) {
+    const output = execSync(
+      `npm run --silent ${script} -- --list --pass-with-no-tests`,
+      { cwd: project, env: { ...process.env, TEST_ENV: "selftest" } },
+    ).toString();
+    const total = Number(/Total: (\d+) tests?/.exec(output)?.[1] ?? 0);
+
+    assert(
+      total > 0 === scenario.testScripts.withTests.includes(script),
+      `npm run ${script} lists ${total} tests:\n${output}`,
+    );
+  }
+  console.log(
+    `✔ test scripts select their tests (${scenario.testScripts.withTests.join(", ")})`,
   );
 }
 
@@ -501,6 +577,7 @@ async function runScenario(
 
     checkProjectFiles(project, scenario);
     checkAiToolSteps(project, scenario);
+    checkTestScripts(project, scenario);
 
     // setup removes framework/setup/selftest from projects, so fixtures come from the template.
     fs.copyFileSync(
@@ -533,6 +610,7 @@ async function runScenario(
     );
 
     staticChecks(project, true);
+    listTestScripts(project, scenario);
     assertPlan(project, scenario.plan);
     run("npx tsx framework/tools/doctor.ts", project);
 

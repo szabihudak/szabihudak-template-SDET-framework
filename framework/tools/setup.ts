@@ -21,6 +21,7 @@ import {
   syncWorkflowSecrets,
 } from "./ci-secrets";
 import { assertSupportedNode } from "./runtime";
+import { testScripts, withTestScripts } from "./test-scripts";
 
 const ROOT = path.resolve(__dirname, "../..");
 const STARTER_DIR = "framework/setup/starter";
@@ -741,7 +742,13 @@ async function writeMcpConfig(
 // Without the performance module, the Lighthouse packages (and their audit
 // warnings) stay out of the project. npm regenerates the lockfile so npm ci
 // still matches package.json; the remaining versions keep their locked values.
-function updatePackageFiles(project: string, answers: Answers): void {
+// Category scripts (test:api, test:ui, test:chromium...) are added for the
+// enabled modules and browsers only.
+function updatePackageFiles(
+  project: string,
+  answers: Answers,
+  config: FrameworkConfig,
+): void {
   const excluded = readProjectFiles();
   const packageFile = path.join(project, "package.json");
   const packageJson = JSON.parse(fs.readFileSync(packageFile, "utf8"));
@@ -751,6 +758,7 @@ function updatePackageFiles(project: string, answers: Answers): void {
 
   packageJson.name = answers.appName;
   for (const script of excluded.scripts) delete packageJson.scripts[script];
+  packageJson.scripts = withTestScripts(packageJson.scripts, config);
   for (const name of removedPackages) delete packageJson.devDependencies[name];
   fs.writeFileSync(packageFile, `${JSON.stringify(packageJson, null, 2)}\n`);
 
@@ -778,13 +786,26 @@ function npmCommand(): string {
     : "npm";
 }
 
-function buildReadme(answers: Answers): string {
+function buildReadme(answers: Answers, config: FrameworkConfig): string {
   const firstTests = {
     copilot: "run `/first-tests` in GitHub Copilot Chat (agent mode)",
     claude: "run `/first-tests` in Claude Code",
     both: "run `/first-tests` in GitHub Copilot Chat (agent mode) or Claude Code",
     none: "give your AI tool the prompt in [framework/docs/FIRST_TESTS_PROMPT.md](framework/docs/FIRST_TESTS_PROMPT.md), or follow it by hand",
   }[answers.aiTools ?? "none"];
+  const scripts = Object.entries(testScripts(config));
+  const width = Math.max(
+    "npx playwright test".length,
+    ...scripts.map(([name]) => `npm run ${name}`.length),
+  );
+  const command = (text: string, comment: string) =>
+    `${text.padEnd(width + 2)}# ${comment}`;
+  const testCommands = [
+    command("npx playwright test", "all enabled projects"),
+    ...scripts.map(([name, script]) =>
+      command(`npm run ${name}`, script.replace("playwright test ", "")),
+    ),
+  ].join("\n");
 
   return `# ${answers.appName}
 
@@ -815,10 +836,19 @@ Each folder under \`src/\` and \`tests/\` has a README naming what belongs there
 ./install.sh                  # teammates: dependencies, .env, browsers, doctor, test account
 npm run onboard               # test account into .env (optional; rerunnable)
 npm run doctor                # configuration, reachability and login checks
-npx playwright test           # all enabled projects
 npm run lint:architecture     # layer and import rules
 npm run qa:sync-ci-secrets    # role and database secrets for GitHub Actions
 \`\`\`
+
+## Running tests
+
+Each enabled module and browser has its own script:
+
+\`\`\`bash
+${testCommands}
+\`\`\`
+
+If you enable a module or browser later in \`config/framework.config.ts\`, add its script the same way.
 
 Rules for people and AI tools: [AGENTS.md](AGENTS.md).
 `;
@@ -1039,8 +1069,12 @@ async function main(): Promise<void> {
     path.join(project, "config/approved-examples.json"),
     approvedExamples(),
   );
-  await writeFormatted(project, "README.md", buildReadme(answers));
-  updatePackageFiles(project, answers);
+  await writeFormatted(
+    project,
+    "README.md",
+    buildReadme(answers, frameworkConfig),
+  );
+  updatePackageFiles(project, answers, frameworkConfig);
 
   const envExample = buildEnvExample(answers, frameworkConfig);
   fs.writeFileSync(path.join(project, ".env.example"), envExample);

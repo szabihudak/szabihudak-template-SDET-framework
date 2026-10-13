@@ -412,6 +412,19 @@ function checkNextSteps(): void {
       !failed.includes("cd "),
     `a failed doctor and an incomplete account are not the first steps:\n${failed}`,
   );
+  const categories = nextSteps({
+    tools: { copilot: true, claude: false },
+    mcp: { vscode: [], claude: [] },
+    testScripts: ["test:api", "test:chromium"],
+    onboarding: "done",
+    doctorOk: true,
+  }).join("\n");
+  assert(
+    categories.includes("Run one test category: npm run <script>") &&
+      categories.includes("test:api, test:chromium"),
+    `the next steps do not name the category scripts:\n${categories}`,
+  );
+
   for (const [start, project, expected] of [
     ["/work/template", "/work/my-tests", "../my-tests"],
     ["/work", "/work/my-tests", "my-tests"],
