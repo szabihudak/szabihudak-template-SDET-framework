@@ -259,74 +259,11 @@ The assistant should not immediately modify files.
 
 ---
 
-## Reusable Test Generation Prompt Template
+## Test Generation Prompt
 
-```text
-Before proposing any code, read and follow:
+The test generation prompt is `framework/docs/FIRST_TESTS_PROMPT.md`, run as `/first-tests` in Copilot or Claude Code. It reads the project context and the architecture and testing standards, proposes before it implements, starts every file from a golden example and validates the result.
 
-- .github/copilot-instructions.md
-- AGENTS.md
-- framework/docs/ARCHITECTURE.md
-- framework/docs/TESTING_STANDARDS.md
-- relevant ADRs referenced by those documents
-
-Treat .github/copilot-instructions.md as the repository-level AI engineering instruction source and follow its rules throughout this task.
-
-If these documents point to existing validated implementations as canonical or Golden Template references, inspect and follow those implementations before proposing new code.
-
-We want to add coverage for this scenario:
-
-{{TEST_SCENARIO}}
-
-Before proposing the change:
-
-1. Inspect the relevant existing implementation and documentation.
-2. Identify the existing validated tests and their owning framework components that should act as the Golden Template.
-3. Reuse the existing architecture and patterns rather than introducing new abstractions.
-
-Treat the selected validated tests and their owning framework components as the Golden Template.
-
-The proposed implementation must follow the Golden Template not only behaviorally and architecturally, but also structurally and stylistically where applicable, including:
-
-- test organization and placement
-- Page Object / Component Object ownership
-- fixture usage
-- factory usage
-- naming conventions
-- Arrange / Act / Assert structure
-- interaction patterns
-- assertion placement and style
-- locator ownership
-- client usage
-- schema validation pattern
-- constants and shared utilities
-- formatting and code style
-
-Do not introduce a different test structure, ownership model, interaction pattern, or coding pattern when an equivalent validated pattern already exists.
-
-Important constraints:
-
-- Follow the repository architecture and testing standards.
-- Prefer reuse → extend → create.
-- Prefer the smallest architecturally complete change.
-- Do not weaken shared domain types merely to support malformed test data.
-- Do not introduce abstractions solely for a single scenario.
-- Do not invent provider behavior that is not established by repository or authoritative contract evidence.
-- If the repository does not provide enough evidence for a specific assertion, explicitly identify that uncertainty instead of guessing.
-
-Do not modify any files yet.
-
-First provide:
-
-1. Which existing test or implementation you selected as the Golden Template and why.
-2. Which repository documentation and instructions you used.
-3. Whether the requested scenario is already covered.
-4. The exact minimal code diff you propose.
-5. An explanation of how the proposed code follows the Golden Template behaviorally, architecturally, structurally, and stylistically.
-6. Any assertions or expected behavior that cannot be safely determined from the available evidence.
-
-Wait for human review before applying any changes.
-```
+For later tests, follow the same steps with the project's approved examples (`config/approved-examples.json`) as the first reference.
 
 ---
 
