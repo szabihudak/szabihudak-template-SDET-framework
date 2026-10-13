@@ -5,6 +5,15 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
+import {
+  addRoleToConfig,
+  addRoleToEnvExample,
+  quoteEnvValue,
+  readEnvValues,
+  setEnvValues,
+} from "./onboarding";
+import { checkOnboardingFlows } from "./selftest-onboarding";
+
 const ROOT = path.resolve(__dirname, "../..");
 const SELFTEST_DIR = "framework/setup/selftest";
 
@@ -295,18 +304,51 @@ function renderTemplates(project: string): void {
   console.log(`✔ rendered ${RENDERED_TEMPLATES.length} golden templates`);
 }
 
-// Login is configured after setup; adding a role and synchronising the CI
-// secrets is the step a project takes once its accounts exist.
-function addUserRole(project: string): void {
-  const configFile = path.join(project, "config/framework.config.ts");
-  const config = fs.readFileSync(configFile, "utf8");
-  const updated = config.replace(
-    /roles: \{\}/,
-    'roles: { user: { usernameEnv: "USER_USERNAME", passwordEnv: "USER_PASSWORD" } }',
+// Values npm run onboard writes must read back unchanged from .env.
+function checkEnvQuoting(): void {
+  const envFile = path.join(os.tmpdir(), `qa-selftest-env-${process.pid}`);
+  const values = {
+    USER_USERNAME: "qa+user@example.com",
+    USER_PASSWORD: `p#ss w'rd"$HOME`,
+  };
+  try {
+    fs.writeFileSync(envFile, "TEST_ENV=staging\nUSER_USERNAME=\n");
+    assert(
+      setEnvValues(envFile, values).length === 0,
+      "setEnvValues rejected a quotable value",
+    );
+    const written = readEnvValues(envFile);
+    assert(
+      written.TEST_ENV === "staging" &&
+        Object.entries(values).every(
+          ([name, value]) => written[name] === value,
+        ),
+      ".env values did not read back unchanged",
+    );
+  } finally {
+    fs.rmSync(envFile, { force: true });
+  }
+  assert(
+    quoteEnvValue("line\nbreak") === undefined,
+    "a line break was accepted",
   );
+}
 
-  assert(updated !== config, "generated config has no empty roles object");
-  fs.writeFileSync(configFile, updated);
+// Login is configured after setup; adding a role and synchronising the CI
+// secrets is the step a project takes once its accounts exist (npm run
+// onboard does the same).
+function addUserRole(project: string): void {
+  assert(
+    addRoleToConfig(path.join(project, "config/framework.config.ts")),
+    "generated config has no empty roles object",
+  );
+  addRoleToEnvExample(path.join(project, ".env.example"));
+  assert(
+    /^USER_USERNAME=$/m.test(
+      fs.readFileSync(path.join(project, ".env.example"), "utf8"),
+    ),
+    ".env.example does not list the user role",
+  );
 }
 
 async function waitForApp(url: string): Promise<void> {
@@ -458,6 +500,8 @@ async function runScenario(
     if (!scenario.plan) {
       run("npx tsx framework/tools/doctor.ts", project);
 
+      checkEnvQuoting();
+      await checkOnboardingFlows(project);
       addUserRole(project);
       run("npx tsx framework/tools/sync-ci-secrets.ts", project);
       checkWorkflows(project, [...ROLE_SECRETS, "DATABASE_URL"]);

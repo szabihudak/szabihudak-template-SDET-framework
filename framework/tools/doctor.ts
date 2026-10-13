@@ -81,6 +81,14 @@ async function main(): Promise<void> {
     console.log(
       "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). See framework/docs/FIRST_TESTS_PROMPT.md, step 1.",
     );
+  } else if (
+    config.auth.api.strategy === "none" &&
+    config.auth.browser.strategy === "none"
+  ) {
+    // npm run onboard adds the role before /first-tests configures the login.
+    console.log(
+      "ℹ The login method is not configured yet (auth in config/framework.config.ts), so the test account cannot be tried. See framework/docs/FIRST_TESTS_PROMPT.md, step 1.",
+    );
   }
 
   for (const role of Object.keys(config.roles)) {

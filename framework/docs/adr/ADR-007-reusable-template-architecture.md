@@ -55,9 +55,12 @@ Installation is deterministic and does not involve AI:
 
 ```text
 ./install.sh in the template clone:
-npm ci → npm run setup → ../<project name> (project files only, own git history, .env)
-       → npm ci → configured browsers → npm run doctor   (in the new folder)
+stage 1  npm ci → npm run setup → ../<project name> (project files only, own git history, .env)
+                → npm ci → configured browsers → npm run doctor   (in the new folder)
+stage 2  npm run onboard (optional) → test account in .env → npm run doctor
 ```
+
+Stage 2 asks only for the test account, never on an unattended run, and can be skipped or rerun with `npm run onboard`; the AI steps (`/first-tests`) follow it and stay outside the installer.
 
 The template clone is never modified, so it serves every new project and nothing is pushed back to the template by accident. `--in-place` converts the current folder instead, for repositories created with GitHub's "Use this template".
 
