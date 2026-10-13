@@ -161,15 +161,9 @@ Failure analysis is advisory. The agent does not change test expectations, weake
 
 AI-assisted implementation must be grounded in repository-owned engineering context.
 
-Before proposing or modifying code, the AI assistant must read and follow:
+Before proposing or modifying code, the AI assistant follows `AGENTS.md`. It names what to read for each kind of change: the approved examples, the golden template catalogue and the `TESTING_STANDARDS.md` section each template links to for a change that follows a golden pattern, and additionally `ARCHITECTURE.md`, the relevant standards and the ADRs for a change without a golden pattern or to the architecture itself. In a project set up for them, Claude Code loads `AGENTS.md` through `CLAUDE.md` and Copilot through `.github/copilot-instructions.md`.
 
-```text
-.github/copilot-instructions.md
-AGENTS.md
-framework/docs/ARCHITECTURE.md
-framework/docs/TESTING_STANDARDS.md
-relevant ADRs
-```
+The prompts recorded in the validation examples below name the documents that were required when each example was run.
 
 The assistant must also inspect existing implementations analogous to the requested change.
 

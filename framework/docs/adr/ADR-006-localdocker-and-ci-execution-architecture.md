@@ -671,6 +671,19 @@ The functional Playwright image must not absorb k6 merely to create one universa
 
 ---
 
+## Image Retention
+
+Test runs do not delete the images they used, so recent commit-SHA images stay available for reproduction. Registry retention is a separate maintenance responsibility owned by `.github/workflows/ghcr-cleanup.yml` (weekly, and on demand):
+
+```text
+playwright-enterprise-tests package versions
+→ always keep the newest 3
+→ keep any other version younger than 7 days
+→ delete the rest
+```
+
+---
+
 ## Alternatives Considered
 
 ### Run Functional CI Against Hosted UPEX
@@ -818,6 +831,8 @@ docker-compose.local.yml
 config/environments/**
 playwright.config.ts
 .github/workflows/playwright.yml
+.github/workflows/performance.yml
+.github/workflows/ghcr-cleanup.yml
 src/fixtures/test-fixtures.ts
 framework/core/database/**
 src/database/**

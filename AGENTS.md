@@ -1,15 +1,16 @@
 # Agent Instructions
 
-These rules apply to every AI tool and every human contributor. Detailed reasoning lives in the documents listed below; this file holds the rules you must not break and where to look.
+These rules apply to every AI tool and every human contributor. This file holds the rules you must not break and where to look; `framework/docs/ARCHITECTURE.md` explains the reasoning behind them.
 
 ## Read Before Changing Code
 
+For every change that follows a golden pattern:
+
 1. `config/approved-examples.json`: this project's reviewed golden examples. Use them first.
 2. `framework/templates/index.json`: the generic golden templates and when to use each.
-3. `framework/docs/ARCHITECTURE.md`: layer responsibilities and execution boundaries.
-4. `framework/docs/TESTING_STANDARDS.md`: implementation rules per layer and test type.
-5. `framework/docs/AI_ASSISTED_QA_WORKFLOW.md`: evidence, proposal and review boundaries for AI work.
-6. `framework/docs/adr/`: decisions, especially ADR-007 (template architecture).
+3. The `framework/docs/TESTING_STANDARDS.md` section each template you use links to (its `rules` field).
+
+Only when a change has no golden pattern, or alters a layer responsibility, an execution boundary, authentication, environment permissions, CI or a quality gate, also read `framework/docs/ARCHITECTURE.md`, the relevant `TESTING_STANDARDS.md` sections and `framework/docs/adr/` (ADR-007 for the template architecture). `framework/docs/AI_ASSISTED_QA_WORKFLOW.md` describes the evidence and review boundaries for AI work in detail.
 
 ## Workflow
 
@@ -41,28 +42,28 @@ tests/         project-owned specs.
 config/        project-owned configuration and approved examples.
 ```
 
-Import the framework as `@framework/...` and the application layer as `@app/...` (aliases in `tsconfig.json`). `framework/core` never imports `src` or `tests`.
+Import the framework as `@framework/...` and the application layer as `@app/...` (aliases in `tsconfig.json`). `framework/core` never imports `src` or `tests`, and `src` never imports `tests`.
 
 ## Layer Rules
 
-| Layer                   | Owns                                                       | Never                                     |
-| ----------------------- | ---------------------------------------------------------- | ----------------------------------------- |
-| Schema (TypeBox)        | provider request/response contracts                        | duplicate TypeScript interfaces           |
-| API client              | HTTP requests; raw responses; fail-fast setup helpers      | assertions                                |
-| Factory                 | valid defaults + overrides; partial payloads               | API calls, UI, assertions, lifecycle      |
-| Fixture                 | setup, state, dependencies, cleanup                        | hiding a single line of code              |
-| Page / Component Object | locators and user actions for the `Page` it was built from | assertions; reuse across `Page` instances |
-| Domain database client  | parameterized SQL and record mapping                       | assertions; string-interpolated SQL       |
-| Mock                    | only the network behavior the scenario needs               | inventing states the UI does not support  |
-| Spec                    | scenario orchestration and all assertions                  | raw locators, raw SQL, fixed waits        |
+| Layer                   | Owns                                                       | Never                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Schema (TypeBox)        | provider request/response contracts                        | duplicate TypeScript interfaces                                                                                                |
+| API client              | HTTP requests; raw responses; fail-fast setup helpers      | assertions                                                                                                                     |
+| Factory                 | valid defaults + overrides; partial payloads               | API calls, UI, assertions, lifecycle; importing Playwright, API or database clients, Page/Component Objects, fixtures or mocks |
+| Fixture                 | setup, state, dependencies, cleanup                        | hiding a single line of code                                                                                                   |
+| Page / Component Object | locators and user actions for the `Page` it was built from | assertions; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures)      |
+| Domain database client  | parameterized SQL and record mapping                       | assertions; string-interpolated SQL                                                                                            |
+| Mock                    | only the network behavior the scenario needs               | inventing states the UI does not support                                                                                       |
+| Spec                    | scenario orchestration and all assertions                  | raw locators, raw SQL, fixed waits                                                                                             |
 
 ## Hard Rules
 
 - Successful API responses: HTTP assertion → `validateSchema()` → business assertions. Never cast `response.json()`.
 - Negative responses are not validated against success schemas.
-- API authentication (bearer token) and browser authentication (session) are separate. Use the fixtures; use UI login only when login is the behavior under test.
+- API authentication (bearer token) and browser authentication (session) are separate; use UI login only when login is the behavior under test. A project uses role fixtures, `apiTokenFor(role)` and `authenticatedPageFor(getRoleCredentials(role))`. Golden templates come from the UPEX reference, which registers fresh users (`authenticatedTestUser`, `authenticatedPage`); in a project, replace those with role fixtures as in the `app-fixtures` template.
 - `TEST_ENV` selects the target. Database access, destructive reset and performance measurement run only where `config/environments/environments.json` allows them. Never weaken those permissions to make a test run.
-- Accessibility: use the `accessibility` / `authenticatedAccessibility` fixtures and the central WCAG policy. Never suppress violations.
+- Accessibility: scan through `AccessibilityScanner` and the central WCAG policy: the `accessibility` fixture for the default page, or a project fixture that builds the scanner from the authenticated page. Never suppress violations.
 - Visual: native `toHaveScreenshot()` with the shared options. Never run `--update-snapshots` to make a failure pass; baselines are generated in the Docker/Linux runtime and approved by a human.
 - Performance: never change thresholds or Lighthouse severities to make an unexplained failure pass. Keep setup traffic outside the measured operation.
 - Never weaken an assertion, skip a test, or suppress a real failure to get a green run. Report it.
