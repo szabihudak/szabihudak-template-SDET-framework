@@ -689,11 +689,12 @@ function main(): void {
         );
       }
 
-      // The setup self-test smoke specs run against any application, so they
-      // cannot know its elements; they never become project tests.
+      // Specs tagged @selftest belong to the setup self-test: they run against
+      // any application, also inside generated test projects, so they cannot
+      // know its elements. Real project specs never carry the tag.
       if (
         /^tests\/(ui|smoke)\//.test(logicalFile) &&
-        !file.startsWith("framework/setup/selftest/")
+        !/tag:\s*["']@selftest["']/.test(source)
       ) {
         for (const line of uiTestsWithoutPageAssertion(source)) {
           problems.push(
