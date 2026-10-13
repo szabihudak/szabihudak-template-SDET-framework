@@ -506,18 +506,19 @@ Persistent state is intentionally retained after a normal database test run for 
 
 The dedicated test database may be restored through the explicit reset workflow when a known baseline is required.
 
-The reset responsibility is:
+The framework owns the guarded part of the reset, `resetTestDatabase(hooks)` in `framework/core/database/resetTestDatabase.ts`:
 
 ```text
-validate localDocker environment
-→ require explicit destructive-operation confirmation
-→ validate database connection configuration
-→ verify Docker availability
-→ recreate public schema
-→ restore application schema with db:push
-→ restore application seed data
-→ verify baseline state
+require allow.destructive for TEST_ENV
+→ require a postgres DATABASE_URL
+→ require CONFIRM_DB_RESET=true
+→ hooks.preflight (optional)
+→ recreate the public schema
+→ hooks.restoreBaseline
+→ hooks.verifyBaseline
 ```
+
+The project supplies the hooks, because the application owns its schema and seed data. The UPEX reference wires them in `src/database/resetTestDatabase.ts` (Docker availability, `db:push`, `db:seed`, seeded users and tasks) and runs it with `npm run db:test:reset`; setup does not copy that script into projects.
 
 The reset workflow is destructive and is valid only for the dedicated disposable test-owned database.
 
@@ -525,13 +526,7 @@ It must not be generalized to a shared, non-test, staging, or production databas
 
 Normal test execution must not invoke the reset automatically.
 
-When an explicit clean baseline is required, use the framework-owned reset command:
-
-```bash
-npm run db:test:reset
-```
-
-The application remains the owner of schema and seed restoration. The framework reset utility orchestrates the reset but does not duplicate the application's schema definition or seed logic.
+The framework reset utility orchestrates the reset but does not duplicate the application's schema definition or seed logic.
 
 ## Schema Standard
 
@@ -675,6 +670,8 @@ When adding a fixture:
 4. clean up owned resources when required;
 5. preserve authentication boundaries.
 
+Authenticated fixtures use the role accounts: `apiTokenFor(role)` for API tokens and `authenticatedPageFor(getRoleCredentials(role))` for browser pages (see the Authentication Standard).
+
 Database fixtures additionally must preserve the database execution boundary, reuse the shared `DatabaseClient`, and close the owned connection pool after use.
 
 A fixture must not bypass the `allow.database` permission guard merely to make a database test executable in another environment.
@@ -691,27 +688,35 @@ Browser
 → Auth.js session
 ```
 
-Use the fixture matching the required state:
+A project authenticates with role accounts configured in `config/framework.config.ts` (`auth` and `roles`), whose credentials come from `.env` or CI secrets:
 
 ```text
-testUserData
-→ generated only
+apiTokenFor(role)
+→ bearer token for the role, logged in once per test
 
-registeredTestUser
-→ registered
-
-authenticatedTestUser
-→ registered + API authenticated
-
-authenticatedPage
-→ browser-authenticated Page
+authenticatedPageFor(getRoleCredentials(role))
+→ Page in a new browser context with a programmatic session,
+  closed after the test
 ```
+
+Project fixtures build API clients, Page Objects and test-owned data on top of these, as in the `app-fixtures` template.
+
+The UPEX reference implementation registers a fresh user per test instead, and the golden templates derived from it use its fixture names:
+
+```text
+testUserData            → generated only
+registeredTestUser      → registered
+authenticatedTestUser   → registered + API authenticated
+authenticatedPage       → browser-authenticated Page
+```
+
+In a project, replace them with role-based fixtures: `authenticatedTestUser.accessToken` becomes `await apiTokenFor("<role>")`, and a Page Object built from `authenticatedPage` is built from `authenticatedPageFor(getRoleCredentials("<role>"))`. Do not copy the fresh-user registration into a project that uses role accounts.
 
 Do not replace programmatic browser authentication with UI login merely for convenience.
 
 UI login should be performed when login behavior itself is under test.
 
-Objects interacting with `authenticatedPage` must be constructed from that Page or from a fixture that explicitly depends on it.
+Objects interacting with an authenticated Page must be constructed from that Page or from a fixture that explicitly depends on it.
 
 ## Page Object Standard
 

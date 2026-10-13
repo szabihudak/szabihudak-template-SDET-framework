@@ -12,7 +12,7 @@ Never ask for, read, write or log passwords, tokens or other secrets. Read only 
 
 ## Phase 1 – Discover (read-only)
 
-Use the hints the human wrote after the command first. Then read exactly these sources:
+Use the hints the human wrote after the command first. Besides AGENTS.md, read these sources and no others:
 
 | Item                   | Source                                                                                                                                                                                                                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
