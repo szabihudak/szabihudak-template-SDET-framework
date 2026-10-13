@@ -142,7 +142,7 @@ With an AI tool, follow [AGENTS.md](AGENTS.md); for the first tests of a new pro
 - [AGENTS.md](AGENTS.md): rules for humans and AI tools, and what to read for each kind of change
 - [framework/docs/ARCHITECTURE.md](framework/docs/ARCHITECTURE.md): how the framework is structured and why (for framework and architectural changes)
 - [framework/docs/TESTING_STANDARDS.md](framework/docs/TESTING_STANDARDS.md): implementation standards per layer and test type
-- [framework/docs/AI_ASSISTED_QA_WORKFLOW.md](framework/docs/AI_ASSISTED_QA_WORKFLOW.md): AI-assisted engineering boundaries
+- [framework/docs/adr/ADR-008-ai-assisted-engineering.md](framework/docs/adr/ADR-008-ai-assisted-engineering.md): how AI agents are used: review first, evidence by source
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 
 ## Reference Implementation
