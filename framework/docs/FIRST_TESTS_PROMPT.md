@@ -15,6 +15,8 @@ Goal: create the first tests for this application: at most 2 API tests and at mo
 Their purpose is to establish the project's own golden examples, not coverage.
 
 Step 0 – Gather the application context yourself (read-only)
+First read framework/docs/ARCHITECTURE.md and framework/docs/TESTING_STANDARDS.md: the layer
+responsibilities, execution boundaries and implementation rules every later step follows.
 Find each item below from the project and the application before asking me anything.
 Use any hints I wrote with the command first.
 - Target environment: TEST_ENV in .env (else .env.example), and its webBaseUrl, apiBaseUrl,
