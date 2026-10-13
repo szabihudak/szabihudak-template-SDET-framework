@@ -86,7 +86,8 @@ function aiToolSteps({ tools, mcp }: ProjectState): string[] {
   ];
 }
 
-export function nextSteps(options: FinishOptions): string[] {
+// mark leads the heading: an emoji on terminals that show one, else ASCII.
+export function nextSteps(options: FinishOptions, mark = "->"): string[] {
   const steps = [
     ...(options.cd ? [`cd ${options.cd}`] : []),
     ...(options.doctorOk
@@ -101,7 +102,7 @@ export function nextSteps(options: FinishOptions): string[] {
   ];
 
   return [
-    "The installer is done. Continue in your IDE:",
+    `${mark} The installer is done. Continue in your IDE:`,
     ...steps.map((step, index) => `   ${index + 1}. ${step}`),
     "",
     `${options.tools.copilot || options.tools.claude ? "/first-tests" : "The prompt"} configures the login, checks it with npm run doctor and`,

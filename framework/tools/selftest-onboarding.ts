@@ -16,7 +16,7 @@ const RIGHT = "\x1b[C";
 const PASSWORD = "Pa55#word with 'quotes' $HOME";
 
 type Step = { expect: string; send: string };
-type Run = { output: string; code: number | null };
+type Run = { output: string; raw: string; code: number | null };
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Self-test failed (onboarding): ${message}`);
@@ -27,6 +27,12 @@ const plain = (text: string) =>
     .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
     .replace(/\r/g, "")
     .replace(/[ \t]+/g, " ");
+
+// Color codes (SGR); cursor movement from the prompts is not color.
+const COLOR_CODE = /\x1b\[[0-9;]*m/;
+const EMOJI = /[\u2705\u23ed\u274c\u{1f449}\u{1f680}\u{1f918}\u{1f9ea}]/u;
+// The installer decides on emoji from the locale name alone.
+const UTF8_LOCALE = process.platform === "darwin" ? "en_US.UTF-8" : "C.UTF-8";
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
 
@@ -84,7 +90,7 @@ async function interact(
   clearTimeout(timeout);
   child.stdin.end();
 
-  return { output: plain(output), code };
+  return { output: plain(output), raw: output, code };
 }
 
 const onboard = "npx tsx framework/tools/onboard.ts";
@@ -425,7 +431,7 @@ async function checkInstaller(project: string): Promise<void> {
           send: RIGHT + ENTER,
         },
       ],
-      env,
+      { ...env, NO_COLOR: "", TERM: "xterm-256color", LC_ALL: UTF8_LOCALE },
     );
 
     assert(
@@ -439,13 +445,16 @@ async function checkInstaller(project: string): Promise<void> {
       "[x] Stage 1: Framework setup ====> [>] Stage 2: First tests (optional)",
       " INSTALLER | NEXT: IN YOUR IDE",
       "| test account | | | /first-tests | -> | review & run |",
-      "[x] Stage 1 Framework setup done",
-      "[-] Stage 2 First tests skipped -> run: npm run onboard",
+      "🚀 STAGE 1 - Framework setup",
+      "🧪 STAGE 2 - First tests (optional)",
+      "✅ Stage 1 Framework setup done",
+      "⏭️ Stage 2 First tests skipped -> run: npm run onboard",
+      "🤘\n +=====",
       "| [x] INSTALLER FINISHED |",
       '| "Program testing can show the presence |',
       '| of bugs, never their absence." |',
       "| - Dijkstra |",
-      "The installer is done. Continue in your IDE:",
+      "👉 The installer is done. Continue in your IDE:",
       "1. npm run onboard (adds the test account to .env)",
       "3. Give your AI tool framework/docs/FIRST_TESTS_PROMPT.md",
     ]) {
@@ -458,6 +467,20 @@ async function checkInstaller(project: string): Promise<void> {
       /\+=+\+ +\+-+\+/.test(terminal.output),
       "install.sh did not highlight the current step",
     );
+    for (const [code, what] of [
+      ["\x1b[1;36mSTAGE 1 - Framework setup", "the stage title in bold cyan"],
+      ["\x1b[33m(optional)", "optional in yellow"],
+      ["\x1b[32m[x]", "finished steps in green"],
+      ["\x1b[2mNEXT: IN YOUR IDE", "the IDE side dimmed"],
+      ["\x1b[32m+=====", "the finish box border in green"],
+      ["\x1b[1m [x] INSTALLER FINISHED", "the finish title in bold"],
+      ['\x1b[2;3m "Program testing', "the quote dim and italic"],
+    ]) {
+      assert(
+        terminal.raw.replace(/[ \t]+/g, " ").includes(code),
+        `install.sh did not show ${what}`,
+      );
+    }
 
     const filled = await interact(
       "bash install.sh",
@@ -470,7 +493,8 @@ async function checkInstaller(project: string): Promise<void> {
         { expect: "username or email", send: `qa-user@example.com${ENTER}` },
         { expect: "password", send: `${PASSWORD}${ENTER}` },
       ],
-      env,
+      // NO_COLOR is set; LC_ALL=C cannot show emoji.
+      { ...env, TERM: "xterm-256color", LC_ALL: "C" },
     );
 
     assert(
@@ -481,8 +505,12 @@ async function checkInstaller(project: string): Promise<void> {
       // /first-tests relies on this doctor line to find the account in .env.
       '✔ credentials for role "user" are set',
       "| [x] test account | | | /first-tests | -> | review & run |",
+      ">> STAGE 2 - First tests (optional)",
+      "[x] Stage 1 Framework setup done",
       "[x] Stage 2 First tests test account in .env -> next: /first-tests",
+      "\\m/\n +=====",
       "| [x] INSTALLER FINISHED |",
+      "-> The installer is done. Continue in your IDE:",
       "1. Open the project in your IDE",
     ]) {
       assert(
@@ -495,10 +523,24 @@ async function checkInstaller(project: string): Promise<void> {
       "install.sh asked for npm run onboard after the account was entered",
     );
     assert(!filled.output.includes(PASSWORD), "install.sh showed the password");
+    assert(
+      !COLOR_CODE.test(filled.raw),
+      "install.sh printed color codes with NO_COLOR set",
+    );
+    assert(
+      !EMOJI.test(filled.raw),
+      "install.sh printed emoji where the locale cannot show them",
+    );
 
     const unattended = execSync("bash install.sh < /dev/null 2>&1", {
       cwd: project,
-      env: { ...process.env, ...env },
+      env: {
+        ...process.env,
+        ...env,
+        NO_COLOR: "",
+        TERM: "xterm-256color",
+        LC_ALL: UTF8_LOCALE,
+      },
     }).toString();
 
     assert(
@@ -530,8 +572,12 @@ async function checkInstaller(project: string): Promise<void> {
       !unattended.includes("Set up the test account"),
       "install.sh prompted without a terminal",
     );
+    assert(
+      !unattended.includes("\x1b") && !EMOJI.test(unattended),
+      "install.sh printed color codes or emoji without a terminal",
+    );
     console.log(
-      "✔ installer: stage overview, split stage 2 flow, finish box and next steps on a terminal; plain stage names and next steps without one",
+      "✔ installer: stage overview, split stage 2 flow, colors, emoji (ASCII without UTF-8), finish box and next steps on a terminal; no colors with NO_COLOR; plain text without a terminal",
     );
   } finally {
     fs.rmSync(bin, { recursive: true, force: true });
