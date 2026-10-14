@@ -1,13 +1,12 @@
 ---
 name: test-builder
-description: Implement an approved test proposal from the approved examples, golden templates and standards, then run the validation commands.
+description: Implement an approved test plan from the approved examples, golden templates and standards, then run the validation commands.
 tools:
   [
     "read",
     "search",
     "edit",
     "execute",
-    "web",
     "vscode/askQuestions",
     "playwright/*",
     "openapi/*",
@@ -15,7 +14,7 @@ tools:
 handoffs:
   - label: Validate
     agent: test-validator
-    prompt: Validate the changes against the approved proposal.
+    prompt: Validate the changes against the approved plan.
     send: false
 ---
 
