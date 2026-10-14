@@ -520,7 +520,7 @@ async function checkInstaller(project: string): Promise<void> {
       "\\m/\n +=====",
       "| [x] INSTALLER FINISHED |",
       "-> The installer is done. Continue in your IDE:",
-      "1. Open the project in your IDE",
+      "1. code . (opens the project in VS Code)",
     ]) {
       assert(
         filled.output.includes(expected),

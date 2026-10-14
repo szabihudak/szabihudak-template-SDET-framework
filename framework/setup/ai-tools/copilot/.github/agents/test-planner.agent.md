@@ -1,6 +1,6 @@
 ---
 name: test-planner
-description: Plan Playwright tests from the project's rules, approved examples, golden templates and the running application. Changes no files.
+description: Plan and design Playwright tests from the project's rules, approved examples, golden templates and the running application. Changes no files.
 tools:
   [
     "read",

@@ -27,6 +27,15 @@ understand the behavior
 
 Do not start by generating code. Do not create an abstraction for hypothetical reuse or symmetry. Implementing from a golden template means the same structure, naming, assertion placement and style, not only the same behavior. Name files and symbols after their domain responsibility (`OrderApiClient`, `createOrder`, `OrdersPage`); a new kind of file without a template follows the naming of the closest one.
 
+## Ask First
+
+Stop and ask the user before:
+
+- adding a new abstraction, layer or dependency;
+- creating or changing a visual baseline;
+- using database access, reset or performance measurement on an environment for the first time;
+- quarantining a test.
+
 ## Ownership
 
 ```text

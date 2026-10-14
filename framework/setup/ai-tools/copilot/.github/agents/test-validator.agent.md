@@ -1,6 +1,6 @@
 ---
 name: test-validator
-description: Run the quality gates and review the built tests against the approved proposal and the rules. Changes no files.
+description: Run the quality gates and review the built tests against the approved plan and the rules. Changes no files.
 tools: ["read", "search", "execute"]
 handoffs:
   - label: Fix the findings
