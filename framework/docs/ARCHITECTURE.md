@@ -53,7 +53,7 @@ There is deliberately no base API client, service layer, generic factory or repo
 
 `config/framework.config.ts` is validated against a TypeBox schema when it is loaded. It selects the modules (`api`, `ui`, `smoke`, `database`, `accessibility`, `visual`, `performance`), the browsers, the CI retries and workers, the authentication strategies and the roles.
 
-`config/environments/environments.json` is the runtime-neutral source of target data: `webBaseUrl`, `apiBaseUrl`, an optional `openApiUrl` and the permissions `allow.database`, `allow.destructive` and `allow.performance`. Playwright reads it through `framework/core/utils/env.ts`; the performance workflow and the Lighthouse configuration read the same file directly.
+`config/environments/environments.json` is the runtime-neutral source of target data: `webBaseUrl`, `apiBaseUrl`, optional `openApiUrl` and the permissions `allow.database`, `allow.destructive`, `allow.performance` and `allow.interactiveDiscovery`. The latter gates planner API invocation and UI form submissions for exploratory discovery; destructive or irreversible actions remain prohibited. `config/framework.config.ts` may point to an optional requirements document with `requirementsDoc` (HTTP(S) URL or repository-relative path). Playwright reads environment settings through `framework/core/utils/env.ts`; the performance workflow and Lighthouse configuration read the same file directly.
 
 `TEST_ENV` selects the environment and has no default, so a run never silently targets a shared deployment. Guards check permissions, not environment names: `assertEnvironmentAllows()` protects direct database access, the destructive reset and Lighthouse measurement.
 
@@ -135,7 +135,7 @@ Enforced by review: test intent, golden-template choice, realistic mocks, no inv
 
 ## AI-Assisted Engineering
 
-The framework has no AI provider integration (ADR-007). Generated projects use three GitHub Copilot agents (ADR-009): **test-planner** proposes without changing files, **test-builder** implements the approved scope, and **test-validator** runs the gates and reviews the result; each hand-over waits for the user. Their tasks are in `framework/prompts/`, and every agent follows `AGENTS.md`. Repository rules decide structure; OpenAPI and Playwright MCP provide evidence about the application, never architecture. ADR-008 records the approach and the validation behind it; ADR-009 records the Copilot agents.
+The framework has no AI provider integration (ADR-007). Generated projects use three GitHub Copilot agents (ADR-009): **test-planner** creates a canonical JSON plan and validated generated Markdown view, **test-builder** implements the approved scope, and **test-validator** runs gates and reviews the result; each hand-over waits for the user. Plans use requirements mode when expectations are supplied, otherwise exploratory mode produces explicitly labeled characterization cases. Their tasks are in `framework/prompts/`, and every agent follows `AGENTS.md`. Repository rules decide structure; contract and runtime discovery provide application evidence. ADR-008 records the approach and the validation behind it; ADR-009 records the Copilot agents.
 
 ## Known Gaps
 

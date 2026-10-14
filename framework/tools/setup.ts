@@ -58,6 +58,7 @@ const MODULES = [
 const answersSchema = Type.Object(
   {
     appName: Type.String({ pattern: "^[a-z0-9][a-z0-9-]*$" }),
+    requirementsDoc: Type.Optional(Type.String({ minLength: 1 })),
     environments: environmentsSchema,
     modules: frameworkConfigSchema.properties.modules,
     browsers: frameworkConfigSchema.properties.browsers,
@@ -166,9 +167,29 @@ const isDatabaseUrl: Validator = (value) =>
     ? undefined
     : "Enter a PostgreSQL URL such as postgresql://user:password@host:5432/test_db, or leave it empty.";
 
+const isRequirementsSource: Validator = (value) => {
+  if (!isUrl(value)) return undefined;
+  if (
+    value.includes("://") ||
+    value.startsWith("/") ||
+    value.includes("\\") ||
+    value
+      .split("/")
+      .some((part) => part === ".." || part === "." || part === "")
+  ) {
+    return "Enter an HTTPS/HTTP URL or a repository-relative path without '..'.";
+  }
+  return undefined;
+};
+
 // Checks the answers file mode cannot express through the schema alone.
 function semanticErrors(answers: Answers): string[] {
   const errors: string[] = [];
+
+  if (answers.requirementsDoc) {
+    const error = isRequirementsSource(answers.requirementsDoc);
+    if (error) errors.push(`requirementsDoc: ${error}`);
+  }
 
   for (const [name, environment] of Object.entries(answers.environments)) {
     for (const key of ["webBaseUrl", "apiBaseUrl", "openApiUrl"] as const) {
@@ -343,14 +364,25 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
     const performance =
       modules.performance &&
       (await confirm(`${name}: allow performance measurement?`));
+    const interactiveDiscovery =
+      (modules.api || BROWSER_MODULES.some((module) => modules[module])) &&
+      (await confirm(
+        `${name}: allow planner discovery to submit normal API/UI actions and create or update test data (no deletes/resets)?`,
+      ));
 
     environments[name] = {
       webBaseUrl,
       apiBaseUrl,
       ...(openApiUrl ? { openApiUrl } : {}),
-      allow: { database, destructive, performance },
+      allow: { database, destructive, performance, interactiveDiscovery },
     };
   }
+
+  const requirementsDoc = await askOptional(
+    "Requirements or acceptance-criteria document URL or repository-relative path, if available",
+    isRequirementsSource,
+    "docs/requirements/login.md",
+  );
 
   const secrets: Secrets = {};
 
@@ -368,13 +400,22 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
   prompts.outro(`Creating ${appName}…`);
 
   return {
-    answers: { appName, environments, modules, browsers },
+    answers: {
+      appName,
+      ...(requirementsDoc ? { requirementsDoc } : {}),
+      environments,
+      modules,
+      browsers,
+    },
     secrets,
   };
 }
 
 function buildFrameworkConfig(answers: Answers): FrameworkConfig {
   return {
+    ...(answers.requirementsDoc
+      ? { requirementsDoc: answers.requirementsDoc }
+      : {}),
     modules: answers.modules,
     browsers: answers.browsers,
     execution: { ciRetries: 2, ciWorkers: "50%" },
@@ -641,9 +682,8 @@ function installAiTools(project: string): void {
 const PLAYWRIGHT_MCP = "@playwright/mcp@0.0.83";
 const OPENAPI_MCP = "@ivotoby/openapi-mcp-server@1.16.1";
 
-// MCP servers for the test-planner agent: Playwright MCP explores the UI, the
-// OpenAPI MCP server reads the default environment's API contract. Its dynamic
-// mode lists endpoints and schemas; AGENTS.md forbids invoking them.
+// MCP servers for the test-planner agent: OpenAPI dynamic mode exposes contract
+// discovery and invocation tools; AGENTS.md gates invocation by environment.
 function mcpServers(answers: Answers): Record<string, string[]> {
   const servers: Record<string, string[]> = {};
   const environment = answers.environments[defaultEnvironment(answers)];
@@ -651,7 +691,11 @@ function mcpServers(answers: Answers): Record<string, string[]> {
   if (BROWSER_MODULES.some((module) => answers.modules[module])) {
     servers.playwright = ["-y", PLAYWRIGHT_MCP];
   }
-  if (answers.modules.api && environment.openApiUrl) {
+  if (
+    answers.modules.api &&
+    environment.openApiUrl &&
+    environment.allow.interactiveDiscovery === true
+  ) {
     servers.openapi = [
       "-y",
       OPENAPI_MCP,
@@ -758,7 +802,7 @@ Playwright tests created from the SDET framework template.
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
 2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
-3. Configure login and write the first tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It proposes the login setup and the tests without changing files; **Build the approved proposal** hands over to **test-builder**, and **Validate** to **test-validator**. See [Testing with the agents](#testing-with-the-agents).
+3. Configure login and plan tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It uses \`requirementsDoc\` when configured, otherwise performs exploratory discovery when the selected environment allows it. It writes \`test-plans/<feature>/plan.json\` and generates \`plan.md\` only after validation; **Build the approved proposal** hands the approved plan to **test-builder**, and **Validate** to **test-validator**. See [Testing with the agents](#testing-with-the-agents).
 4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
 5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
 
@@ -779,11 +823,11 @@ Open the project in VS Code, start the MCP servers when asked, and select an age
 
 | Agent | Does | Changes files |
 | --- | --- | --- |
-| **test-planner** | Reads the configuration, the API contract and the pages, and proposes the tests (and, in a new project, the login setup). Ends with an Approved scope | No |
+| **test-planner** | Uses requirements if configured, otherwise plans exploratory characterization cases from permitted API/UI discovery. Produces a validated JSON plan and generated Markdown view, then waits for approval | Plan artifacts only |
 | **test-builder** | Implements the approved scope from the approved examples and golden templates, then runs the validation commands | Yes |
 | **test-validator** | Runs the quality gates and reviews the result against the rules, citing a rule for every finding | No |
 
-Approve a proposal with **Build the approved proposal**, check the result with **Validate**, send findings back with **Fix the findings**, and accept the tests with **Register approved examples**. Each step waits for your click.
+Review the generated \`test-plans/<feature>/plan.json\` and \`plan.md\`. Approve with **Build the approved proposal**, check the result with **Validate**, send findings back with **Fix the findings**, and accept the tests with **Register approved examples**. Each step waits for your click.
 
 ## Commands
 
@@ -1046,7 +1090,7 @@ async function main(): Promise<void> {
     "npm run doctor   (checks the configuration and that the URLs are reachable)",
     loginConfigured
       ? "npm run onboard  (puts the role test accounts into .env), then npm run doctor again."
-      : "Optional: npm run onboard  (puts the test account into .env). Then configure login and write the first tests: select the test-planner agent in GitHub Copilot Chat.",
+      : "Optional: npm run onboard  (adds the first role and test account). Then select the test-planner agent in Copilot Chat to plan from requirements or permitted exploratory discovery.",
   ];
   // install.sh continues with the installation and stage 2.
   const nextSteps = process.env.QA_SETUP_RESULT

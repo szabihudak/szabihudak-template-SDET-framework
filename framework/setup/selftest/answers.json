@@ -1,5 +1,6 @@
 {
   "appName": "selftest-app-tests",
+  "requirementsDoc": "docs/acceptance-criteria.md",
   "environments": {
     "selftest": {
       "webBaseUrl": "http://localhost:4510",
@@ -8,7 +9,8 @@
       "allow": {
         "database": false,
         "destructive": false,
-        "performance": false
+        "performance": false,
+        "interactiveDiscovery": true
       }
     }
   },

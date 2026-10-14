@@ -1,4 +1,9 @@
-import { execSync, spawn, type ChildProcess } from "node:child_process";
+import {
+  execSync,
+  spawn,
+  spawnSync,
+  type ChildProcess,
+} from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -63,6 +68,46 @@ function assertPlan(project: string, expected: string[]): void {
     `unexpected CI plan: ${plan.trim()}`,
   );
   console.log(`✔ CI plan is ${JSON.stringify(expected)}`);
+}
+
+function checkPlanArtifacts(project: string): void {
+  const planDirectory = path.join(project, "test-plans", "selftest-plan");
+  fs.mkdirSync(planDirectory, { recursive: true });
+  const planFile = path.join(planDirectory, "plan.json");
+  const viewFile = path.join(planDirectory, "plan.md");
+  const fixture = fs.readFileSync(
+    path.join(ROOT, SELFTEST_DIR, "plan.json"),
+    "utf8",
+  );
+  fs.writeFileSync(planFile, fixture);
+
+  run("npm run qa:plan -- refresh test-plans/selftest-plan/plan.json", project);
+  assert(fs.existsSync(viewFile), "plan refresh did not generate plan.md");
+  const validView = fs.readFileSync(viewFile, "utf8");
+
+  const invalidPlan = JSON.parse(fixture);
+  invalidPlan.coverage[0].caseIds = ["API-99"];
+  fs.writeFileSync(planFile, `${JSON.stringify(invalidPlan, null, 2)}\n`);
+  const failedRefresh = spawnSync(
+    "npm",
+    ["run", "qa:plan", "--", "refresh", "test-plans/selftest-plan/plan.json"],
+    { cwd: project, encoding: "utf8" },
+  );
+  assert(
+    failedRefresh.status !== 0,
+    "invalid plan unexpectedly passed refresh",
+  );
+  assert(
+    fs.readFileSync(viewFile, "utf8") === validView,
+    "failed plan validation changed the generated Markdown view",
+  );
+
+  fs.writeFileSync(planFile, fixture);
+  run("npm run qa:plan -- check test-plans/selftest-plan/plan.json", project);
+  run("npm run qa:plan -- check-all", project);
+  console.log(
+    "✔ plan JSON validation, Markdown generation and failure preservation",
+  );
 }
 
 // Validates the workflows setup installed: parseable YAML, the managed secrets
@@ -138,6 +183,7 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/templates/README.md",
     "framework/templates/index.json",
     "framework/tools/doctor.ts",
+    "framework/tools/plan.ts",
     "framework/docs/TESTING_STANDARDS.md",
     "src/fixtures/test-fixtures.ts",
     "config/approved-examples.json",
@@ -176,6 +222,23 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     path.join(project, "config/framework.config.ts"),
     "utf8",
   );
+  const environmentConfig = JSON.parse(
+    fs.readFileSync(
+      path.join(project, "config/environments/environments.json"),
+      "utf8",
+    ),
+  );
+  assert(
+    environmentConfig.selftest.allow.interactiveDiscovery ===
+      scenario.interactiveDiscovery,
+    `environments.json does not persist interactiveDiscovery=${scenario.interactiveDiscovery}`,
+  );
+  if (scenario.requirementsDoc) {
+    assert(
+      config.includes(`requirementsDoc: "${scenario.requirementsDoc}"`),
+      `framework.config.ts does not persist requirementsDoc=${scenario.requirementsDoc}`,
+    );
+  }
 
   // Folder skeleton for the enabled test types, without any spec yet.
   const specs = fs.existsSync(path.join(project, "tests"))
@@ -201,6 +264,11 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(project, "package.json"), "utf8"),
   );
+  assert(
+    packageJson.scripts["qa:plan"] === "tsx framework/tools/plan.ts",
+    "generated project does not retain the plan validation command",
+  );
+  checkPlanArtifacts(project);
   assert(
     !packageJson.scripts.setup && !packageJson.scripts["qa:selftest"],
     "package.json still has template-only scripts",
@@ -370,6 +438,8 @@ type Scenario = {
   inPlace: boolean;
   // MCP servers .vscode/mcp.json must list, sorted.
   mcpServers: string[];
+  interactiveDiscovery: boolean;
+  requirementsDoc?: string;
   // Category scripts setup adds for the enabled modules and browsers, and the
   // ones that list self-test specs once the tests are in place.
   testScripts: { all: string[]; withTests: string[] };
@@ -408,6 +478,7 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: false,
     inPlace: false,
     mcpServers: ["playwright"],
+    interactiveDiscovery: false,
     testScripts: {
       all: [
         "test:api",
@@ -428,6 +499,8 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: true,
     inPlace: false,
     mcpServers: ["openapi", "playwright"],
+    interactiveDiscovery: true,
+    requirementsDoc: "docs/acceptance-criteria.md",
     testScripts: {
       all: [
         "test:api",
@@ -453,6 +526,7 @@ const SCENARIOS: Scenario[] = [
     needsBrowser: false,
     inPlace: true,
     mcpServers: ["openapi"],
+    interactiveDiscovery: true,
     testScripts: { all: ["test:api"], withTests: ["test:api"] },
   },
 ];

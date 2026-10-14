@@ -288,7 +288,10 @@ async function checkUnattended(project: string, result: string): Promise<void> {
       QA_ONBOARD_RESULT: result,
     });
 
-    assert(run.code === 0, `the unattended run exited with ${run.code}`);
+    assert(
+      run.code === 0,
+      `the unattended run exited with ${run.code}. Output:\n${run.output}`,
+    );
     assert(
       resultOf(result) === "skipped",
       "the unattended run did not report skipped",

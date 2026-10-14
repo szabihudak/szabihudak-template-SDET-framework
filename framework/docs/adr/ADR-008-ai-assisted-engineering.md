@@ -49,7 +49,7 @@ provider contract → OpenAPI, read through OpenAPI MCP
 running app       → pages, roles, behavior, observed through Playwright MCP
 ```
 
-Evidence about the application never decides the structure of the code. OpenAPI MCP is used to read the contract, never to invoke endpoints. Playwright MCP navigates and reads, without submitting forms or changing data unless the task requires it.
+Evidence about the application never decides the structure of the code. OpenAPI MCP reads contracts; scenario-relevant invocation is permitted only for exploratory discovery when the selected environment has `allow.interactiveDiscovery: true`. Playwright MCP may submit relevant forms under the same permission. Both remain limited to test-owned data and non-destructive actions; deletion, resets and irreversible actions require explicit human approval and are not part of planner discovery. Requirements define intended behavior when present. Without requirements, observed/contract behavior is labeled as characterization rather than assumed correct.
 
 ### Golden template compliance
 

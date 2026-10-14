@@ -27,16 +27,16 @@ Generated projects use three GitHub Copilot custom agents, installed by `npm run
 
 ```text
 test-planner  ──[Build the approved proposal]──▶  test-builder  ──[Validate]──▶  test-validator
- read-only: discovers the application,            implements from the            read-only: runs the gates,
- proposes the tests and, in a new project,        approved examples, golden      reviews against the rules,
- the login setup; ends with an Approved scope     templates and standards        cites a rule for every finding
+ writes only the validated plan pair,             implements from the            read-only: runs the gates,
+ requirements-led or exploratory;                approved examples, golden      reviews against the rules,
+ ends with an Approved scope                     templates and standards        cites a rule for every finding
         ▲                                                                                │
         └───────────── FAIL: [Fix the findings] → test-builder ◀────────────────────────┤
                        PASS: [Register approved examples] → test-builder ◀──────────────┘
 ```
 
 - Every hand-over is a button the user clicks (`send: false`); the click is the approval.
-- The planner and the validator have no edit tools for the whole conversation.
+- The planner has edit capability only for the plan artifact by instruction; the validator has no edit tools. The planner's allowed filesystem scope is policy-enforced, not technically sandboxed.
 - The task logic lives in `framework/prompts/planner.md`, `builder.md` and `validator.md`; the agent files stay short and name AGENTS.md and their task file.
 - `AGENTS.md`, `TESTING_STANDARDS.md`, the golden templates and the linter stay tool-neutral Markdown and code.
 - Setup no longer asks for an AI tool. It installs `.github/copilot-instructions.md`, the agents and `.vscode/mcp.json` (Playwright MCP, and the OpenAPI MCP server when a contract URL is given). The Claude Code files and the `/first-tests` prompts are removed.

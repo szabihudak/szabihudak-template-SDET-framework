@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "lint:architecture": "tsx framework/tools/architecture.ts",
+    "qa:plan": "tsx framework/tools/plan.ts",
     "setup": "tsx framework/tools/setup.ts",
     "doctor": "tsx framework/tools/doctor.ts",
     "onboard": "tsx framework/tools/onboard.ts",

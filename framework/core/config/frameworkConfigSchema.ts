@@ -47,6 +47,7 @@ const roleSchema = Type.Object(
 
 export const frameworkConfigSchema = Type.Object(
   {
+    requirementsDoc: Type.Optional(Type.String({ minLength: 1 })),
     modules: Type.Object(
       {
         api: Type.Boolean(),

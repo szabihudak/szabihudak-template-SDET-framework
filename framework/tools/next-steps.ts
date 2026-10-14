@@ -89,8 +89,8 @@ export function nextSteps(options: FinishOptions, mark = "->"): string[] {
     `${mark} The installer is done. Continue in your IDE:`,
     ...steps.map((step, index) => `   ${index + 1}. ${step}`),
     "",
-    "test-planner proposes the login setup and the first tests without changing",
-    "files. You approve; test-builder implements them and test-validator checks them.",
+    "test-planner writes a JSON plan and generated Markdown view; only that pair can change.",
+    "You approve; test-builder implements it and test-validator checks the result.",
     ...(options.testScripts?.length
       ? [
           "",

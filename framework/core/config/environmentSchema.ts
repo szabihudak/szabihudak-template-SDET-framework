@@ -5,6 +5,7 @@ export const environmentPermissionsSchema = Type.Object(
     database: Type.Boolean(),
     destructive: Type.Boolean(),
     performance: Type.Boolean(),
+    interactiveDiscovery: Type.Optional(Type.Boolean()),
   },
   {
     additionalProperties: false,

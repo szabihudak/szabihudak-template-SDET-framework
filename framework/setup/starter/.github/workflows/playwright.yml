@@ -54,6 +54,9 @@ jobs:
       - name: Check architecture rules
         run: npm run lint:architecture
 
+      - name: Check test plans
+        run: npm run qa:plan -- check-all
+
       - name: Check golden templates
         run: npm run qa:templates:check
 

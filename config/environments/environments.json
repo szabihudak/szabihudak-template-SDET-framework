@@ -5,7 +5,8 @@
     "allow": {
       "database": false,
       "destructive": false,
-      "performance": true
+      "performance": true,
+      "interactiveDiscovery": false
     }
   },
   "local": {
@@ -14,7 +15,8 @@
     "allow": {
       "database": false,
       "destructive": false,
-      "performance": false
+      "performance": false,
+      "interactiveDiscovery": false
     }
   },
   "localDocker": {
@@ -23,7 +25,8 @@
     "allow": {
       "database": true,
       "destructive": true,
-      "performance": false
+      "performance": false,
+      "interactiveDiscovery": false
     }
   }
 }

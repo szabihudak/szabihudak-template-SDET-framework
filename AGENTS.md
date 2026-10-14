@@ -83,7 +83,7 @@ The framework's Lighthouse policy (`framework/core/performance/`) is the one hel
 - Retries are diagnostics, not a fix. A test that passes only on retry is flaky and is investigated; a temporary quarantine needs a reason, an owner and a way back, written above it as `// quarantine: <reason>; owner: <name>; exit: <issue or condition>`.
 - Never invent provider behavior. When evidence is missing or conflicting, say so.
 - Report evidence by source (provider contract, repository, running application) and mark anything not verified as UNVERIFIED.
-- OpenAPI MCP reads the contract and never invokes endpoints. Playwright MCP navigates and reads; it does not submit forms or change data unless the task requires it.
+- Exploratory API calls and UI form submissions are allowed only when the selected environment has `allow.interactiveDiscovery: true` and the task requires the interaction. Limit calls to the supplied scenario and use test-owned data. Never invoke DELETE endpoints, destructive resets or irreversible actions during planning; stop for explicit human approval if discovery needs them. OpenAPI MCP contract reads and Playwright inspection may run with discovery permission off, but must remain read-only.
 - In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
 - Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
 
@@ -105,6 +105,7 @@ Run before considering work complete:
 npx prettier --check .
 npm run typecheck
 npm run lint:architecture
+npm run qa:plan -- check-all
 npm run qa:templates:check
 npx playwright test --project=<affected project>
 ```

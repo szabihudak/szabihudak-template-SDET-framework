@@ -38,7 +38,7 @@ It leaves out the UPEX reference implementation, the setup tooling and the workf
 
 Without the script, for example on Windows: `npm ci`, `npm run setup`, then `npm ci`, `npx playwright install --with-deps` and `npm run doctor` in the new project folder. `npm run setup -- --target <folder>` chooses another location; `--in-place` turns the current folder into the project, for a repository created with GitHub's **Use this template** (it refuses to run on uncommitted changes unless you pass `--force`). For non-interactive use: `--answers answers.json` (see `framework/setup/selftest/answers-minimal.json`); the database URL then comes from the `DATABASE_URL` environment variable.
 
-Setup adds an empty application layer and generic GitHub Actions workflows; it installs no tests. With the database module enabled, it warns when no environment allows database access or `DATABASE_URL` is empty. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. Every project gets the GitHub Copilot agents (`.github/agents/`) and an MCP configuration (`.vscode/mcp.json`) with Playwright MCP for browser tests and the OpenAPI MCP server when an OpenAPI URL was given, so the test-planner agent can discover the login flow and the API contract itself; the agents follow `AGENTS.md` ([ADR-009](framework/docs/adr/ADR-009-copilot-agent-pipeline.md)).
+Setup adds an empty application layer and generic GitHub Actions workflows; it installs no tests. With the database module enabled, it warns when no environment allows database access or `DATABASE_URL` is empty. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. Every project gets the GitHub Copilot agents (`.github/agents/`) and an MCP configuration (`.vscode/mcp.json`) with Playwright MCP for browser tests. The OpenAPI MCP server is installed only when the default environment has an OpenAPI URL and `allow.interactiveDiscovery` is enabled; otherwise the planner can read the contract without endpoint invocation. The agents follow `AGENTS.md` ([ADR-009](framework/docs/adr/ADR-009-copilot-agent-pipeline.md)).
 
 Once login and roles are configured in `config/framework.config.ts`, add the role accounts to `.env` (`npm run onboard` asks for them), run `npm run doctor` (it checks that each role logs in) and `npm run qa:sync-ci-secrets` (it adds the role secrets to the local workflow files and lists the secrets to create in GitHub; it uploads nothing). The test-builder agent runs both itself after configuring the login, and does not ask for an account that is already in `.env`. CI skips Playwright projects that have no tests yet.
 
@@ -63,6 +63,7 @@ Once login and roles are configured in `config/framework.config.ts`, add the rol
 - `auth.api`: `bearer` token login or `none`.
 - `auth.browser`: `nextAuth` credentials session or `none`.
 - `roles`: role names mapped to the environment variables holding their test-account credentials. The same credentials provide API bearer tokens (`apiTokenFor(role)` fixture) and browser sessions (`authenticatedPageFor` fixture).
+- `requirementsDoc` (optional): HTTP(S) URL or repository-relative path for requirements or acceptance criteria; when absent, the planner uses exploratory mode.
 
 For API-only testing, enable only the `api` module: setup then skips browser questions and CI runs only the `api` project.
 
@@ -72,21 +73,21 @@ For API-only testing, enable only the `api` module: setup then skips browser que
 "staging": {
   "webBaseUrl": "https://staging.example.com",
   "apiBaseUrl": "https://staging.example.com/api",
-  "allow": { "database": false, "destructive": false, "performance": true }
+  "allow": { "database": false, "destructive": false, "performance": true, "interactiveDiscovery": false }
 }
 ```
 
-`TEST_ENV` is required; there is no default target. `allow` controls direct database access, destructive database reset and performance measurement, and is enforced by the framework.
+`TEST_ENV` is required; there is no default target. `allow` controls direct database access, destructive database reset, performance measurement and whether planner discovery may submit non-destructive API/UI interactions. The optional `requirementsDoc` setting in `config/framework.config.ts` points to an HTTP(S) requirements URL or repository-relative document path.
 
 ## Testing with the Agents
 
-Generated projects use three GitHub Copilot agents in VS Code ([ADR-009](framework/docs/adr/ADR-009-copilot-agent-pipeline.md)). Select **test-planner** in Copilot Chat and describe the tests you want; in a new project it also proposes the login setup and at most 2 API and 2 UI tests, which become the project's own golden examples.
+Generated projects use three GitHub Copilot agents in VS Code ([ADR-009](framework/docs/adr/ADR-009-copilot-agent-pipeline.md)). Select **test-planner** in Copilot Chat and describe the component or tests. It uses configured requirements when present; otherwise it creates explicitly labeled exploratory characterization cases from permitted API/UI discovery. It writes canonical `test-plans/<feature>/plan.json` and generates the human-readable `plan.md` beside it only after validation passes.
 
-| Agent              | What it does                                                                                                                                                                      | Changes files |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| **test-planner**   | Reads the configuration, the API contract (OpenAPI MCP), the pages (Playwright MCP), the approved examples and templates, then proposes the tests and ends with an Approved scope | No            |
-| **test-builder**   | Implements the Approved scope from the approved examples, golden templates and standards, checks the login with `npm run doctor` and runs the validation commands                 | Yes           |
-| **test-validator** | Runs the quality gates and reviews the result against the rules, citing a rule for every finding                                                                                  | No            |
+| Agent              | What it does                                                                                                                                                      | Changes files       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **test-planner**   | Uses requirements or exploratory evidence, then writes a validated JSON plan and generated Markdown view; stops for human approval                                | Plan artifacts only |
+| **test-builder**   | Implements the Approved scope from the approved examples, golden templates and standards, checks the login with `npm run doctor` and runs the validation commands | Yes                 |
+| **test-validator** | Runs the quality gates and reviews the result against the rules, citing a rule for every finding                                                                  | No                  |
 
 ```text
 test-planner ─[Build the approved proposal]─▶ test-builder ─[Validate]─▶ test-validator
@@ -95,7 +96,7 @@ test-planner ─[Build the approved proposal]─▶ test-builder ─[Validate]�
                                                    └──[Register approved examples] PASS
 ```
 
-Each hand-over is a button that waits for your click; the click is your approval. The planner and the validator have no edit tools. The task logic lives in `framework/prompts/planner.md`, `builder.md` and `validator.md`, and every agent follows `AGENTS.md`. Another AI tool can follow the same files by hand, without the hand-overs.
+Each hand-over is a button that waits for your click; the click is your approval. The planner may edit plan artifacts only by instruction; the validator has no edit tools. API invocation and UI form submission require `allow.interactiveDiscovery: true` for the selected environment; destructive and irreversible actions are prohibited. The task logic lives in `framework/prompts/planner.md`, `builder.md` and `validator.md`, and every agent follows `AGENTS.md`.
 
 Credentials never go into a prompt or the chat. The agents read only variable names from `.env`; `npm run doctor` tells them whether each role's account is set, and `npm run onboard` asks for a missing one (masked). Start the MCP servers when VS Code asks; without them the planner reads the contract over HTTP.
 
@@ -131,19 +132,21 @@ With the Copilot agents, start with **test-planner** ([Testing with the Agents](
 
 ## Commands
 
-| Command                        | Purpose                                                                     |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| `./install.sh`                 | Create a project (template) or install it (project)                         |
-| `npm run setup`                | Create a project folder for an application                                  |
-| `npm run doctor`               | Check configuration, reachability, credentials and login                    |
-| `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)            |
-| `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows               |
-| `npm run lint:architecture`    | Enforce layer and import rules                                              |
-| `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                             |
-| `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json` |
-| `npm run qa:templates:extract` | Re-extract templates after an intended canonical change                     |
-| `npm run qa:selftest`          | Create projects in temporary folders and verify them                        |
-| `npm run db:test:reset`        | Reset the dedicated test database (reference implementation)                |
+| Command                                  | Purpose                                                                     |
+| ---------------------------------------- | --------------------------------------------------------------------------- |
+| `./install.sh`                           | Create a project (template) or install it (project)                         |
+| `npm run setup`                          | Create a project folder for an application                                  |
+| `npm run doctor`                         | Check configuration, reachability, credentials and login                    |
+| `npm run onboard`                        | Stage 2: put the test account into `.env` (optional, rerunnable)            |
+| `npm run qa:sync-ci-secrets`             | Add the configured role and database secrets to the workflows               |
+| `npm run lint:architecture`              | Enforce layer and import rules                                              |
+| `npm run qa:plan -- refresh <plan.json>` | Validate a plan JSON and generate its Markdown view                         |
+| `npm run qa:plan -- check-all`           | Validate every plan and verify generated Markdown is in sync                |
+| `npm run qa:templates:check`             | Verify golden templates, catalogue and snippets                             |
+| `npm run qa:templates:build`             | Regenerate the catalogue and snippets from `framework/templates/index.json` |
+| `npm run qa:templates:extract`           | Re-extract templates after an intended canonical change                     |
+| `npm run qa:selftest`                    | Create projects in temporary folders and verify them                        |
+| `npm run db:test:reset`                  | Reset the dedicated test database (reference implementation)                |
 
 ## Documentation
 
