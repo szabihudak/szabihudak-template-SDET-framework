@@ -80,7 +80,7 @@ const rules: Rule[] = [
   },
   {
     id: "no-fixed-waits",
-    source: "AGENTS.md#layer-rules",
+    source: "AGENTS.md#playwright-rules",
     appliesTo: () => true,
     pattern: /\bwaitForTimeout\s*\(/,
     message:
@@ -145,6 +145,17 @@ const rules: Rule[] = [
       "Forced actions skip the checks a user would hit. Fix the state that blocks the action instead.",
   },
   {
+    id: "locate-by-user-attributes",
+    source: "AGENTS.md#playwright-rules",
+    appliesTo: inDirectory("src", "tests"),
+    // locator() is allowed only for a single test id attribute selector, for a
+    // match getByTestId cannot express (such as a prefix).
+    pattern:
+      /\.(?:nth\(|first\(\s*\)|last\(\s*\))|\.locator\(\s*(["'`])(?!\[data-testid(?:[\^$*~|]?=["']?[^"'\]]*["']?)?\]\1)/,
+    message:
+      "Locate by role, label or test id, scoped to a container and filtered by content; never by position, CSS or XPath.",
+  },
+  {
     id: "no-test-only",
     source: "AGENTS.md#playwright-rules",
     appliesTo: inDirectory("tests"),
@@ -164,11 +175,11 @@ const rules: Rule[] = [
 // Playwright matchers that retry and return a promise; without await they
 // assert nothing.
 const ASYNC_MATCHER =
-  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveURL|toHaveTitle|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveRole|toPass)\s*\(/;
+  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveURL|toHaveTitle|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveAccessibleErrorMessage|toHaveRole|toMatchAriaSnapshot|toBeOK|toPass)\s*\(/;
 
 // Matchers that check what the page shows; toHaveURL and toHaveTitle do not.
 const PAGE_ASSERTION =
-  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveRole)\s*\(/;
+  /\.(?:not\.)?(?:toBeVisible|toBeHidden|toBeEnabled|toBeDisabled|toBeChecked|toBeEditable|toBeEmpty|toBeFocused|toBeAttached|toBeInViewport|toHaveText|toContainText|toHaveValue|toHaveValues|toHaveCount|toHaveAttribute|toHaveClass|toHaveCSS|toHaveId|toHaveJSProperty|toHaveScreenshot|toHaveAccessibleName|toHaveAccessibleDescription|toHaveAccessibleErrorMessage|toHaveRole|toMatchAriaSnapshot)\s*\(/;
 
 const UI_PAGE_ASSERTION_CHECK = {
   id: "ui-tests-assert-the-page",
@@ -276,7 +287,30 @@ const FIELD_COVERAGE_CHECK = {
   source: "framework/docs/TESTING_STANDARDS.md#api-test-standard",
 };
 
-type SchemaLike = { properties?: Record<string, { format?: string }> };
+type SchemaLike = {
+  format?: string;
+  properties?: Record<string, SchemaLike>;
+};
+
+// Leaf fields of a schema by path ("user.id"); nested objects are walked.
+function schemaFields(
+  schema: SchemaLike,
+  prefix = "",
+): { path: string; format?: string }[] {
+  return Object.entries(schema.properties ?? {}).flatMap(
+    ([name, definition]) =>
+      definition.properties
+        ? schemaFields(definition, `${prefix}${name}.`)
+        : [{ path: `${prefix}${name}`, format: definition.format }],
+  );
+}
+
+// "user.id" → ["", "user"]: the body itself and each enclosing object.
+function ancestors(field: string): string[] {
+  const parts = field.split(".");
+
+  return parts.map((_, index) => parts.slice(0, index).join("."));
+}
 
 // Names imported by a spec, mapped to the repository file they come from.
 function importedNames(file: string, source: string): Map<string, string> {
@@ -309,9 +343,11 @@ function loadSchema(target: string, name: string): SchemaLike | undefined {
   return schema?.properties ? schema : undefined;
 }
 
-// Every top-level field of a schema a spec validates against is asserted in
-// some test of the file, declares a format in the schema, or is listed in an
-// "// unasserted: field, field (reason)" comment.
+// Every field of a schema a spec validates against, including the fields of
+// nested objects, is asserted in some test of the file (directly, or through
+// an enclosing object compared with toEqual or toStrictEqual), declares a
+// format in the schema, or is listed in an "// unasserted: user.id (reason)"
+// comment.
 function uncoveredFields(file: string, source: string): string[] {
   const problems: string[] = [];
   const imports = importedNames(file, source);
@@ -347,12 +383,24 @@ function uncoveredFields(file: string, source: string): string[] {
 
     const names = [...variables].join("|");
 
-    for (const [field, definition] of Object.entries(schema.properties)) {
-      const asserted = new RegExp(
-        `expect\\(\\s*(?:${names})\\.${field}\\b`,
-      ).test(source);
+    const member = (field: string) =>
+      field ? `\\.${field.replace(/\./g, "\\.")}` : "";
 
-      if (!asserted && !definition.format && !exempt.has(field)) {
+    for (const { path: field, format } of schemaFields(schema)) {
+      const asserted =
+        new RegExp(`expect\\(\\s*(?:${names})${member(field)}\\b`).test(
+          source,
+        ) ||
+        ancestors(field).some((ancestor) =>
+          new RegExp(
+            `expect\\(\\s*(?:${names})${member(ancestor)}\\s*\\)\\s*\\.(?:toEqual|toStrictEqual)\\(`,
+          ).test(source),
+        );
+      const listed = [field, ...ancestors(field)].some((path) =>
+        exempt.has(path),
+      );
+
+      if (!asserted && !format && !listed) {
         problems.push(
           `${schemaName} field "${field}" is not asserted, has no format in the schema and is not listed in an "// unasserted: ${field} (reason)" comment`,
         );
@@ -361,6 +409,103 @@ function uncoveredFields(file: string, source: string): string[] {
   }
 
   return problems;
+}
+
+const SKIP_CHECK = {
+  id: "no-skipped-tests",
+  source: "AGENTS.md#hard-rules",
+  message:
+    'Do not skip a test. Skip only for a stated runtime condition, test.skip(condition, "reason"), or quarantine it with "// quarantine: <reason>; owner: <name>; exit: <issue or condition>" on the line above.',
+};
+const QUARANTINE =
+  /\/\/\s*quarantine:\s*[^;\n]*\S[^;\n]*;\s*owner:\s*[^;\n]*\S[^;\n]*;\s*exit:\s*\S/;
+
+// Line above `index`, ignoring blank lines.
+function previousLine(source: string, index: number): string {
+  const before = source.slice(0, index).split("\n");
+  before.pop();
+
+  return [...before].reverse().find((line) => line.trim()) ?? "";
+}
+
+// test.skip / fixme / fail (and their describe forms) that are not a runtime
+// condition with a reason and not a documented quarantine.
+function unapprovedSkips(source: string): number[] {
+  const lines: number[] = [];
+
+  for (const match of source.matchAll(
+    /(?<![.\w])test(?:\.describe)?\.(?:skip|fixme|fail)\s*\(/g,
+  )) {
+    const open = match.index + match[0].length - 1;
+    const args = source.slice(open + 1, closingIndex(source, open) - 1).trim();
+    const conditionWithReason =
+      args !== "" &&
+      !/^["'`]/.test(args) &&
+      /,\s*["'`][^"'`]*\S[^"'`]*["'`]\s*,?$/.test(args);
+
+    if (
+      !conditionWithReason &&
+      !QUARANTINE.test(previousLine(source, match.index))
+    ) {
+      lines.push(source.slice(0, match.index).split("\n").length);
+    }
+  }
+
+  return lines;
+}
+
+const VISUAL_OPTIONS_CHECK = {
+  id: "shared-visual-options",
+  source: "framework/docs/TESTING_STANDARDS.md#visual-regression-test-standard",
+  message:
+    'Pass VISUAL_COMPARISON_OPTIONS to toHaveScreenshot(). A tolerance or mask needs "// visual-exception: <element> (<why it cannot be made deterministic>)" on the line above.',
+};
+const VISUAL_EXCEPTION = /\/\/\s*visual-exception:\s*\S.*\(\s*\S[^)]*\)/;
+
+// toHaveScreenshot() calls without the shared options, or with their own
+// tolerances or masks and no documented exception.
+function visualOptionDeviations(source: string): number[] {
+  const lines: number[] = [];
+
+  for (const match of source.matchAll(/\.toHaveScreenshot\s*\(/g)) {
+    const open = match.index + match[0].length - 1;
+    const args = source.slice(open, closingIndex(source, open));
+    const own =
+      /\b(?:maxDiffPixels|maxDiffPixelRatio|threshold|mask|maskColor)\b/;
+
+    if (
+      !/\bVISUAL_COMPARISON_OPTIONS\b/.test(args) ||
+      (own.test(args) &&
+        !VISUAL_EXCEPTION.test(previousLine(source, match.index)))
+    ) {
+      lines.push(source.slice(0, match.index).split("\n").length);
+    }
+  }
+
+  return lines;
+}
+
+const SQL_INTERPOLATION_CHECK = {
+  id: "parameterized-sql",
+  source: "AGENTS.md#layer-rules",
+  message:
+    "Do not build SQL from values. Pass them as query parameters ($1, $2) instead.",
+};
+const SQL_STATEMENT =
+  /\b(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|DROP|CREATE|ALTER|TRUNCATE)\b/;
+
+// SQL in a template literal with a ${} placeholder, or a string joined with +.
+function interpolatedSql(source: string): number[] {
+  const literals = [
+    ...[...source.matchAll(/`[^`]*`/g)].filter(([literal]) =>
+      /\$\{/.test(literal),
+    ),
+    ...source.matchAll(/(["'])[^"'\n]*\1\s*\+|\+\s*(["'])[^"'\n]*\2/g),
+  ];
+
+  return literals
+    .filter(([literal]) => SQL_STATEMENT.test(literal))
+    .map((match) => source.slice(0, match.index).split("\n").length);
 }
 
 const DESCRIBE_CHECK = {
@@ -611,6 +756,9 @@ function main(): void {
     MISSING_AWAIT_CHECK,
     DESCRIBE_CHECK,
     STRICT_SCHEMA_CHECK,
+    SQL_INTERPOLATION_CHECK,
+    SKIP_CHECK,
+    VISUAL_OPTIONS_CHECK,
     FIELD_COVERAGE_CHECK,
     UI_PAGE_ASSERTION_CHECK,
     API_BUSINESS_ASSERTION_CHECK,
@@ -674,7 +822,27 @@ function main(): void {
       }
     }
 
+    if (logicalFile.startsWith("src/database/")) {
+      for (const line of interpolatedSql(source)) {
+        problems.push(
+          `${file}:${line} [${SQL_INTERPOLATION_CHECK.id}] ${SQL_INTERPOLATION_CHECK.message} ${cite(SQL_INTERPOLATION_CHECK.source)}`,
+        );
+      }
+    }
+
     if (isSpec(logicalFile)) {
+      for (const line of unapprovedSkips(source)) {
+        problems.push(
+          `${file}:${line} [${SKIP_CHECK.id}] ${SKIP_CHECK.message} ${cite(SKIP_CHECK.source)}`,
+        );
+      }
+
+      for (const line of visualOptionDeviations(source)) {
+        problems.push(
+          `${file}:${line} [${VISUAL_OPTIONS_CHECK.id}] ${VISUAL_OPTIONS_CHECK.message} ${cite(VISUAL_OPTIONS_CHECK.source)}`,
+        );
+      }
+
       if (logicalFile.startsWith("tests/api/")) {
         for (const problem of uncoveredFields(logicalFile, source)) {
           problems.push(

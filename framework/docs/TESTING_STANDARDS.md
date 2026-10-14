@@ -8,19 +8,19 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 ## API Test Standard
 
-- Validate a successful response with `validateSchema()` before using its fields; the schema-derived type is safe only after that. Never cast `response.json()` to bypass validation.
+- The schema-derived type is safe only after `validateSchema()`; use the response fields after it, never before.
 - API tests are browser-independent and run once, in the `api` project.
 - After the schema, assert as many values as the test can predict:
   - deterministic fields (values from the request, documented defaults, the owner) by exact value;
   - generated fields (ids, timestamps) by format, declared in the schema where the contract defines it (for example `format: "uuid"`, `format: "date-time"`), and by relations the contract or an observed response establishes (such as the same id on a later read);
   - a field whose value the contract does not define is covered by its schema type; do not invent an expected value.
-- A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`; `npm run lint:architecture` checks that every schema field is asserted, has a format, or is listed this way.
+- A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`. A nested field is listed by its path (`user.id`). `npm run lint:architecture` checks that every schema field, including those of nested objects, is asserted (directly, or through an enclosing object compared with `toEqual` or `toStrictEqual`), has a format, or is listed this way.
 - The main success test of an operation covers every field this way; focused scenario tests (boundaries, single-field updates) assert the fields the scenario is about.
 - A test that expects an error status follows the [Negative API Test Standard](#negative-api-test-standard).
 
 ## Negative API Test Standard
 
-- Assert the status and the error fields. Never validate an error response against a success schema.
+- Assert the status and the error fields.
 - Assert an error field or message only when the provider contract or an observed response establishes it.
 - Add a reusable error schema only when the provider has a stable, meaningful error contract worth validating, not for symmetry with success schemas.
 - A successful response in the same spec follows the [API Test Standard](#api-test-standard).
@@ -69,13 +69,11 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 ## Fixture Standard
 
 - Create or extend a fixture for reusable setup, state, dependency composition or lifecycle, never to hide trivial construction.
-- Order fixtures by their dependency flow, reuse lower-level fixtures, keep each one focused, clean up what it owns, and keep API and browser authentication separate.
+- Order fixtures by their dependency flow, reuse lower-level fixtures, keep each one focused, and clean up what it owns.
 - Authenticated fixtures use the role accounts: `apiTokenFor(role)` and `authenticatedPageFor(getRoleCredentials(role))` (see the [Authentication Standard](#authentication-standard)).
 - Database fixtures reuse `DatabaseClient`, close the pool, and never bypass the `allow.database` guard.
 
 ## Authentication Standard
-
-API authentication (bearer token) and browser authentication (session) are separate mechanisms and are never interchanged.
 
 A project uses role accounts from `config/framework.config.ts`, with credentials from `.env` or CI secrets:
 
@@ -92,7 +90,6 @@ Page Object built from authenticatedPage     → built from authenticatedPageFor
 testUserData, registeredTestUser             → only where the application lets tests register users
 ```
 
-- Do not replace programmatic browser authentication with UI login for convenience; use UI login only when login is the behavior under test.
 - Objects that act on an authenticated Page are built from that Page, or from a fixture that depends on it.
 
 ## Page Object Standard
@@ -108,7 +105,7 @@ testUserData, registeredTestUser             → only where the application lets
 
 ## UI Spec Standard
 
-- Every UI test asserts what the page shows: at least one visible element or text that proves the outcome. A changed URL or a successful network response alone is not enough; they may be asserted in addition.
+- Every UI test asserts what the page shows: at least one visible element or text that proves the outcome. A changed URL or a successful network response alone is not enough; they may be asserted in addition. Only the setup self-test specs, tagged `@selftest`, are exempt: they run against any application and cannot know its elements.
 - Keep related assertions together, without a blank line between each one. Do not add Arrange/Act/Assert comments; comments explain non-obvious reasons only.
 - Tests stay compatible with every browser project that runs them. Browser-specific behavior is added only when it is intentional and documented.
 
@@ -119,10 +116,10 @@ testUserData, registeredTestUser             → only where the application lets
 
 ## Accessibility Test Standard
 
-- Scan through `AccessibilityScanner`, which applies the central WCAG 2.2 AA policy. Never construct `AxeBuilder` in a spec, and never duplicate, broaden or narrow the WCAG tags for a single test.
+- `AccessibilityScanner` applies the central WCAG 2.2 AA policy. Never construct `AxeBuilder` in a spec, and never duplicate, broaden or narrow the WCAG tags for a single test.
 - The spec owns the decision. The formatter only makes failures readable: it never removes, suppresses or re-grades a violation.
-- Scan the default page with the `accessibility` fixture, and an authenticated page with a project fixture that builds the scanner from that Page (the UPEX reference calls it `authenticatedAccessibility`). Never scan one Page's state with a scanner built from another.
-- A real violation fails the test. No `continue-on-error` and no suppression; an exception needs an explicit, reviewed policy.
+- The project fixture for an authenticated page builds the scanner from that Page (the UPEX reference calls it `authenticatedAccessibility`). Never scan one Page's state with a scanner built from another.
+- A real violation fails the test, without `continue-on-error`; an exception needs an explicit, reviewed policy.
 - Scan full pages after the meaningful state is established. Do not add accessibility-specific selectors, test ids or abstractions for hypothetical scoped scanning.
 - Accessibility tests run once, in Chromium. Add browsers only for a concrete requirement or observed behavior.
 - Automated axe coverage is not complete WCAG conformance; manual testing remains necessary for what rules cannot check.
@@ -132,9 +129,9 @@ testUserData, registeredTestUser             → only where the application lets
 - Protect intentional visual state; do not repeat functional assertions that API or UI tests own.
 - Establish deterministic state through the existing factories, API setup, fixtures and Page Objects. Control unstable content through data before considering masks or tolerances.
 - Choose the smallest screenshot scope that protects the risk. Page-level and component-level contracts complement each other; do not mirror one with the other.
-- Use the shared `VISUAL_COMPARISON_OPTIONS`. Do not add per-spec tolerances, global thresholds, masks or ignored regions without a concrete unstable element that cannot be made deterministic, and do not wrap `toHaveScreenshot()` in a helper for symmetry.
-- Baselines are version-controlled next to their spec, generated in the canonical Linux Playwright image (never on a developer machine), reviewed by a human, and confirmed by a rerun without updating before they are committed.
-- CI compares only and never runs `--update-snapshots`. A difference fails until it is reviewed and accepted as intended; otherwise the product or the test instability is fixed.
+- Use the shared `VISUAL_COMPARISON_OPTIONS`. Do not add per-spec tolerances, global thresholds, masks or ignored regions without a concrete unstable element that cannot be made deterministic, and do not wrap `toHaveScreenshot()` in a helper for symmetry. Such an exception is written above the call as `// visual-exception: <element> (<why it cannot be made deterministic>)`; `npm run lint:architecture` rejects a tolerance or mask without it.
+- Baselines are version-controlled next to their spec, never generated on a developer machine, and confirmed by a rerun without updating before they are committed.
+- CI compares only. A difference fails until it is reviewed and accepted as intended; otherwise the product or the test instability is fixed.
 - Visual tests run once, in Chromium. Browser-specific baselines need a concrete visual requirement that justifies their maintenance.
 
 ## API Performance Standard

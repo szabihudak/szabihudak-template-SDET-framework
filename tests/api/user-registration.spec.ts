@@ -55,6 +55,7 @@ const missingFieldScenarios: MissingFieldScenario[] = [
   },
 ] satisfies MissingFieldScenario[];
 
+// unasserted: user.id (UNVERIFIED whether the API contract defines its format)
 test.describe("User Registration API", () => {
   test("registers a valid user", async ({ userApi }) => {
     const userData = createTestUser();

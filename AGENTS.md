@@ -59,6 +59,8 @@ The golden templates show what each layer owns. This table lists what it must ne
 | Mock                    | inventing states the UI does not support                                                                                       |
 | Spec                    | raw locators, raw SQL, fixed waits                                                                                             |
 
+The framework's Lighthouse policy (`framework/core/performance/`) is the one helper that asserts: its thresholds decide the result.
+
 ## Hard Rules
 
 - Successful API responses: HTTP assertion → `validateSchema()` → business assertions. Never cast `response.json()`.
@@ -68,8 +70,8 @@ The golden templates show what each layer owns. This table lists what it must ne
 - Accessibility: scan through `AccessibilityScanner` and the central WCAG policy: the `accessibility` fixture for the default page, or a project fixture that builds the scanner from the authenticated page. Never suppress violations.
 - Visual: native `toHaveScreenshot()` with the shared options. Never run `--update-snapshots` to make a failure pass; baselines are generated in the Docker/Linux runtime and approved by a human.
 - Performance: never change thresholds or Lighthouse severities to make an unexplained failure pass. Keep setup traffic outside the measured operation.
-- Never weaken an assertion, skip a test, or suppress a real failure to get a green run. Report it.
-- Retries are diagnostics, not a fix. A test that passes only on retry is flaky and is investigated; a temporary quarantine needs a reason, an owner and a way back.
+- Never weaken an assertion, skip a test, or suppress a real failure to get a green run. Report it. A test skips itself only for a runtime condition it names: `test.skip(condition, "reason")`.
+- Retries are diagnostics, not a fix. A test that passes only on retry is flaky and is investigated; a temporary quarantine needs a reason, an owner and a way back, written above it as `// quarantine: <reason>; owner: <name>; exit: <issue or condition>`.
 - Never invent provider behavior. When evidence is missing or conflicting, say so.
 - Report evidence by source (provider contract, repository, running application) and mark anything not verified as UNVERIFIED.
 - OpenAPI MCP reads the contract and never invokes endpoints. Playwright MCP navigates and reads; it does not submit forms or change data unless the task requires it.
@@ -80,8 +82,8 @@ The golden templates show what each layer owns. This table lists what it must ne
 
 - Every test is independent: it creates its own data, never relies on test order or another test's data, and can run in parallel.
 - Every test asserts an observable outcome of user-visible behavior; an action without an assertion proves nothing, and implementation details are not asserted.
-- Await every action and assertion. Use retrying, web-first assertions (`await expect(locator).toBeVisible()`, `toHaveText`, `toHaveCount`, `toHaveURL`); never `expect(await locator.count())`, `expect(await locator.isVisible())`, `waitForSelector`, `networkidle` or `{ force: true }`.
-- Locate by user-facing attributes: role, then label, then test id; never by position, CSS chains or XPath. Scope locators to a container and filter by content (`filter({ hasText })`, `filter({ has })`) instead of using an index.
+- Await every action and assertion. Use retrying, web-first assertions (`await expect(locator).toBeVisible()`, `toHaveText`, `toHaveCount`, `toHaveURL`); never `expect(await locator.count())`, `expect(await locator.isVisible())`, `waitForSelector`, `networkidle`, `{ force: true }` or a fixed wait such as `waitForTimeout`.
+- Locate by user-facing attributes: role, then label, then test id; never by position, CSS chains or XPath. Scope locators to a container and filter by content (`filter({ hasText })`, `filter({ has })`) instead of using an index. `locator()` takes only a test id attribute selector, for a match `getByTestId` cannot express (such as a prefix).
 - Raise an assertion timeout only for a known slow operation, never to make a flaky test pass.
 - Never leave `test.only` in the code.
 - Group the tests of every spec in `test.describe()`, even a single test. Do not use `test.step()`; the test and its Page Object methods express the steps.

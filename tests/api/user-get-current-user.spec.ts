@@ -25,6 +25,7 @@ const getCurrentUserValidationScenarios = [
   },
 ] satisfies GetCurrentUserValidationScenario[];
 
+// unasserted: user.id (UNVERIFIED whether the API contract defines its format)
 test.describe("Get Current User API", () => {
   test("get current user with token", async ({
     userApi,
