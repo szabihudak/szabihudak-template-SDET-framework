@@ -9,29 +9,26 @@ approved examples and golden templates, and nothing else. The rules in AGENTS.md
 
 You work in one of three modes. Pick it from the hand-over prompt:
 
-| Mode              | Started by                      | Input                                                                              |
-| ----------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
-| Build             | **Build the approved proposal** | The human-approved `test-plans/<feature>/plan.json` path from the planner hand-off |
-| Fix findings      | **Fix the findings**            | The validator's findings and associated feature plan path                          |
-| Register examples | **Register approved examples**  | The validator's PASS verdict and associated feature plan path                      |
+| Mode              | Started by                                  | Input                                                       |
+| ----------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| Build             | **Build the approved proposal**             | Human-approved plan path and PASS plan-review report path   |
+| Fix findings      | A FAIL validation report, inside this build | Its `implementation` findings, in the same conversation     |
+| Register examples | **Register approved examples**              | PASS validation-report path and the same approved plan path |
 
-For Build mode, never use a pasted plan summary or reconstruct plan data from chat. If the exact
-plan path is missing, ambiguous, or not explicitly approved by the user's **Build the approved
-proposal** hand-off, stop and ask the user to run test-planner and approve the intended plan.
-For Fix findings and Register examples, use the same exact plan path recorded in CP2 and carried by
-the validator hand-off. If it is missing or points to a different feature, stop and ask for the
-correct hand-off; do not infer the plan from a chat summary.
+Never use a pasted plan summary or reconstruct artifact data from chat. Every mode works on the
+same exact plan path and hash the human approved; stop if an artifact path or plan hash is missing
+or inconsistent.
 
 ## Process
 
 ### Build
 
-1. **Load and verify the approved plan.** Read the exact hand-off plan path from the workspace.
-   Run `npm run qa:plan -- check <plan-path>` before changing implementation files. This verifies
-   the JSON and generated Markdown are valid and synchronized without modifying either artifact.
-   If the check fails, stop; do not repair or rebuild the plan. Return the plan path and check errors
-   to test-planner for revision and renewed human approval. Treat the approval as applying only to
-   this exact plan artifact. Its JSON remains `draft`; the human hand-off is the approval signal.
+1. **Load and verify the approved artifacts.** Read the exact plan and plan-review paths from the
+   hand-off. Run `npm run qa:plan -- check <plan-path>` and
+   `npm run qa:pipeline -- check-plan-review <plan-path>` before editing implementation files. Both
+   must pass and refer to the same plan hash. If either fails, stop; do not repair the plan or report.
+   Return the paths and errors to test-planner. Human approval applies to this exact plan hash; the
+   plan's JSON status remains `draft`.
 2. **Apply approved setup first.** Make only setup changes listed in the verified plan's
    `setupChanges` and `files`; do not infer setup changes. Configure roles/authentication before
    dependent fixtures and tests. For first-time login setup, update `config/framework.config.ts` and
@@ -51,24 +48,56 @@ correct hand-off; do not infer the plan from a chat summary.
    - Do not implement excluded cases, infer scope from the generated Markdown, add unlisted files,
      or edit either plan artifact. A scope change returns to test-planner and requires renewed
      human approval.
-4. **Validate the implementation.** Run the AGENTS.md validation commands for the project of each
-   approved new or changed test. Fix failures your code
-   caused. If a failure looks like an application defect or an environment problem, stop and report
-   it with the evidence you opened.
+4. **Run the technical gates.** Run the complete AGENTS.md validation set and record each actual
+   command, status and concise result line: `npx prettier --check .`, `npm run typecheck`,
+   `npm run lint:architecture`, `npm run qa:plan -- check-all`, `npm run qa:templates:check`, and
+   `npx playwright test --project=<project>` for every affected project. Fix failures caused by
+   your implementation and rerun the failed gate. Do not claim a pass from an unobserved command;
+   do not retry flaky tests as a substitute for investigation.
+
+5. **Write and check the build report.** Obtain the next attempt directory with
+   `npm run qa:pipeline -- next-attempt <plan-path>`. Write strict JSON to
+   `<attempt-dir>/build-report.json` following the contract below: the exact plan path and hash,
+   changed files, case-ID-to-file mapping, every technical gate and its result, deviations,
+   unresolved questions and evidence paths. Mark `status` as `passed` only if all gates passed,
+   every case is mapped exactly once, no unapproved file changed and there are no deviations;
+   otherwise mark it `failed`. Validate shape and identity with
+   `npm run qa:pipeline -- validate-build <plan-path> <build-report-path>`, then run the PASS-only
+   `npm run qa:pipeline -- check-build <plan-path> <build-report-path>`. If a required gate failed
+   or could not run, `check-build` rejects the report: stop, report it, and do not invoke the
+   validator.
+
+6. **Automatically invoke test-validator once all technical gates pass.** Only after `check-build`
+   passes, invoke the `test-validator` subagent with the exact plan and build-report paths. It
+   writes `<attempt-dir>/validation-report.json` and returns its path and verdict. Confirm the
+   report with `npm run qa:pipeline -- validate-validation <plan-path> <build-report-path>
+<validation-report-path>`; for PASS also with the PASS-only `check-validation`. There is no
+   human checkpoint between the build and its verification. Route the findings of a FAIL report by
+   category:
+   - `implementation`: continue in **Fix findings** below, for at most three repair cycles in total.
+   - `plan`: stop. Present the validation-report path with the **Revise the plan** hand-off; the
+     revised plan needs a new plan review and renewed human approval before building resumes.
+   - `environment`: stop and report what was inspected for human resolution; do not change code
+     to work around it.
+
+7. **Present the verified result.** After a PASS validation report, present both report paths for
+   the final human review. Accepting the tests is the **Register approved examples** hand-off.
 
 ### Fix findings
 
-1. Run `npm run qa:plan -- check <plan-path>`; if the plan pair is invalid or stale, stop and return
-   the errors to test-planner instead of editing plan artifacts.
-2. Fix exactly the validator findings you received and nothing else, within the original approved
-   plan scope. A finding that requires new files, cases or changed expected behavior returns to
-   planning and requires renewed human approval.
-3. Run the validation commands again and report the result.
+1. Read the exact plan, build and validation report paths. Verify the plan with
+   `npm run qa:plan -- check <plan-path>`; do not edit any report or plan from this mode.
+2. Fix exactly the `implementation` findings in the FAIL validation report and nothing else,
+   within the original approved plan scope. A plan, expectation or scope finding returns to
+   test-planner and requires renewed human approval.
+3. Repeat Build steps 4 to 6 in a new attempt directory. Keep all prior attempt reports immutable.
+   After three repair cycles without a PASS, stop and report the open findings.
 
 ### Register examples
 
-1. Confirm the validator's PASS applies to the same plan path in CP2 and that the user selected
-   **Register approved examples**.
+1. Confirm the user accepted a PASS validation report that refers to the exact approved plan hash:
+   `npm run qa:pipeline -- check-validation <plan-path> <build-report-path> <validation-report-path>`
+   must pass.
 2. Add only accepted files listed in that plan to `config/approved-examples.json`, with the
    responsibility each example covers.
 3. Stop.
@@ -84,6 +113,82 @@ correct hand-off; do not infer the plan from a chat summary.
 - Never weaken an assertion, skip a test, add a fixed wait, raise a timeout, update snapshots or
   change permissions in `environments.json` to get a green run. Report the failure instead.
 - Never ask for, read, write or log passwords, tokens or other secrets.
+- Store reports in `pipeline-runs/<feature>/<plan-sha256>/attempt-NNN/`; keep each attempt immutable.
+  Every report records the exact plan hash, and validation reports also record the build-report hash.
+
+## Build Report Contract
+
+Write strict JSON. Results are records of commands actually run; do not include secrets or full
+environment values.
+
+```json
+{
+  "schemaVersion": 1,
+  "feature": "<feature-slug>",
+  "planPath": "test-plans/<feature>/plan.json",
+  "planSha256": "<sha256 of exact plan.json bytes>",
+  "attempt": 1,
+  "status": "passed",
+  "changedFiles": [
+    {
+      "path": "tests/api/example.spec.ts",
+      "change": "created",
+      "exampleOrTemplateId": "api-spec",
+      "summary": "Implements T001_Example_API"
+    }
+  ],
+  "implementedCases": [
+    { "caseId": "T001_Example_API", "files": ["tests/api/example.spec.ts"] }
+  ],
+  "checks": [
+    {
+      "id": "plan-check",
+      "command": "npm run qa:plan -- check <plan>",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "prettier",
+      "command": "npx prettier --check .",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "architecture",
+      "command": "npm run lint:architecture",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "plan-check-all",
+      "command": "npm run qa:plan -- check-all",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "templates",
+      "command": "npm run qa:templates:check",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    },
+    {
+      "id": "playwright:api",
+      "command": "npx playwright test --project=api",
+      "status": "passed",
+      "resultLine": "<actual output>"
+    }
+  ],
+  "deviations": [],
+  "unresolvedQuestions": [],
+  "evidencePaths": []
+}
+```
 
 ## Output
 
@@ -105,6 +210,11 @@ correct hand-off; do not infer the plan from a chat summary.
 
 <names `npm run qa:sync-ci-secrets` listed>
 
+## Pipeline reports
+
+- **Build report:** <path, attempt number, structural validation and PASS gate result>
+- **Implementation validation report:** <path and verdict, or not invoked because build gates failed>
+
 ## Deviations from the plan
 
 <each one with its reason; "none" if none>
@@ -112,20 +222,21 @@ correct hand-off; do not infer the plan from a chat summary.
 ## Open questions
 ```
 
-## Checkpoint CP2
+## Builder Result (internal hand-off; human review follows verifier PASS)
 
 End with this block, filled in:
 
 ```markdown
-## Checkpoint CP2: Built
+## Build complete
 
 - Feature: <slug>
-- Approved plan: <repository-relative `plan.json` path>
-- Cases implemented: <exact case IDs from the approved plan, or none>
-- Decision needed: check the result
-- Evidence: <commands that ran and their results; anything not run>
-- On approve: **Validate** → test-validator
-- On reject: tell me what to change
+- Plan: <plan.json path and SHA-256>
+- Plan review report: <path; PASS>
+- Build report: <path; structural validation and PASS-only check result>
+- Implemented case IDs: <exact IDs>
+- Technical gates: <all passed, or failed report path; failed gates prevent validator invocation>
+- Validation report: <path and PASS/FAIL verdict, or not run>
+- Human decision: accept/reject after verifier PASS; no separate CP2 approval
 ```
 
 In Register examples mode, end with one line: "Registered <n> examples in

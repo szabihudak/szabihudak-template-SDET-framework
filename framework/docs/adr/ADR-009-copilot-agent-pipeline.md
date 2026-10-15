@@ -23,23 +23,31 @@ GitHub Copilot custom agents combine instructions, allowed tools and explicit ha
 
 ## Decision
 
-Generated projects use three GitHub Copilot custom agents, installed by `npm run setup` into `.github/agents/`:
+Generated projects use four GitHub Copilot custom agents, installed by `npm run setup` into `.github/agents/`. Two of them are verifiers that run as subagents, one before and one after implementation:
 
 ```text
-test-planner  ──[Build the approved proposal]──▶  test-builder  ──[Validate]──▶  test-validator
- writes only the validated plan pair,             reads approved plan JSON,       read-only: runs the gates,
- requirements-led or exploratory;                checks pair, implements only    reviews against the rules,
- ends with an Approved scope                     approved files and cases        cites a rule for every finding
-        ▲                                                                                │
-        └───────────── FAIL: [Fix the findings] → test-builder ◀────────────────────────┤
-                       PASS: [Register approved examples] → test-builder ◀──────────────┘
+test-planner ──subagent──▶ test-plan-reviewer          writes plan-review.json (semantic review)
+     │  FAIL: planner revises the plan (at most three cycles)
+     │  PASS: CP1, the human approves this plan hash
+     ▼
+[Build the approved proposal]
+     ▼
+test-builder ──technical gates──▶ build-report.json
+     │  check-build PASS
+     └──subagent──▶ test-validator                     writes validation-report.json
+                       implementation finding → test-builder fixes (at most three cycles)
+                       plan finding           → [Revise the plan] → test-planner → review → CP1 again
+                       environment finding    → reported to the human
+                       PASS                   → human review → [Register approved examples]
 ```
 
-- Every hand-over is a button the user clicks (`send: false`); the click is the approval.
+- The two verifiers have separate roles. The plan reviewer checks what the plan linter (`qa:plan`) cannot: that expected results follow from cited sources, that coverage and N/A decisions agree with the evidence, and that the scope does not contradict itself. The implementation validator compares the diff, the implemented tests and the build report with the approved plan; it does not rerun the builder's technical gates.
+- Reports are files, not chat summaries: `pipeline-runs/<feature>/<plan-sha256>/plan-review.json`, then `attempt-NNN/build-report.json` and `validation-report.json`. Every report records the plan hash, and the validation report also records the build report hash. `npm run qa:pipeline` validates their structure and identity, and its PASS-only commands (`check-plan-review`, `check-build`, `check-validation`) gate each stage. A revised plan has a new hash, so an earlier review or approval never applies to it.
+- The human decisions are the plan approval at CP1 and the final acceptance; the hand-overs between them are buttons the user clicks (`send: false`), and the click is the approval. The builder invokes the validator without a human checkpoint in between.
 - The planner-to-builder hand-off identifies the approved `test-plans/<feature>/plan.json`; the builder checks the JSON/Markdown pair and uses JSON, not a chat summary, as its scope authority.
 - The builder does not edit plan JSON or its generated Markdown. A scope change returns to planning and requires renewed human approval.
-- The planner has edit capability only for the plan artifact by instruction; the validator has no edit tools. The planner's allowed filesystem scope is policy-enforced, not technically sandboxed.
-- The task logic lives in `framework/prompts/planner.md`, `builder.md` and `validator.md`; the agent files stay short and name AGENTS.md and their task file.
+- The planner edits only the plan artifact, and the two verifiers write only their own report; these filesystem scopes are policy-enforced, not technically sandboxed. The verifiers are not user-invocable and have no hand-off buttons.
+- The task logic lives in `framework/prompts/planner.md`, `plan-reviewer.md`, `builder.md` and `validator.md`; the agent files stay short and name AGENTS.md and their task file.
 - `AGENTS.md`, `TESTING_STANDARDS.md`, the golden templates and the linter stay tool-neutral Markdown and code.
 - Setup no longer asks for an AI tool. It installs `.github/copilot-instructions.md`, the agents and `.vscode/mcp.json` (Playwright MCP, and the OpenAPI MCP server when a contract URL is given). The Claude Code files and the `/first-tests` prompts are removed.
 - The validator does not replace CI; CI remains the independent final check.
@@ -61,7 +69,8 @@ Work on the template repository itself is unaffected and can use any tool.
 
 - Generated projects expect VS Code with GitHub Copilot. Another tool can still follow `AGENTS.md` and the task files, without the agents and hand-overs.
 - Custom agents and hand-overs are a recent Copilot feature; their syntax and behavior may change and are verified in a generated project.
-- The planner and the validator need the terminal (`npm run doctor`, the checks), so their read-only guarantee is strong but not absolute.
+- The planner and the verifiers need the terminal (`npm run doctor`, the checks) and the verifiers need edit access for their report, so their read-only guarantee is strong but not absolute.
+- A verifier is another model reading the same evidence; it reduces but does not replace human review, and CI remains the independent run of the technical gates.
 - Projects created earlier keep their Claude Code files and `/first-tests` prompts until they copy the new agent files.
 
 ---

@@ -8,15 +8,17 @@ tools:
     "search",
     "edit",
     "execute",
+    "agent",
     "web",
     "vscode/askQuestions",
     "playwright/*",
     "openapi/*",
   ]
+agents: ["test-plan-reviewer"]
 handoffs:
   - label: Build the approved proposal
     agent: test-builder
-    prompt: Build only the human-approved scope in the plan JSON artifact identified above.
+    prompt: Build only the human-approved plan JSON whose plan-review report passed at the stated report path.
     send: false
 ---
 

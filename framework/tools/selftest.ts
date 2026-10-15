@@ -132,6 +132,243 @@ function checkPlanArtifacts(project: string): void {
   );
 }
 
+function checkPipelineArtifacts(project: string): void {
+  const planPath = "test-plans/selftest-plan/plan.json";
+  const metadata = JSON.parse(
+    execSync(`npm run --silent qa:pipeline -- metadata ${planPath}`, {
+      cwd: project,
+    }).toString(),
+  ) as {
+    feature: string;
+    planPath: string;
+    planSha256: string;
+    runDirectory: string;
+  };
+  const runDirectory = path.join(project, metadata.runDirectory);
+  fs.mkdirSync(runDirectory, { recursive: true });
+  const check = (command: string) => ({
+    id: command,
+    status: "passed",
+    summary: `Self-test verified ${command}`,
+  });
+  const identity = {
+    schemaVersion: 1,
+    feature: metadata.feature,
+    planPath: metadata.planPath,
+    planSha256: metadata.planSha256,
+  };
+  const planReviewFile = path.join(runDirectory, "plan-review.json");
+  fs.writeFileSync(
+    planReviewFile,
+    `${JSON.stringify(
+      {
+        ...identity,
+        verdict: "PASS",
+        reviewChecks: [
+          "plan-integrity",
+          "case-quality",
+          "coverage-decisions",
+          "evidence-support",
+          "template-selection",
+          "setup-and-scope",
+          "conflicts-and-open-questions",
+        ].map(check),
+        findings: [],
+        unresolvedQuestions: [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const attemptDirectory = path.join(runDirectory, "attempt-001");
+  fs.mkdirSync(attemptDirectory);
+  const buildFile = path.join(attemptDirectory, "build-report.json");
+  const plan = JSON.parse(
+    fs.readFileSync(path.join(project, planPath), "utf8"),
+  );
+  const requiredBuildChecks = [
+    "plan-check",
+    "prettier",
+    "typecheck",
+    "architecture",
+    "plan-check-all",
+    "templates",
+    "playwright:api",
+  ];
+  const buildReport = {
+    ...identity,
+    attempt: 1,
+    status: "passed",
+    changedFiles: [],
+    implementedCases: plan.cases.map((item: { id: string }) => ({
+      caseId: item.id,
+      files: ["tests/api/selftest.spec.ts"],
+    })),
+    checks: requiredBuildChecks.map((id) => ({
+      id,
+      command: `selftest ${id}`,
+      status: "passed",
+      resultLine: "passed",
+    })),
+    deviations: [],
+    unresolvedQuestions: [],
+    evidencePaths: [],
+  };
+  fs.writeFileSync(buildFile, `${JSON.stringify(buildReport, null, 2)}\n`);
+  run(
+    "npm run qa:pipeline -- check-build test-plans/selftest-plan/plan.json pipeline-runs/selftest-plan/" +
+      `${metadata.planSha256}/attempt-001/build-report.json`,
+    project,
+  );
+
+  const buildReportSha256 = execSync(
+    "npm run --silent qa:pipeline -- hash " +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+    { cwd: project },
+  )
+    .toString()
+    .trim();
+  const validationFile = path.join(attemptDirectory, "validation-report.json");
+  fs.writeFileSync(
+    validationFile,
+    `${JSON.stringify(
+      {
+        ...identity,
+        buildReportPath: `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+        buildReportSha256,
+        verdict: "PASS",
+        reviewChecks: [
+          "plan-build-identity",
+          "scope-and-files",
+          "case-assertions",
+          "template-conformance",
+          "evidence-and-expected-results",
+          "project-boundaries",
+        ].map(check),
+        caseCoverage: plan.cases.map((item: { id: string }) => ({
+          caseId: item.id,
+          files: ["tests/api/selftest.spec.ts"],
+          status: "implemented",
+          summary: "Self-test case mapping",
+        })),
+        findings: [],
+        evidenceOpened: ["tests/api/selftest.spec.ts"],
+        unverified: [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  run(
+    "npm run qa:pipeline -- check-validation test-plans/selftest-plan/plan.json " +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json ` +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/validation-report.json`,
+    project,
+  );
+  run("npm run qa:pipeline -- check-all", project);
+
+  const failedBuild = {
+    ...buildReport,
+    status: "failed",
+    checks: buildReport.checks.map((check) =>
+      check.id === "playwright:api"
+        ? {
+            ...check,
+            status: "failed",
+            resultLine: "self-test expected failure",
+          }
+        : check,
+    ),
+  };
+  fs.writeFileSync(buildFile, `${JSON.stringify(failedBuild, null, 2)}\n`);
+  run(
+    "npm run qa:pipeline -- validate-build test-plans/selftest-plan/plan.json " +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+    project,
+  );
+  const rejectedBuild = spawnSync(
+    "npm",
+    [
+      "run",
+      "qa:pipeline",
+      "--",
+      "check-build",
+      planPath,
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+    ],
+    { cwd: project, encoding: "utf8" },
+  );
+  assert(
+    rejectedBuild.status !== 0,
+    "failed technical gate passed check-build",
+  );
+  fs.writeFileSync(buildFile, `${JSON.stringify(buildReport, null, 2)}\n`);
+
+  const failedValidation = {
+    ...JSON.parse(fs.readFileSync(validationFile, "utf8")),
+    verdict: "FAIL",
+    findings: [
+      {
+        id: "IV-001",
+        severity: "blocking",
+        category: "implementation",
+        location: "tests/api/selftest.spec.ts:1",
+        rule: "self-test rule",
+        problem: "Expected self-test finding",
+        requiredChange: "Return to the builder loop",
+      },
+    ],
+  };
+  fs.writeFileSync(
+    validationFile,
+    `${JSON.stringify(failedValidation, null, 2)}\n`,
+  );
+  run(
+    "npm run qa:pipeline -- validate-validation test-plans/selftest-plan/plan.json " +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json ` +
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/validation-report.json`,
+    project,
+  );
+  const rejectedValidation = spawnSync(
+    "npm",
+    [
+      "run",
+      "qa:pipeline",
+      "--",
+      "check-validation",
+      planPath,
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/validation-report.json`,
+    ],
+    { cwd: project, encoding: "utf8" },
+  );
+  assert(
+    rejectedValidation.status !== 0,
+    "FAIL validation report passed check-validation",
+  );
+
+  const staleBuild = { ...buildReport, planSha256: "0".repeat(64) };
+  fs.writeFileSync(buildFile, `${JSON.stringify(staleBuild, null, 2)}\n`);
+  const failedBuildGate = spawnSync(
+    "npm",
+    [
+      "run",
+      "qa:pipeline",
+      "--",
+      "check-build",
+      planPath,
+      `pipeline-runs/selftest-plan/${metadata.planSha256}/attempt-001/build-report.json`,
+    ],
+    { cwd: project, encoding: "utf8" },
+  );
+  assert(
+    failedBuildGate.status !== 0,
+    "a build report for a stale plan passed its gate",
+  );
+  console.log("✔ pipeline report hash binding and stage gates");
+}
+
 // Validates the workflows setup installed: parseable YAML, the managed secrets
 // block listing exactly the expected secrets, and the container image matching
 // the installed Playwright version.
@@ -206,6 +443,7 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/templates/index.json",
     "framework/tools/doctor.ts",
     "framework/tools/plan.ts",
+    "framework/tools/pipeline.ts",
     "framework/docs/TESTING_STANDARDS.md",
     "src/fixtures/test-fixtures.ts",
     "config/approved-examples.json",
@@ -224,6 +462,14 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     path.join(project, ".github/agents/test-builder.agent.md"),
     "utf8",
   );
+  const planReviewerAgent = fs.readFileSync(
+    path.join(project, ".github/agents/test-plan-reviewer.agent.md"),
+    "utf8",
+  );
+  const validatorAgent = fs.readFileSync(
+    path.join(project, ".github/agents/test-validator.agent.md"),
+    "utf8",
+  );
   const plannerPrompt = fs.readFileSync(
     path.join(project, "framework/prompts/planner.md"),
     "utf8",
@@ -233,12 +479,12 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     [builderPrompt, "sole scope authority", "canonical JSON scope authority"],
     [
       builderPrompt,
-      "same exact plan path recorded in CP2",
+      "same exact plan path and hash",
       "same plan for follow-up modes",
     ],
     [
       builderPrompt,
-      "Fix exactly the validator findings",
+      "Fix exactly the `implementation` findings",
       "findings limited to approved scope",
     ],
     [
@@ -262,12 +508,59 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     [plannerPrompt, "extend it; do not", "planner extends matching area plan"],
     [plannerPrompt, "T001_Login_API", "planner case ID format"],
     [plannerPrompt, "renumber surviving cases", "planner stable case IDs"],
+    [plannerPrompt, "test-plan-reviewer", "automatic plan review subagent"],
+    [plannerPrompt, "plan-review.json", "plan review report artifact"],
+    [builderPrompt, "build-report.json", "build report artifact"],
+    [
+      builderPrompt,
+      "Automatically invoke test-validator once all technical gates pass",
+      "automatic implementation verification after technical gates",
+    ],
+    [
+      builderPrompt,
+      "validation-report.json",
+      "implementation validation report",
+    ],
+    [builderPrompt, "check-build", "passing build report gate"],
+    [
+      builderPrompt,
+      "**Revise the plan**",
+      "plan findings return to the planner",
+    ],
+    [builderAgent, "Revise the plan", "builder hand-off back to the planner"],
+    [
+      plannerPrompt,
+      "check-plan-review",
+      "PASS-only plan review gate before CP1",
+    ],
+    [
+      planReviewerAgent,
+      "validate-plan-review",
+      "plan reviewer validates PASS and FAIL reports",
+    ],
+    [
+      validatorAgent,
+      "Do not rerun builder technical gates",
+      "no duplicate gates",
+    ],
+    [
+      validatorAgent,
+      "validation-report.json",
+      "implementation verifier report",
+    ],
+    [planReviewerAgent, "plan-review.json", "plan reviewer report output"],
   ]) {
     assert(
       source.includes(requirement),
       `generated builder instructions are missing ${label}`,
     );
   }
+  // The validator runs only as the builder's subagent, so it offers no
+  // hand-off buttons of its own.
+  assert(
+    !validatorAgent.includes("handoffs:"),
+    "test-validator still declares hand-offs",
+  );
 
   for (const file of [
     "src/api/clients/TaskApiClient.ts",
@@ -343,7 +636,12 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     packageJson.scripts["qa:plan"] === "tsx framework/tools/plan.ts",
     "generated project does not retain the plan validation command",
   );
+  assert(
+    packageJson.scripts["qa:pipeline"] === "tsx framework/tools/pipeline.ts",
+    "generated project does not retain the pipeline report command",
+  );
   checkPlanArtifacts(project);
+  checkPipelineArtifacts(project);
   assert(
     !packageJson.scripts.setup && !packageJson.scripts["qa:selftest"],
     "package.json still has template-only scripts",
@@ -526,9 +824,11 @@ const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
 const AGENT_FILES = [
   ".github/copilot-instructions.md",
   ".github/agents/test-planner.agent.md",
+  ".github/agents/test-plan-reviewer.agent.md",
   ".github/agents/test-builder.agent.md",
   ".github/agents/test-validator.agent.md",
   "framework/prompts/planner.md",
+  "framework/prompts/plan-reviewer.md",
   "framework/prompts/builder.md",
   "framework/prompts/validator.md",
 ];

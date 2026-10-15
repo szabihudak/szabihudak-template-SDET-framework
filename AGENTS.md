@@ -106,6 +106,7 @@ npx prettier --check .
 npm run typecheck
 npm run lint:architecture
 npm run qa:plan -- check-all
+npm run qa:pipeline -- check-all
 npm run qa:templates:check
 npx playwright test --project=<affected project>
 ```

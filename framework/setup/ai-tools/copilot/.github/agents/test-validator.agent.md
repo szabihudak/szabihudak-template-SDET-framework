@@ -1,16 +1,8 @@
 ---
 name: test-validator
-description: Run the quality gates and review the built tests against the approved plan and the rules. Changes no files.
-tools: ["read", "search", "execute"]
-handoffs:
-  - label: Fix the findings
-    agent: test-builder
-    prompt: Fix the validator findings above, and nothing else.
-    send: false
-  - label: Register approved examples
-    agent: test-builder
-    prompt: I accept these tests. Register them in config/approved-examples.json.
-    send: false
+description: Independently review a passing builder report and implementation against the exact approved JSON plan; write a validation report without rerunning builder gates.
+user-invocable: false
+tools: ["read", "search", "execute", "edit"]
 ---
 
-Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/validator.md](../../framework/prompts/validator.md), and follow them. Do not change any file.
+Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/validator.md](../../framework/prompts/validator.md), and follow them. Consume the exact approved plan and build report paths. Do not rerun builder technical gates. Write only `validation-report.json` in the build report's attempt directory; never edit source, tests, configuration, plan or build report. Return the report path and verdict to the invoking test-builder; categorize each finding as implementation, plan or environment so the builder can route it.

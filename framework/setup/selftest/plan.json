@@ -92,6 +92,13 @@
     }
   ],
   "outOfScope": [],
-  "files": [],
+  "files": [
+    {
+      "path": "tests/api/selftest.spec.ts",
+      "decision": "create",
+      "exampleOrTemplateId": "api-spec",
+      "reason": "Provides a planned file target for the pipeline hand-off self-test."
+    }
+  ],
   "openQuestions": []
 }

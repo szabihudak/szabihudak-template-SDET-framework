@@ -56,6 +56,9 @@ jobs:
       - name: Check test plans
         run: npm run qa:plan -- check-all
 
+      - name: Check pipeline reports
+        run: npm run qa:pipeline -- check-all
+
       - name: Check golden templates
         run: npm run qa:templates:check
 

@@ -13,9 +13,11 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
   - **Credentials role:** a configured role name from `config/framework.config.ts`, such as `user`. This is a role identifier, not a username, password, token, or other secret.
   - **Scenario/module:** the behavior or module to plan, such as `login`, `bookings`, or a feature request.
   - **Test type:** `API`, `UI`, or `both`.
-- For a revision: the user's feedback on an earlier plan in this conversation. Carry forward its
-  four inputs and verified discovery unless the feedback changes them; revalidate or rediscover
-  facts affected by a change.
+- For a revision: the user's feedback on an earlier plan in this conversation, or the path of a
+  plan-review or validation report whose `plan` findings send the plan back. Read findings from
+  the report file, not from a chat summary. Carry forward the four inputs and verified discovery
+  unless the feedback changes them; revalidate or rediscover facts affected by a change. A revised
+  plan goes through the plan review and CP1 again; the earlier approval does not carry over.
 
 ## Process
 
@@ -35,27 +37,26 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
    cases without claiming the observed behavior is the intended business behavior. In addition to
    AGENTS.md, read only the relevant sources below.
 
-   | Source | Inspect | Conditions and limits |
-   | ------ | ------- | --------------------- |
+   | Source                                 | Inspect                                                                                                                                                        | Conditions and limits                                                                                                                                      |
+   | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Requirements and business expectations | `requirementsDoc` in `config/framework.config.ts` (HTTP(S) URL or repository-relative path), user story, acceptance criteria or explicit business expectations | Use as normative intent when present; otherwise select `exploratory` mode                                                                                  |
+   | Environment                            | Supplied key's `webBaseUrl`, `apiBaseUrl`, `openApiUrl` and `allow` in `config/environments/environments.json`                                                 | Always                                                                                                                                                     |
+   | Modules and authentication             | `modules`, `auth` and supplied role in `config/framework.config.ts`                                                                                            | Always                                                                                                                                                     |
+   | Playwright projects                    | Enabled modules and browsers in config; project names from `buildProjects()` in `framework/core/config/playwrightProjects.ts`                                  | For planned browser tests                                                                                                                                  |
+   | Test account                           | Run `npm run doctor`; if it reports `credentials for role "<name>" are set`, report "test account found in .env"                                               | Never read or expose credential values                                                                                                                     |
+   | API contract and runtime               | Read via OpenAPI MCP `list-api-endpoints`/`get-api-endpoint-schema` or the configured OpenAPI URL; use `invoke-api-endpoint` only for scenario-relevant probes | For `API` or `both`; invocation requires selected environment `allow.interactiveDiscovery: true`; never call DELETE or destructive/irreversible operations |
+   | Pages and component flow               | Playwright MCP on `webBaseUrl`: pages, roles, labels, requests, redirects and relevant user interactions                                                       | For `UI` or `both`; form submission or data changes require `allow.interactiveDiscovery: true`; no deletes, resets or irreversible actions                 |
+   | Golden examples                        | Sources required by AGENTS.md under Read Before Changing Code, for templates used by this plan                                                                 | Read relevant templates and standards                                                                                                                      |
+   | Existing code                          | Relevant files in `src/` and `tests/` that planned tests reuse or extend                                                                                       | Do not browse unrelated files                                                                                                                              |
 
-| Requirements and business expectations | `requirementsDoc` in `config/framework.config.ts` (HTTP(S) URL or repository-relative path), user story, acceptance criteria or explicit business expectations | Use as normative intent when present; otherwise select `exploratory` mode |
-| Environment | Supplied key's `webBaseUrl`, `apiBaseUrl`, `openApiUrl` and `allow` in `config/environments/environments.json` | Always |
-| Modules and authentication | `modules`, `auth` and supplied role in `config/framework.config.ts` | Always |
-| Playwright projects | Enabled modules and browsers in config; project names from `buildProjects()` in `framework/core/config/playwrightProjects.ts` | For planned browser tests |
-| Test account | Run `npm run doctor`; if it reports `credentials for role "<name>" are set`, report "test account found in .env" | Never read or expose credential values |
-| API contract and runtime | Read via OpenAPI MCP `list-api-endpoints`/`get-api-endpoint-schema` or the configured OpenAPI URL; use `invoke-api-endpoint` only for scenario-relevant probes | For `API` or `both`; invocation requires selected environment `allow.interactiveDiscovery: true`; never call DELETE or destructive/irreversible operations |
-| Pages and component flow | Playwright MCP on `webBaseUrl`: pages, roles, labels, requests, redirects and relevant user interactions | For `UI` or `both`; form submission or data changes require `allow.interactiveDiscovery: true`; no deletes, resets or irreversible actions |
-| Golden examples | Sources required by AGENTS.md under Read Before Changing Code, for templates used by this plan | Read relevant templates and standards |
-| Existing code | Relevant files in `src/` and `tests/` that planned tests reuse or extend | Do not browse unrelated files |
-
-If requirements are absent, continue in exploratory mode; do not block solely because there is no
-requirements document. Ask one message with one line per ambiguous requirement and a suggested
-default. Record conflicts between requirements, contract and runtime behavior as discrepancies or
-open questions; never invent a resolution. Before interactive calls or form submissions, verify
-the selected environment has `allow.interactiveDiscovery: true`; otherwise remain read-only and
-mark behavior not observed. Use only scenario-relevant, non-destructive interactions and test-owned
-data. Never expose credentials. If the test account is missing, ask the user to run
-`npm run onboard`; if they defer it, continue and mark dependent behavior unverified.
+   If requirements are absent, continue in exploratory mode; do not block solely because there is no
+   requirements document. Ask one message with one line per ambiguous requirement and a suggested
+   default. Record conflicts between requirements, contract and runtime behavior as discrepancies or
+   open questions; never invent a resolution. Before interactive calls or form submissions, verify
+   the selected environment has `allow.interactiveDiscovery: true`; otherwise remain read-only and
+   mark behavior not observed. Use only scenario-relevant, non-destructive interactions and test-owned
+   data. Never expose credentials. If the test account is missing, ask the user to run
+   `npm run onboard`; if they defer it, continue and mark dependent behavior unverified.
 
 3. **Find an existing plan before designing cases.** Search `test-plans/**/plan.json` and compare
    the feature, scenario, and component area. If one plan covers the same area, extend it; do not
@@ -84,14 +85,14 @@ data. Never expose credentials. If the test account is missing, ask the user to 
    | `unauthenticatedAccess`   | Protected operation and established unauthenticated behavior                                                                                    |
    | `unauthorizedAccess`      | Established role or authorization behavior for the protected operation                                                                          |
 
-Give every case a plan-wide unique ID in the form `T<sequence>_<ComponentName>_<level>`, for
-example `T001_Login_API` or `T002_Login_E2E`. Use `API` for API cases and `E2E` for browser UI
-cases. Write the component name in PascalCase without separators. Number cases in one sequence
-across both levels, starting at `T001`. On revisions, preserve IDs for unchanged cases, never
-renumber surviving cases or reuse removed numbers, and update every coverage reference when an ID
-changes. Use the same ID in the plan, generated view, builder report and validator findings.
-Keep cases independent, with their own data and cleanup as applicable. Do not limit case count
-based on project setup state.
+   Give every case a plan-wide unique ID in the form `T<sequence>_<ComponentName>_<level>`, for
+   example `T001_Login_API` or `T002_Login_E2E`. Use `API` for API cases and `E2E` for browser UI
+   cases. Write the component name in PascalCase without separators. Number cases in one sequence
+   across both levels, starting at `T001`. On revisions, preserve IDs for unchanged cases, never
+   renumber surviving cases or reuse removed numbers, and update every coverage reference when an ID
+   changes. Use the same ID in the plan, generated view, builder report and validator findings.
+   Keep cases independent, with their own data and cleanup as applicable. Do not limit case count
+   based on project setup state.
 
 5. **Choose file sources.** For each file, use this order:
    1. Applicable example from `config/approved-examples.json` (reuse or extend).
@@ -118,13 +119,23 @@ based on project setup state.
    validated pair; report the tooling gap and stop before CP1. CI uses read-only `check` commands
    and must fail on a missing or stale Markdown view; it never silently regenerates it.
 
-   On any parse, manual-check or linter failure, diagnose and repair the plan yourself; do not send a
-   draft to the builder or ask the user to fix a correctable plan error. Rerun the failed check after
-   each repair, for at most three repair-and-recheck attempts. If it still fails, leave the artifact
-   in `draft`, report remaining errors and attempts, and stop before CP1. Never present a failing
-   plan as ready for approval.
+   On any parse, manual-check or linter failure, diagnose and repair the plan yourself; do not send
+   a draft to the builder or ask the user to fix a correctable plan error. Rerun the failed check
+   after each repair, for at most three repair-and-recheck attempts. If it still fails, leave the
+   artifact in `draft`, report remaining errors and attempts, and stop before CP1.
 
-9. **Stop at CP1.** Wait for the user's approval or requested revisions before implementation.
+9. **Request the plan review.** Once the plan linter passes, invoke `test-plan-reviewer` as a
+   subagent with the exact plan path. It writes `pipeline-runs/<feature>/<plan-hash>/plan-review.json`;
+   confirm its structure with `npm run qa:pipeline -- validate-plan-review <plan-path>`. On FAIL,
+   repair the plan only for supported `plan` findings, rerun `refresh`, and invoke the reviewer
+   again; every revision has a new plan hash and therefore a new report. Allow at most three
+   plan-review cycles. If it still fails, stop before CP1 and report the report path and the
+   unresolved findings. Never present a failing plan as ready for approval.
+
+   Present CP1 only when `npm run qa:pipeline -- check-plan-review <plan-path>` passes. The human's
+   **Build the approved proposal** hand-off is the explicit approval of that plan hash.
+
+10. **Stop at CP1.** Wait for the user's approval or requested revisions before implementation.
 
 ## Constraints
 
@@ -246,12 +257,14 @@ Contract rules:
 
 ## Chat Response
 
-After the checker passes and both artifacts are current, respond with a concise summary only:
+After the plan checker and plan reviewer pass and both artifacts are current, respond with a concise
+summary only:
 
 - JSON and generated Markdown paths, feature slug and planning mode.
 - Case IDs and count, grouped by level.
 - Coverage categories marked not applicable, with brief reasons.
-- Plan linter result and confirmation that Markdown was generated from the valid JSON.
+- Plan linter result, plan-review report path/verdict, and confirmation that Markdown was generated
+  from the valid JSON.
 - Any unresolved questions or UNVERIFIED evidence.
 
 ## Checkpoint CP1
@@ -264,6 +277,9 @@ End with this block, filled in:
 - Feature: <kebab-case-slug>
 - Plan: `test-plans/<feature-slug>/plan.json`
 - Human-readable view: `test-plans/<feature-slug>/plan.md`
+- Plan SHA-256: <plan-hash from `npm run qa:pipeline -- metadata <plan-path>`>
+- Plan-review report: `pipeline-runs/<feature-slug>/<plan-hash>/plan-review.json`
+- Plan-review verdict: PASS
 - Decision needed: approve this plan artifact, or say what to change
 - Evidence: <verified sources, UNVERIFIED items, and plan-check result>
 - Files: <exact list from plan.json>

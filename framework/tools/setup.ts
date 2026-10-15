@@ -802,7 +802,7 @@ Playwright tests created from the SDET framework template.
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
 2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
-3. Configure login and plan tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It uses \`requirementsDoc\` when configured, otherwise performs exploratory discovery when the selected environment allows it. It writes \`test-plans/<feature>/plan.json\` and generates \`plan.md\` only after validation; **Build the approved proposal** hands the approved plan to **test-builder**, and **Validate** to **test-validator**. See [Testing with the agents](#testing-with-the-agents).
+3. Configure login and plan tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It uses \`requirementsDoc\` when configured, otherwise performs exploratory discovery when the selected environment allows it. It writes \`test-plans/<feature>/plan.json\` and generates \`plan.md\` only after validation; **test-plan-reviewer** reviews it before you approve it with **Build the approved proposal**; **test-builder** implements it and has **test-validator** verify the result. See [Testing with the agents](#testing-with-the-agents).
 4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
 5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
 
@@ -825,9 +825,10 @@ Open the project in VS Code, start the MCP servers when asked, and select an age
 | --- | --- | --- |
 | **test-planner** | Uses requirements if configured, otherwise plans exploratory characterization cases from permitted API/UI discovery. Produces a validated JSON plan and generated Markdown view, then waits for approval | Plan artifacts only |
 | **test-builder** | Implements the approved scope from the approved examples and golden templates, then runs the validation commands | Yes |
-| **test-validator** | Runs the quality gates and reviews the result against the rules, citing a rule for every finding | No |
+| **test-plan-reviewer** | Subagent of the planner: reviews the plan's evidence, coverage and scope before you see it | Its report only |
+| **test-validator** | Subagent of the builder: reviews the implementation against the approved plan and the build report | Its report only |
 
-Review the generated \`test-plans/<feature>/plan.json\` and \`plan.md\`. Approve with **Build the approved proposal**, check the result with **Validate**, send findings back with **Fix the findings**, and accept the tests with **Register approved examples**. Each step waits for your click.
+Review the generated \`test-plans/<feature>/plan.json\`, \`plan.md\` and the plan-review report. Approve with **Build the approved proposal**; the builder runs the checks and the validator without stopping. If the validator finds a problem in the plan, **Revise the plan** sends it back to the planner for a new review and your approval. Accept the verified tests with **Register approved examples**. The reports are in \`pipeline-runs/\`.
 
 ## Commands
 
