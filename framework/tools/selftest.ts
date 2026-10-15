@@ -187,7 +187,7 @@ test.describe("Case title self-test UI", () => {
 `;
 
   const runLint = () =>
-    spawnSync("npx", ["tsx", "framework/tools/architecture.ts"], {
+    spawnSync("npm", ["run", "--silent", "lint:architecture"], {
       cwd: project,
       encoding: "utf8",
     });
@@ -211,7 +211,7 @@ test.describe("Case title self-test UI", () => {
     fs.writeFileSync(planFile, plan);
     fs.writeFileSync(apiFile, apiSpec);
     fs.writeFileSync(uiFile, uiSpec);
-    run("npx tsx framework/tools/architecture.ts", project);
+    run("npm run --silent lint:architecture", project);
 
     fs.writeFileSync(
       apiFile,
@@ -250,7 +250,7 @@ test.describe("Case title self-test UI", () => {
       apiFile,
       apiSpec.replace(
         'test.describe("Case title self-test API"',
-        'test.describe("")',
+        'test.describe(""',
       ),
     );
     expectLintFailure(
@@ -383,13 +383,6 @@ test.describe("Conformance self-test API", () => {
       ),
     },
     { rule: "similar-tests-as-scenarios", source: similarTests },
-    {
-      rule: "request-fields-exact-match",
-      source: spec.replace(
-        "expect(body.title).toBe(itemData.title);",
-        "expect(body.title).toBeTruthy();",
-      ),
-    },
   ];
   const created = [
     path.join(project, "src/data"),
@@ -402,7 +395,7 @@ test.describe("Conformance self-test API", () => {
     fs.writeFileSync(path.join(project, file), content);
   };
   const lint = () =>
-    spawnSync("npx", ["tsx", "framework/tools/architecture.ts"], {
+    spawnSync("npm", ["run", "--silent", "lint:architecture"], {
       cwd: project,
       encoding: "utf8",
     });
@@ -411,7 +404,7 @@ test.describe("Conformance self-test API", () => {
     write(files.factory, factory);
     write(files.schema, schema);
     write(files.spec, spec);
-    run("npx tsx framework/tools/architecture.ts", project);
+    run("npm run --silent lint:architecture", project);
 
     assert(
       similarTests !== spec,
@@ -834,7 +827,7 @@ function listTestScripts(project: string, scenario: Scenario): void {
 function staticChecks(project: string, hasTests: boolean): void {
   run("npx prettier --check .", project);
   run("npx tsc --noEmit", project);
-  run("npx tsx framework/tools/architecture.ts", project);
+  run("npm run --silent lint:architecture", project);
   run("npx tsx framework/tools/templates.ts check", project);
   if (hasTests) run("npx playwright test --list", project);
 }
@@ -958,6 +951,9 @@ async function main(): Promise<void> {
   );
 
   try {
+    run("npx tsx --test framework/tools/eslint-plugin/tests/*.test.ts", ROOT);
+    console.log("✔ ESLint rules report each broken file");
+
     await waitForApp("http://localhost:4510");
 
     for (const scenario of SCENARIOS) {

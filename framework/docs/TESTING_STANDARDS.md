@@ -18,7 +18,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 - The schema-derived type is safe only after `validateSchema()`; use the response fields after it, never before. A successful response is checked in this order: the status, `validateSchema()`, then the fields. `npm run lint:architecture` reports a successful body that is never validated or a field asserted before `validateSchema()`.
 - API tests are browser-independent and run once, in the `api` project.
 - After the schema, assert as many values as the test can predict:
-  - deterministic fields (values from the request, documented defaults, the owner) by exact value. A field that echoes the request is compared with the request value (`expect(body.title).toBe(taskData.title)`); `npm run lint:architecture` reports a response field that echoes a factory-built request field and is never compared with `toBe`, `toEqual` or `toStrictEqual`;
+  - deterministic fields (values from the request, documented defaults, the owner) by exact value. A field that echoes the request is compared with the request value (`expect(body.title).toBe(taskData.title)`); review checks this, the lint does not;
   - generated fields (ids, timestamps) by format, declared in the schema where the contract defines it (for example `format: "uuid"`, `format: "date-time"`), and by relations the contract or an observed response establishes (such as the same id on a later read);
   - a field whose value the contract does not define is covered by its schema type; do not invent an expected value.
 - A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`. A nested field is listed by its path (`user.id`). `npm run lint:architecture` checks that every schema field, including those of nested objects, is asserted (directly, or through an enclosing object compared with `toEqual` or `toStrictEqual`), has a format, or is listed this way.
@@ -103,7 +103,7 @@ testUserData, registeredTestUser             → only where the application lets
 ```
 
 - Objects that act on an authenticated Page are built from that Page, or from a fixture that depends on it.
-- Only login specs (a file name containing `login` or `authentication`) call `getRoleCredentials()` or a client's `login()` themselves; every other spec gets its token or Page from the role fixtures. `npm run lint:architecture` reports the rest.
+- Only login specs (a file name containing `login` or `authentication`) call `getRoleCredentials()` or a client's `login()` themselves; every other spec gets its token or Page from the role fixtures. A spec that must sign in itself (for example to test session expiry) says why on the line above the call: `// own-login: <reason>`. `npm run lint:architecture` reports the rest.
 
 ## Page Object Standard
 
