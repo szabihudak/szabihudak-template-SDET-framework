@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -234,8 +235,21 @@ function readMatchingReport(
   return report;
 }
 
-function assertUnique(values: string[], label: string): void {
-  if (new Set(values).size !== values.length) fail(`${label} must be unique`);
+// Returns the problem as a message, so each command reports every problem it
+// finds in one run instead of stopping at the first.
+function duplicates(values: string[], label: string): string[] {
+  return new Set(values).size !== values.length
+    ? [`${label} must be unique`]
+    : [];
+}
+
+function failOnProblems(problems: string[]): void {
+  if (problems.length === 1) fail(problems[0]);
+  if (problems.length > 1) {
+    fail(
+      `${problems.length} problems:\n${problems.map((problem) => `- ${problem}`).join("\n")}`,
+    );
+  }
 }
 
 function requiredBuildChecks(plan: Plan): string[] {
@@ -249,37 +263,37 @@ function validatePlanReview(planFile: string): Record<string, any> {
   const context = readPlan(planFile);
   const file = path.join(context.runDirectory, "plan-review.json");
   const report = readMatchingReport(context, file, planReviewSchema);
-  assertUnique(
-    report.reviewChecks.map(({ id }: { id: string }) => id),
-    "Plan review check IDs",
-  );
-  const present = new Set(
-    report.reviewChecks.map(({ id }: { id: string }) => id),
-  );
-  const missing = PLAN_REVIEW_CHECK_IDS.filter((id) => !present.has(id));
-  if (missing.length)
-    fail(`Plan review is missing checks: ${missing.join(", ")}`);
+  const ids = report.reviewChecks.map(({ id }: { id: string }) => id);
+  const missing = PLAN_REVIEW_CHECK_IDS.filter((id) => !ids.includes(id));
+  failOnProblems([
+    ...duplicates(ids, "Plan review check IDs"),
+    ...(missing.length
+      ? [`Plan review is missing checks: ${missing.join(", ")}`]
+      : []),
+  ]);
   return report;
 }
 
 function checkPlanReview(planFile: string): void {
   const context = readPlan(planFile);
   const report = validatePlanReview(planFile);
-  if (report.verdict !== "PASS") fail("Plan reviewer verdict is FAIL");
+  const problems: string[] = [];
+  if (report.verdict !== "PASS") problems.push("Plan reviewer verdict is FAIL");
   if (
     report.reviewChecks.some(
       ({ status }: { status: string }) => status !== "passed",
     )
   ) {
-    fail("Plan review contains failed checks");
+    problems.push("Plan review contains failed checks");
   }
   if (
     report.findings.some(
       ({ severity }: { severity: string }) => severity === "blocking",
     )
   ) {
-    fail("Plan review contains blocking findings");
+    problems.push("Plan review contains blocking findings");
   }
+  failOnProblems(problems);
   console.log(
     `✔ plan review passed: ${relativePath(path.join(context.runDirectory, "plan-review.json"))}`,
   );
@@ -291,73 +305,111 @@ function validateBuildReport(
 ): Record<string, any> {
   const context = readPlan(planFile);
   const report = readMatchingReport(context, buildFile, buildReportSchema);
+  const problems: string[] = [];
   const attemptNumber = /^attempt-(\d{3,})$/.exec(
     path.basename(path.dirname(path.resolve(buildFile))),
   )?.[1];
   if (!attemptNumber || Number(attemptNumber) !== report.attempt) {
-    fail("Build report attempt does not match its directory");
+    problems.push("Build report attempt does not match its directory");
   }
-
   const plannedCases = context.plan.cases.map(({ id }) => id);
   const implemented = report.implementedCases.map(
     ({ caseId }: { caseId: string }) => caseId,
   );
-  assertUnique(implemented, "Implemented case IDs");
+  problems.push(...duplicates(implemented, "Implemented case IDs"));
   if (implemented.some((id: string) => !plannedCases.includes(id))) {
-    fail("Build report references a case not in the approved plan");
+    problems.push("Build report references a case not in the approved plan");
   }
-
-  const requiredChecks = requiredBuildChecks(context.plan);
-  const checks = report.checks as { id: string; status: string }[];
-  assertUnique(
-    checks.map(({ id }) => id),
-    "Build check IDs",
+  const checkIds = (report.checks as { id: string }[]).map(({ id }) => id);
+  problems.push(...duplicates(checkIds, "Build check IDs"));
+  const missing = requiredBuildChecks(context.plan).filter(
+    (id) => !checkIds.includes(id),
   );
-  const checkById = new Map(checks.map((check) => [check.id, check]));
-  const missing = requiredChecks.filter((id) => !checkById.has(id));
   if (missing.length)
-    fail(`Build report is missing checks: ${missing.join(", ")}`);
+    problems.push(`Build report is missing checks: ${missing.join(", ")}`);
+  failOnProblems(problems);
   return report;
+}
+
+// Files changed in the working tree and index compared with HEAD, plus new
+// untracked files, so a build report cannot leave out a changed file. Plan
+// artifacts and pipeline reports are not implementation changes.
+function changedInGit(): string[] | undefined {
+  try {
+    const run = (args: string[]) =>
+      execFileSync("git", args, { encoding: "utf8" })
+        .split("\n")
+        .filter(Boolean);
+    return [
+      ...new Set([
+        ...run(["diff", "--name-only", "HEAD"]),
+        ...run(["ls-files", "--others", "--exclude-standard"]),
+      ]),
+    ].filter(
+      (file) =>
+        !file.startsWith("test-plans/") && !file.startsWith("pipeline-runs/"),
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 function checkBuild(planFile: string, buildFile: string): void {
   const context = readPlan(planFile);
   checkPlanReview(planFile);
   const report = validateBuildReport(planFile, buildFile);
+  const problems: string[] = [];
   const plannedFiles = new Set(
     context.plan.files.map(({ path: file }) => file),
   );
-  const unplanned = report.changedFiles
-    .map(({ path: file }: { path: string }) => file)
-    .filter((file: string) => !plannedFiles.has(file));
+  const reported = report.changedFiles.map(
+    ({ path: file }: { path: string }) => file,
+  );
+  const unplanned = reported.filter((file: string) => !plannedFiles.has(file));
   if (unplanned.length)
-    fail(`Unapproved changed files: ${unplanned.join(", ")}`);
+    problems.push(`Unapproved changed files: ${unplanned.join(", ")}`);
+  const changed = changedInGit();
+  if (changed) {
+    const unplannedInGit = changed.filter((file) => !plannedFiles.has(file));
+    if (unplannedInGit.length)
+      problems.push(
+        `Git shows changes to files outside the plan: ${unplannedInGit.join(", ")}`,
+      );
+    const unreported = changed.filter(
+      (file) => plannedFiles.has(file) && !reported.includes(file),
+    );
+    if (unreported.length)
+      problems.push(
+        `Changed files missing from the build report: ${unreported.join(", ")}`,
+      );
+  }
   for (const item of report.implementedCases as {
     caseId: string;
     files: string[];
   }[]) {
     if (item.files.some((file) => !plannedFiles.has(file))) {
-      fail(`Case ${item.caseId} maps to an unapproved file`);
+      problems.push(`Case ${item.caseId} maps to an unapproved file`);
     }
   }
-  const requiredChecks = requiredBuildChecks(context.plan);
   const checkById = new Map<string, { status: string }>(
     (report.checks as { id: string; status: string }[]).map((check) => [
       check.id,
       check,
     ]),
   );
-  const failed = requiredChecks.filter(
+  const failed = requiredBuildChecks(context.plan).filter(
     (id) => checkById.get(id)?.status !== "passed",
   );
   if (failed.length)
-    fail(`Required build checks did not pass: ${failed.join(", ")}`);
-  if (report.status !== "passed") fail("Build report status is not passed");
+    problems.push(`Required build checks did not pass: ${failed.join(", ")}`);
+  if (report.status !== "passed")
+    problems.push("Build report status is not passed");
   if (report.deviations.length)
-    fail("A passing build report must not contain deviations");
+    problems.push("A passing build report must not contain deviations");
   if (report.implementedCases.length !== context.plan.cases.length) {
-    fail("Passing build report must map every approved case");
+    problems.push("Passing build report must map every approved case");
   }
+  failOnProblems(problems);
   console.log(
     `✔ build report passed: ${relativePath(path.resolve(buildFile))}`,
   );
@@ -375,6 +427,7 @@ function validateValidationReport(
     validationFile,
     validationReportSchema,
   );
+  const problems: string[] = [];
   const buildHash = createHash("sha256")
     .update(fs.readFileSync(buildFile))
     .digest("hex");
@@ -382,30 +435,40 @@ function validateValidationReport(
     report.buildReportPath !== relativePath(buildFile) ||
     report.buildReportSha256 !== buildHash
   ) {
-    fail("Validation report does not identify this build report version");
+    problems.push(
+      "Validation report does not identify this build report version",
+    );
   }
   if (
     path.dirname(path.resolve(validationFile)) !==
     path.dirname(path.resolve(buildFile))
   ) {
-    fail("Validation report must be in the build report's attempt directory");
+    problems.push(
+      "Validation report must be in the build report's attempt directory",
+    );
   }
 
   const caseCoverage = report.caseCoverage as {
     caseId: string;
     status: string;
   }[];
-  assertUnique(
-    caseCoverage.map(({ caseId }) => caseId),
-    "Validated case IDs",
+  problems.push(
+    ...duplicates(
+      caseCoverage.map(({ caseId }) => caseId),
+      "Validated case IDs",
+    ),
   );
   const plannedCases = new Set(context.plan.cases.map(({ id }) => id));
   if (caseCoverage.some(({ caseId }) => !plannedCases.has(caseId))) {
-    fail("Validation report references a case not in the approved plan");
+    problems.push(
+      "Validation report references a case not in the approved plan",
+    );
   }
-  assertUnique(
-    report.reviewChecks.map(({ id }: { id: string }) => id),
-    "Validation check IDs",
+  problems.push(
+    ...duplicates(
+      report.reviewChecks.map(({ id }: { id: string }) => id),
+      "Validation check IDs",
+    ),
   );
   const reviewCheckIds = new Set(
     report.reviewChecks.map(({ id }: { id: string }) => id),
@@ -414,10 +477,11 @@ function validateValidationReport(
     (id) => !reviewCheckIds.has(id),
   );
   if (missingReviewChecks.length) {
-    fail(
+    problems.push(
       `Validation report is missing checks: ${missingReviewChecks.join(", ")}`,
     );
   }
+  failOnProblems(problems);
   return report;
 }
 
@@ -428,21 +492,22 @@ function checkValidation(
 ): void {
   const context = readPlan(planFile);
   const report = validateValidationReport(planFile, buildFile, validationFile);
+  const problems: string[] = [];
   if (report.verdict !== "PASS")
-    fail("Implementation validator verdict is FAIL");
+    problems.push("Implementation validator verdict is FAIL");
   if (
     report.reviewChecks.some(
       ({ status }: { status: string }) => status !== "passed",
     )
   ) {
-    fail("Implementation validation contains failed checks");
+    problems.push("Implementation validation contains failed checks");
   }
   if (
     report.findings.some(
       ({ severity }: { severity: string }) => severity === "blocking",
     )
   ) {
-    fail("Implementation validation contains blocking findings");
+    problems.push("Implementation validation contains blocking findings");
   }
   const caseCoverage = report.caseCoverage as {
     caseId: string;
@@ -457,8 +522,11 @@ function checkValidation(
         ),
     )
   ) {
-    fail("Passing validation report must account for every approved case");
+    problems.push(
+      "Passing validation report must account for every approved case",
+    );
   }
+  failOnProblems(problems);
   console.log(
     `✔ implementation validation passed: ${relativePath(validationFile)}`,
   );

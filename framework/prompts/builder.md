@@ -48,6 +48,8 @@ or inconsistent.
    - Do not implement excluded cases, infer scope from the generated Markdown, add unlisted files,
      or edit either plan artifact. A scope change returns to test-planner and requires renewed
      human approval.
+   - If a selected example or template does not fit its file, do not switch to another source:
+     record it in `deviations`, stop, and offer the **Revise the plan** hand-off.
 4. **Run the technical gates.** Run the complete AGENTS.md validation set and record each actual
    command, status and concise result line: `npx prettier --check .`, `npm run typecheck`,
    `npm run lint:architecture`, `npm run qa:plan -- check-all`, `npm run qa:pipeline -- check-all`,
