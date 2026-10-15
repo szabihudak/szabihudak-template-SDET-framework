@@ -25,6 +25,19 @@ const missingTaskFieldScenarios = [
   },
 ] satisfies MissingTaskFieldScenario[];
 
+const unauthenticatedScenarios = [
+  {
+    caseId: "T005_Task_API",
+    name: "rejects task without user token",
+    accessToken: "",
+  },
+  {
+    caseId: "T006_Task_API",
+    name: "rejects task with invalid user token",
+    accessToken: "Invalid-Token_123",
+  },
+] satisfies { caseId: string; name: string; accessToken: string }[];
+
 // unasserted: position (the API contract does not define its value on create)
 test.describe("Create a Task API", () => {
   test("T001_Task_API: creates a task matching the provider contract", async ({
@@ -121,31 +134,18 @@ test.describe("Create a Task API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("T005_Task_API: rejects task without user token", async ({
-    taskApi,
-  }) => {
-    const taskData = createTask();
+  for (const scenario of unauthenticatedScenarios) {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({ taskApi }) => {
+      const taskData = createTask();
 
-    const response = await taskApi.createTask(taskData, "");
-    expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
+      const response = await taskApi.createTask(taskData, scenario.accessToken);
+      expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
-    const body = await response.json();
+      const body = await response.json();
 
-    expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
-  });
-
-  test("T006_Task_API: rejects task with invalid user token", async ({
-    taskApi,
-  }) => {
-    const taskData = createTask();
-
-    const response = await taskApi.createTask(taskData, "Invalid-Token_123");
-    expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-
-    const body = await response.json();
-
-    expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
-  });
+      expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
+    });
+  }
 
   test("T007_Task_API: rejects task with unsupported priority", async ({
     taskApi,

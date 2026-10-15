@@ -898,6 +898,308 @@ const AUTOMATION_FILES = [
   /^install\.sh$/,
 ];
 
+// Template conformance of specs: the shapes the golden spec templates use for
+// response assertions, test data, authentication and similar cases.
+const BOOLEAN_ASSERTION_CHECK = {
+  id: "no-boolean-wrapped-assertions",
+  source: "framework/docs/TESTING_STANDARDS.md#negative-api-test-standard",
+  message:
+    "This assertion wraps a check in a function and only reports true or false. Assert the fields directly, as the templates do: expect(body.error).toBe(...), or toEqual on a nested object.",
+};
+const SUCCESS_ORDER_CHECK = {
+  id: "success-response-order",
+  source: "framework/docs/TESTING_STANDARDS.md#api-test-standard",
+};
+const NEGATIVE_FIELDS_CHECK = {
+  id: "negative-response-fields",
+  source: "framework/docs/TESTING_STANDARDS.md#negative-api-test-standard",
+};
+const ROLE_LOGIN_CHECK = {
+  id: "role-credentials-in-login-specs",
+  source: "framework/docs/TESTING_STANDARDS.md#authentication-standard",
+  message:
+    "Only login specs sign in with role credentials. Other specs get their token or page from the role fixtures (apiTokenFor(role), authenticatedPageFor(...)).",
+};
+const INLINE_PAYLOAD_CHECK = {
+  id: "no-inline-payload-to-api-client",
+  source: "framework/docs/TESTING_STANDARDS.md#factory-standard",
+  message:
+    "This API client call gets a request object with several fields written inline. Build it with the domain factory (createX({ ... })) or take it from a scenario array.",
+};
+const SIMILAR_TESTS_CHECK = {
+  id: "similar-tests-as-scenarios",
+  source: "framework/docs/TESTING_STANDARDS.md#negative-api-test-standard",
+};
+const REQUEST_FIELDS_CHECK = {
+  id: "request-fields-exact-match",
+  source: "framework/docs/TESTING_STANDARDS.md#api-test-standard",
+};
+
+const SUCCESS_STATUS = /^(?:HTTP_STATUS\.(?:OK|CREATED)|20[0-35-9])$/;
+const ERROR_STATUS = /^(?:HTTP_STATUS\.(?!OK\b|CREATED\b)\w+|[45]\d\d)$/;
+const EXACT_MATCHERS = /^(?:toBe|toEqual|toStrictEqual)$/;
+
+const lineAt = (source: string, index: number) =>
+  source.slice(0, index).split("\n").length;
+
+type ResponseBody = {
+  variable: string;
+  status?: string;
+  call?: { client: string; args: string[] };
+};
+
+// Arguments of a call whose "(" is at `open`, split at top-level commas.
+function callArguments(source: string, open: number): string[] {
+  const inner = source.slice(open + 1, closingIndex(source, open) - 1);
+  const args: string[] = [];
+  let depth = 0;
+  let quote: string | undefined;
+  let start = 0;
+
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index];
+
+    if (quote) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = undefined;
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if ("([{".includes(char)) {
+      depth += 1;
+    } else if (")]}".includes(char)) {
+      depth -= 1;
+    } else if (char === "," && depth === 0) {
+      args.push(inner.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  const last = inner.slice(start).trim();
+  if (last) args.push(last);
+  return args;
+}
+
+// Response bodies read in a test: `const body = await response.json()`, with
+// the status the test asserts on `response` and the client call that produced it.
+function responseBodies(body: string): ResponseBody[] {
+  return [
+    ...body.matchAll(
+      /const\s+(\w+)(?:\s*:\s*[^=]+?)?\s*=\s*await\s+(\w+)\.json\(\)/g,
+    ),
+  ].map(([, variable, response]) => {
+    const status = new RegExp(
+      `expect\\(\\s*${response}\\.status\\(\\)\\s*\\)\\.toBe\\(\\s*([^)]+?)\\s*\\)`,
+    ).exec(body)?.[1];
+    const call = new RegExp(
+      `const\\s+${response}\\s*=\\s*await\\s+\\w+\\.\\w+\\s*\\(`,
+    ).exec(body);
+
+    return {
+      variable,
+      status,
+      call: call
+        ? {
+            client: call[0],
+            args: callArguments(body, call.index + call[0].length - 1),
+          }
+        : undefined,
+    };
+  });
+}
+
+function booleanWrappedAssertions(source: string): number[] {
+  return [
+    ...source.matchAll(
+      /expect\(\s*!?\s*[\w.]+\s*\((?:[^()]|\([^()]*\))*\)\s*\)\s*\.(?:not\.)?(?:toBe\(\s*(?:true|false)\s*\)|toBeTruthy\(\)|toBeFalsy\(\))/g,
+    ),
+  ].map((match) => lineAt(source, match.index));
+}
+
+// A successful response: status, then validateSchema(), then the fields.
+function successOrderProblems(
+  source: string,
+): { line: number; message: string }[] {
+  return testBodies(source).flatMap(({ line, body }) =>
+    responseBodies(body)
+      .filter(({ status }) => status && SUCCESS_STATUS.test(status))
+      .flatMap(({ variable }) => {
+        const validated = new RegExp(
+          `validateSchema\\(\\s*\\w+\\s*,\\s*${variable}\\s*\\)`,
+        ).exec(body);
+        if (!validated) {
+          return [
+            {
+              line,
+              message: `The successful response "${variable}" is not validated. Call validateSchema(<schema>, ${variable}) right after the status assertion, then assert its fields.`,
+            },
+          ];
+        }
+        const early = new RegExp(`expect\\(\\s*${variable}\\b`).exec(body);
+        return early && early.index < validated.index
+          ? [
+              {
+                line,
+                message: `"${variable}" is asserted before validateSchema(). Assert the status, then validateSchema(), then the fields.`,
+              },
+            ]
+          : [];
+      }),
+  );
+}
+
+// A negative response that is read must have its error fields asserted.
+function negativeFieldProblems(source: string): number[] {
+  return testBodies(source)
+    .filter(({ body }) =>
+      responseBodies(body).some(
+        ({ variable, status }) =>
+          status &&
+          ERROR_STATUS.test(status) &&
+          !new RegExp(`expect\\(\\s*${variable}\\s*[.[)]`).test(body),
+      ),
+    )
+    .map(({ line }) => line);
+}
+
+function roleLoginOutsideLoginSpecs(file: string, source: string): number[] {
+  if (/(login|authentication)[^/]*\.spec\.ts$/.test(file)) return [];
+
+  return [...source.matchAll(/\bgetRoleCredentials\b|\.login\s*\(/g)].map(
+    (match) => lineAt(source, match.index),
+  );
+}
+
+// A single-field partial update ({ priority: "high" }) is the scenario itself
+// and stays inline; a request with several fields comes from the factory.
+function inlinePayloads(source: string): number[] {
+  return [...source.matchAll(/\b\w+Api\.\w+\s*\(/g)]
+    .filter((match) =>
+      callArguments(source, match.index + match[0].length - 1).some(
+        (arg) =>
+          arg.startsWith("{") &&
+          !arg.includes("...") &&
+          callArguments(arg, 0).length > 1,
+      ),
+    )
+    .map((match) => lineAt(source, match.index));
+}
+
+// Tests whose client calls and assertions are the same once strings and numbers
+// are ignored differ only in data: they belong in one scenario array.
+function similarTests(source: string): string[] {
+  const skeletons = new Map<string, number[]>();
+
+  for (const match of source.matchAll(/(?<![.\w])test\s*\(/g)) {
+    const before = source
+      .slice(0, match.index)
+      .split("\n")
+      .slice(-3)
+      .join("\n");
+    if (/\/\/\s*separate-test:\s*\S/.test(before)) continue;
+
+    const body = callbackBody(source, match.index);
+    if (!body) continue;
+
+    const normalized = body
+      .replace(/`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, "S")
+      .replace(/\b\d+(?:\.\d+)?\b/g, "N")
+      .replace(/\s+/g, " ");
+    const calls = [...normalized.matchAll(/\b\w+Api\.\w+\s*\(/g)].map(
+      ([call]) => call,
+    );
+    const assertions = [...normalized.matchAll(/expect\([^;]*;/g)].map(
+      ([assertion]) => assertion,
+    );
+    if (calls.length === 0 || assertions.length === 0) continue;
+
+    const key = `${calls.join(" ")} | ${assertions.join(" ")}`;
+    skeletons.set(key, [
+      ...(skeletons.get(key) ?? []),
+      lineAt(source, match.index),
+    ]);
+  }
+
+  return [...skeletons.values()]
+    .filter((lines) => lines.length > 1)
+    .map(
+      (lines) =>
+        `tests at lines ${lines.join(", ")} differ only in data. Put the cases in a scenario array with caseId and generate them with for (const scenario of ...), as in api-scenario-spec; keep one apart only with "// separate-test: <reason>" above it`,
+    );
+}
+
+// Response fields that echo a field of the request built by a factory are
+// asserted by exact value somewhere in the file.
+function looseRequestFields(file: string, source: string): string[] {
+  const imports = importedNames(file, source);
+  const exempt = new Set(
+    [...source.matchAll(/\/\/\s*unasserted:\s*([^(\n]+)/g)].flatMap(
+      ([, fields]) => fields.split(",").map((field) => field.trim()),
+    ),
+  );
+  const problems = new Set<string>();
+
+  for (const { body } of testBodies(source)) {
+    for (const { variable, status, call } of responseBodies(body)) {
+      if (!status || !SUCCESS_STATUS.test(status) || !call) continue;
+
+      const schemaName = new RegExp(
+        `validateSchema\\(\\s*(\\w+)\\s*,\\s*${variable}\\s*\\)`,
+      ).exec(body)?.[1];
+      const schemaTarget = schemaName && imports.get(schemaName);
+      const schema = schemaTarget
+        ? loadSchema(schemaTarget, schemaName)
+        : undefined;
+      if (!schema) continue;
+
+      for (const arg of call.args.filter((arg) => /^\w+$/.test(arg))) {
+        const factory = new RegExp(
+          `const\\s+${arg}\\s*=\\s*(create\\w+)\\s*\\(`,
+        ).exec(source)?.[1];
+        const factoryTarget = factory && imports.get(factory);
+        if (!factoryTarget) continue;
+
+        const build = require(path.join(ROOT, `${factoryTarget}.ts`))[
+          factory
+        ] as (() => Record<string, unknown>) | undefined;
+        const requestFields = new Set(Object.keys(build?.() ?? {}));
+
+        for (const { path: field } of schemaFields(schema)) {
+          const leaf = field.split(".").pop() ?? field;
+          if (!requestFields.has(leaf)) continue;
+          if ([field, ...ancestors(field)].some((name) => exempt.has(name)))
+            continue;
+
+          const member = (name: string) =>
+            name ? `\\.${name.replace(/\./g, "\\.")}` : "";
+          const exact = [field, ...ancestors(field)].some((name) =>
+            [
+              ...source.matchAll(
+                new RegExp(
+                  `expect\\(\\s*${variable}${member(name)}\\s*\\)\\s*\\.(\\w+)\\(\\s*([^)\\s]*)`,
+                  "g",
+                ),
+              ),
+            ].some(
+              ([, matcher, first]) =>
+                EXACT_MATCHERS.test(matcher) &&
+                (name === field || matcher !== "toBe") &&
+                !first.startsWith("expect."),
+            ),
+          );
+
+          if (!exact) {
+            problems.add(
+              `${schemaName} field "${field}" echoes ${arg}.${leaf} from the request but is never asserted by exact value. Use expect(${variable}.${field}).toBe(${arg}.${leaf})`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return [...problems];
+}
+
 function repositoryFiles(): string[] {
   return execSync("git ls-files --cached --others --exclude-standard", {
     cwd: ROOT,
@@ -965,6 +1267,13 @@ function main(): void {
     API_BUSINESS_ASSERTION_CHECK,
     CASE_ID_TITLE_CHECK,
     SNAPSHOT_UPDATE_CHECK,
+    BOOLEAN_ASSERTION_CHECK,
+    SUCCESS_ORDER_CHECK,
+    NEGATIVE_FIELDS_CHECK,
+    ROLE_LOGIN_CHECK,
+    INLINE_PAYLOAD_CHECK,
+    SIMILAR_TESTS_CHECK,
+    REQUEST_FIELDS_CHECK,
   ];
   const cite = (source: string) => citation(source) ?? `(${source})`;
   const planFeatures = plannedFeatures();
@@ -1096,6 +1405,50 @@ function main(): void {
         problems.push(
           `${file}:${line} [${DESCRIBE_CHECK.id}] ${DESCRIBE_CHECK.message} ${cite(DESCRIBE_CHECK.source)}`,
         );
+      }
+
+      for (const line of booleanWrappedAssertions(source)) {
+        problems.push(
+          `${file}:${line} [${BOOLEAN_ASSERTION_CHECK.id}] ${BOOLEAN_ASSERTION_CHECK.message} ${cite(BOOLEAN_ASSERTION_CHECK.source)}`,
+        );
+      }
+
+      for (const { line, message } of successOrderProblems(source)) {
+        problems.push(
+          `${file}:${line} [${SUCCESS_ORDER_CHECK.id}] ${message} ${cite(SUCCESS_ORDER_CHECK.source)}`,
+        );
+      }
+
+      for (const line of negativeFieldProblems(source)) {
+        problems.push(
+          `${file}:${line} [${NEGATIVE_FIELDS_CHECK.id}] This test reads an error response but asserts none of its fields. Assert the error fields directly, as in api-scenario-spec. ${cite(NEGATIVE_FIELDS_CHECK.source)}`,
+        );
+      }
+
+      for (const line of roleLoginOutsideLoginSpecs(logicalFile, source)) {
+        problems.push(
+          `${file}:${line} [${ROLE_LOGIN_CHECK.id}] ${ROLE_LOGIN_CHECK.message} ${cite(ROLE_LOGIN_CHECK.source)}`,
+        );
+      }
+
+      for (const line of inlinePayloads(source)) {
+        problems.push(
+          `${file}:${line} [${INLINE_PAYLOAD_CHECK.id}] ${INLINE_PAYLOAD_CHECK.message} ${cite(INLINE_PAYLOAD_CHECK.source)}`,
+        );
+      }
+
+      for (const problem of similarTests(source)) {
+        problems.push(
+          `${file} [${SIMILAR_TESTS_CHECK.id}] ${problem}. ${cite(SIMILAR_TESTS_CHECK.source)}`,
+        );
+      }
+
+      if (logicalFile.startsWith("tests/api/")) {
+        for (const problem of looseRequestFields(logicalFile, source)) {
+          problems.push(
+            `${file} [${REQUEST_FIELDS_CHECK.id}] ${problem}. ${cite(REQUEST_FIELDS_CHECK.source)}`,
+          );
+        }
       }
 
       for (const line of missingAwaitAssertions(source)) {
