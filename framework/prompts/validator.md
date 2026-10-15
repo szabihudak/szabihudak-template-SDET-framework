@@ -80,31 +80,6 @@ the builder's command and case-to-file evidence.
       "id": "plan-build-identity",
       "status": "passed",
       "summary": "<inspected evidence>"
-    },
-    {
-      "id": "scope-and-files",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "case-assertions",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "template-conformance",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "evidence-and-expected-results",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "project-boundaries",
-      "status": "passed",
-      "summary": "<inspected evidence>"
     }
   ],
   "caseCoverage": [
@@ -123,7 +98,8 @@ the builder's command and case-to-file evidence.
 }
 ```
 
-Finding IDs are stable within the attempt (`IV-001`, etc.); include severity, category, location,
+Write one `reviewChecks` entry for each check under Implementation Review Checks;
+`validate-validation` rejects a report that misses one. Finding IDs are stable within the attempt (`IV-001`, etc.); include severity, category, location,
 rule, problem and required change. Report files contain no credentials or secret values.
 
 ## Output and Handoff

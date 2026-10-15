@@ -50,8 +50,9 @@ or inconsistent.
      human approval.
 4. **Run the technical gates.** Run the complete AGENTS.md validation set and record each actual
    command, status and concise result line: `npx prettier --check .`, `npm run typecheck`,
-   `npm run lint:architecture`, `npm run qa:plan -- check-all`, `npm run qa:templates:check`, and
-   `npx playwright test --project=<project>` for every affected project. Fix failures caused by
+   `npm run lint:architecture`, `npm run qa:plan -- check-all`, `npm run qa:pipeline -- check-all`,
+   `npm run qa:templates:check`, and `npx playwright test --project=<project>` for every affected
+   project. Fix failures caused by
    your implementation and rerun the failed gate. Do not claim a pass from an unobserved command;
    do not retry flaky tests as a substitute for investigation.
 
@@ -142,44 +143,8 @@ environment values.
   ],
   "checks": [
     {
-      "id": "plan-check",
-      "command": "npm run qa:plan -- check <plan>",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
       "id": "prettier",
       "command": "npx prettier --check .",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
-      "id": "typecheck",
-      "command": "npm run typecheck",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
-      "id": "architecture",
-      "command": "npm run lint:architecture",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
-      "id": "plan-check-all",
-      "command": "npm run qa:plan -- check-all",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
-      "id": "templates",
-      "command": "npm run qa:templates:check",
-      "status": "passed",
-      "resultLine": "<actual output>"
-    },
-    {
-      "id": "playwright:api",
-      "command": "npx playwright test --project=api",
       "status": "passed",
       "resultLine": "<actual output>"
     }
@@ -190,7 +155,14 @@ environment values.
 }
 ```
 
+Record one `checks` entry per gate, with these IDs: `plan-check` (`qa:plan -- check <plan>`),
+`prettier`, `typecheck`, `architecture`, `plan-check-all`, `pipeline-check-all`, `templates`, and
+`playwright:<project>` for every project the plan's cases run in. `validate-build` rejects a report
+that misses a required one.
+
 ## Output
+
+End with this report, filled in:
 
 ```markdown
 ## Changes
@@ -212,6 +184,8 @@ environment values.
 
 ## Pipeline reports
 
+- **Plan SHA-256:** <hash of the approved plan>
+- **Plan review report:** <path; PASS>
 - **Build report:** <path, attempt number, structural validation and PASS gate result>
 - **Implementation validation report:** <path and verdict, or not invoked because build gates failed>
 
@@ -220,23 +194,11 @@ environment values.
 <each one with its reason; "none" if none>
 
 ## Open questions
-```
 
-## Builder Result (internal hand-off; human review follows verifier PASS)
+## Decision needed
 
-End with this block, filled in:
-
-```markdown
-## Build complete
-
-- Feature: <slug>
-- Plan: <plan.json path and SHA-256>
-- Plan review report: <path; PASS>
-- Build report: <path; structural validation and PASS-only check result>
-- Implemented case IDs: <exact IDs>
-- Technical gates: <all passed, or failed report path; failed gates prevent validator invocation>
-- Validation report: <path and PASS/FAIL verdict, or not run>
-- Human decision: accept/reject after verifier PASS; no separate CP2 approval
+<after a PASS validation report: accept the tests with **Register approved examples**, or say what
+to change; otherwise what stopped the build>
 ```
 
 In Register examples mode, end with one line: "Registered <n> examples in
