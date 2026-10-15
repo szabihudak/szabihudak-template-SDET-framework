@@ -1,0 +1,4 @@
+{
+  "$comment": "The plugin is loaded as an ES module by eslint.config.mjs.",
+  "type": "module"
+}

@@ -20,7 +20,8 @@
     "framework/setup",
     "framework/tools/setup.ts",
     "framework/tools/selftest.ts",
-    "framework/tools/selftest-onboarding.ts"
+    "framework/tools/selftest-onboarding.ts",
+    "framework/tools/eslint-plugin/tests"
   ],
   "scripts": ["setup", "db:test:reset", "qa:selftest"],
   "performance": {
