@@ -87,17 +87,17 @@ Generated projects use four GitHub Copilot agents in VS Code ([ADR-009](framewor
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | **test-planner**       | Uses requirements or exploratory evidence, then writes a validated JSON plan and generated Markdown view; stops for human approval                                | Plan artifacts only |
 | **test-builder**       | Implements the Approved scope from the approved examples, golden templates and standards, checks the login with `npm run doctor` and runs the validation commands | Yes                 |
-| **test-plan-reviewer** | Subagent of the planner: reviews the plan's evidence, coverage and scope before you see it, and writes `plan-review.json`                                         | Its report only     |
-| **test-validator**     | Subagent of the builder: reviews the implementation against the approved plan and the build report, and writes `validation-report.json`                           | Its report only     |
+| **test-plan-reviewer** | Subagent of the planner: reviews the plan's evidence, coverage and scope before you see it, and writes `test-plans/<feature>/review.md`                           | Its report only     |
+| **test-validator**     | Subagent of the builder: reviews the implementation against the approved plan, and writes `test-plans/<feature>/validation.md`                                    | Its report only     |
 
 ```text
 test-planner ⇄ test-plan-reviewer ─(PASS)─▶ you approve: [Build the approved proposal]
-  ─▶ test-builder (technical gates, build-report.json) ⇄ test-validator
+  ─▶ test-builder (technical gates, scope check) ⇄ test-validator
        implementation findings → builder fixes · plan findings → [Revise the plan] → test-planner
        PASS → you review: [Register approved examples]
 ```
 
-You make two decisions: approving the reviewed plan and accepting the verified tests; each is a button that waits for your click. The reports are stored under `pipeline-runs/<feature>/<plan-sha256>/` and checked with `npm run qa:pipeline`. The planner may edit plan artifacts only by instruction, and the verifiers write only their report. API invocation and UI form submission require `allow.interactiveDiscovery: true` for the selected environment; destructive and irreversible actions are prohibited. The task logic lives in `framework/prompts/planner.md`, `plan-reviewer.md`, `builder.md` and `validator.md`, and every agent follows `AGENTS.md`.
+You make two decisions: approving the reviewed plan and accepting the verified tests; each is a button that waits for your click. The two reviews are stored next to the plan as `test-plans/<feature>/review.md` and `validation.md`; each records the plan hash, so a revised plan needs a new review. `npm run qa:pipeline -- review <feature>` and `validation <feature>` check them; the buttons always show, but the builder refuses a plan whose review did not pass and registers only tests whose validation passed. The planner may edit plan artifacts only by instruction, and the verifiers write only their report. API invocation and UI form submission require `allow.interactiveDiscovery: true` for the selected environment; destructive and irreversible actions are prohibited. The task logic lives in `framework/prompts/planner.md`, `plan-reviewer.md`, `builder.md` and `validator.md`, and every agent follows `AGENTS.md`.
 
 Credentials never go into a prompt or the chat. The agents read only variable names from `.env`; `npm run doctor` tells them whether each role's account is set, and `npm run onboard` asks for a missing one (masked). Start the MCP servers when VS Code asks; without them the planner reads the contract over HTTP.
 

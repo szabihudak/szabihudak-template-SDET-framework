@@ -13,9 +13,9 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
   - **Credentials role:** a configured role name from `config/framework.config.ts`, such as `user`. This is a role identifier, not a username, password, token, or other secret.
   - **Scenario/module:** the behavior or module to plan, such as `login`, `bookings`, or a feature request.
   - **Test type:** `API`, `UI`, or `both`.
-- For a revision: the user's feedback on an earlier plan in this conversation, or the path of a
-  plan-review or validation report whose `plan` findings send the plan back. Read findings from
-  the report file, not from a chat summary. Carry forward the four inputs and verified discovery
+- For a revision: the user's feedback on an earlier plan in this conversation, or a
+  `test-plans/<feature>/review.md` or `validation.md` whose `plan` findings send the plan back.
+  Read findings from the report file, not from a chat summary. Carry forward the four inputs and verified discovery
   unless the feedback changes them; revalidate or rediscover facts affected by a change. A revised
   plan goes through the plan review and CP1 again; the earlier approval does not carry over.
 
@@ -118,16 +118,22 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
 
 9. **Request the plan review.** Once the plan linter passes, invoke `test-plan-reviewer` as a
    subagent with exactly this message and nothing else:
-   `Review <plan-path>. Write and validate plan-review.json.` Add no summary, opinion or expected
-   verdict. It writes `pipeline-runs/<feature>/<plan-hash>/plan-review.json`; confirm its structure
-   with `npm run qa:pipeline -- validate-plan-review <plan-path>`. On FAIL, repair the plan only for
-   supported `plan` findings, rerun `refresh`, and invoke the reviewer again with the same message;
-   every revision has a new plan hash and therefore a new report. Allow at most three
-   plan-review cycles. If it still fails, stop before CP1 and report the report path and the
-   unresolved findings. Never present a failing plan as ready for approval.
+   `Review <plan-path>. Write and validate review.md.` Add no summary, opinion or expected
+   verdict. It writes `test-plans/<feature>/review.md` and returns its verdict. Run
+   `npm run qa:pipeline -- review <feature>`: it passes only for a PASS review of the current plan.
+   On FAIL, read the findings in `review.md`:
+   - A finding you can fix from the evidence: repair the plan, rerun `refresh`, and invoke the
+     reviewer again with the same message. Allow at most three plan-review cycles.
+   - A finding that needs something only the user can give (a requirement, an expected value, a
+     permission or an account), or the same finding again after a revision: stop at once and ask
+     the user, with a suggested answer. Do not spend the remaining cycles on it.
 
-   Present CP1 only when `npm run qa:pipeline -- check-plan-review <plan-path>` passes. The human's
-   **Build the approved proposal** hand-off is the explicit approval of that plan hash.
+   If the review still fails, stop before CP1: list the open findings, and say that the plan is not
+   approved and that **Build the approved proposal** will refuse it. Never present a failing plan
+   as ready for approval.
+
+   Present CP1 only when `npm run qa:pipeline -- review <feature>` passes. The human's
+   **Build the approved proposal** hand-off is the explicit approval of that plan version.
 
 10. **Stop at CP1.** Wait for the user's approval or requested revisions before implementation.
 
@@ -254,9 +260,7 @@ After the plan checker and the plan reviewer pass, respond with only this block,
 - Mode: <requirements|exploratory>
 - Plan: `test-plans/<feature-slug>/plan.json`
 - Human-readable view: `test-plans/<feature-slug>/plan.md`
-- Plan SHA-256: <plan-hash from `npm run qa:pipeline -- metadata <plan-path>`>
-- Plan-review report: `pipeline-runs/<feature-slug>/<plan-hash>/plan-review.json`
-- Plan-review verdict: PASS
+- Plan review: `test-plans/<feature-slug>/review.md`, PASS
 - Decision needed: approve this plan artifact, or say what to change
 - Evidence: <verified sources and plan-check result>
 - Files: <exact list from plan.json>

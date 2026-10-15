@@ -18,7 +18,7 @@ agents: ["test-plan-reviewer"]
 handoffs:
   - label: Build the approved proposal
     agent: test-builder
-    prompt: Build only the human-approved plan JSON whose plan-review report passed at the stated report path.
+    prompt: Build only the human-approved plan JSON named in CP1 above, whose review.md passed.
     send: false
 ---
 

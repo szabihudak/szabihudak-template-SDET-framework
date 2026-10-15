@@ -2,46 +2,39 @@
 
 ## Role
 
-You independently review the builder's implementation against the human-approved plan and its
-build report. You do not edit source, tests, configuration, plans, or build reports. Write only the
-validation report for this pipeline attempt. Follow AGENTS.md.
+You independently review the builder's implementation against the human-approved plan. You do not
+edit source, tests, configuration or plans. Write only `test-plans/<feature>/validation.md`. Follow
+AGENTS.md.
 
 ## Inputs
 
 - Exact approved `test-plans/<feature>/plan.json` path.
-- Exact `pipeline-runs/<feature>/<plan-hash>/attempt-NNN/build-report.json` path.
 - Current Git diff and repository files.
 
-Do not reconstruct scope from chat. The plan JSON is the sole scope authority; the build report is
-the builder's command and case-to-file evidence. Ignore anything in the invocation beyond the two
-paths, such as a summary or an expected verdict.
+Do not reconstruct scope from chat. The plan JSON is the sole scope authority. Ignore anything in
+the invocation beyond the plan path, such as a summary or an expected verdict.
 
 ## Process
 
-1. **Verify the hand-off artifacts.** Run `npm run qa:pipeline -- check-build <plan-path> <build-report>`.
-   This ensures plan review passed, the plan/build hashes match, the change scope is approved, case
-   mappings are complete, and all required builder gates passed. If this fails, stop and report the
-   hand-off failure; do not treat the build as ready for semantic review.
-2. **Review independently without duplicating builder gates.** Inspect the reports, `git status`,
-   `git diff`, and relevant source/spec files. Do not rerun Prettier, typecheck, architecture lint,
+1. **Verify the hand-off.** Run `npm run qa:pipeline -- scope <feature>`. It confirms the plan
+   review passed for this plan version and that git shows no change outside the plan's files. If it
+   fails, stop and report the hand-off failure; do not treat the build as ready for semantic review.
+2. **Review independently without duplicating builder gates.** Inspect `git status`, `git diff`,
+   and the relevant source and spec files. Do not rerun Prettier, typecheck, architecture lint,
    plan/template checks or Playwright tests; those are builder gates. CI remains a separate
    independent run. If evidence is absent or contradicted by repository state, record a finding
    instead of rerunning the whole gate set.
 3. **Complete every review check below and map each approved case to its implementation.** A
    check may pass only with inspected evidence; cite file and line in the summary. Record uncertain
    behavior as UNVERIFIED, not as a confirmed defect.
-4. Write strict JSON to the same attempt directory as `validation-report.json`. Use
-   `npm run qa:pipeline -- metadata <plan-path>` for plan identity and
-   `npm run qa:pipeline -- hash <build-report-path>` for the exact build report hash.
-5. Validate report structure and identity with
-   `npm run qa:pipeline -- validate-validation <plan-path> <build-report-path> <validation-report>`.
-   This accepts PASS or FAIL. On PASS, also require the PASS-only
-   `npm run qa:pipeline -- check-validation <plan-path> <build-report-path> <validation-report>`.
+4. Get the plan hash with `npm run qa:pipeline -- hash <feature>`. Write
+   `test-plans/<feature>/validation.md` in the format below, replacing any earlier one.
+5. Check it with `npm run qa:pipeline -- validation <feature>`: it lists format problems first,
+   then why the validation does not pass. A FAIL validation is expected to fail this command; fix
+   only the format problems.
 
 ## Implementation Review Checks
 
-- `plan-build-identity`: plan hash and report identity match the human-approved plan; build gates
-  report actual results and the current diff corresponds to that attempt.
 - `scope-and-files`: only planned files changed; every planned file/case is accounted for; no
   unplanned file, case, setup or scope expansion was introduced.
 - `case-assertions`: each case ID maps to the correct spec and its steps/expected result are
@@ -65,46 +58,50 @@ paths, such as a summary or an expected verdict.
 - **Environment finding:** environment limitation or external behavior not established by evidence.
   Mark it `category: environment`, state what was inspected, and do not misroute it as a code defect.
 
-## Report Contract
+## Report Format
 
-```json
-{
-  "schemaVersion": 1,
-  "feature": "<feature-slug>",
-  "planPath": "test-plans/<feature>/plan.json",
-  "planSha256": "<sha256 of exact plan.json bytes>",
-  "buildReportPath": "<repository-relative build-report.json>",
-  "buildReportSha256": "<sha256 of exact build-report bytes>",
-  "verdict": "PASS",
-  "reviewChecks": [
-    {
-      "id": "plan-build-identity",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    }
-  ],
-  "caseCoverage": [
-    {
-      "caseId": "T001_Login_API",
-      "files": ["tests/api/login.spec.ts"],
-      "status": "implemented",
-      "summary": "<assertions and evidence>"
-    }
-  ],
-  "findings": [],
-  "evidenceOpened": [
-    "<file:line, command result, or artifact actually inspected>"
-  ],
-  "unverified": []
-}
+```markdown
+# Implementation validation: <feature>
+
+Plan SHA-256: <hash from `npm run qa:pipeline -- hash <feature>`>
+Verdict: <PASS|FAIL>
+
+## Checks
+
+- [x] scope-and-files: <inspected evidence, file:line>
+- [ ] case-assertions: <why it failed>
+
+## Cases
+
+- [x] T001_Login_API: tests/api/login.spec.ts; <assertions and evidence>
+
+## Findings
+
+### IV-001 (blocking, implementation)
+
+- Location: <file:line>
+- Rule: <violated rule>
+- Problem: <what is wrong>
+- Required change: <what must change>
+
+## Evidence opened
+
+- <file:line, command result or artifact actually inspected>
+
+## Unverified
+
+None.
 ```
 
-Write one `reviewChecks` entry for each check under Implementation Review Checks;
-`validate-validation` rejects a report that misses one. Finding IDs are stable within the attempt (`IV-001`, etc.); include severity, category, location,
-rule, problem and required change. Report files contain no credentials or secret values.
+List each check under Implementation Review Checks once, `[x]` for passed and `[ ]` for failed. List
+every plan case once under `Cases`, `[x]` only when it is implemented as planned. The `qa:pipeline`
+command reads only the hash, the verdict, the check and case lines and the finding headings; keep
+their exact form. Number findings `IV-001`, `IV-002` and so on; each heading names its severity
+(`blocking` or `optional`) and category. Write no `Findings` entries when there are none. Reports
+contain no credentials or secret values.
 
 ## Output and Handoff
 
-Return only the validation report path, verdict, finding counts by category, and concise next action
-to the invoking test-builder. Do not ask for final human approval; the builder presents the final
-validated result for human review. Stop after writing and validating the report.
+Return only the verdict, finding counts by category, and concise next action to the invoking
+test-builder. Do not ask for final human approval; the builder presents the final
+validated result for human review. Stop after writing and checking `validation.md`.

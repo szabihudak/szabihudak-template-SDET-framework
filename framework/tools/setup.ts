@@ -826,9 +826,9 @@ Open the project in VS Code, start the MCP servers when asked, and select an age
 | **test-planner** | Uses requirements if configured, otherwise plans exploratory characterization cases from permitted API/UI discovery. Produces a validated JSON plan and generated Markdown view, then waits for approval | Plan artifacts only |
 | **test-builder** | Implements the approved scope from the approved examples and golden templates, then runs the validation commands | Yes |
 | **test-plan-reviewer** | Subagent of the planner: reviews the plan's evidence, coverage and scope before you see it | Its report only |
-| **test-validator** | Subagent of the builder: reviews the implementation against the approved plan and the build report | Its report only |
+| **test-validator** | Subagent of the builder: reviews the implementation against the approved plan | Its report only |
 
-Review the generated \`test-plans/<feature>/plan.json\`, \`plan.md\` and the plan-review report. Approve with **Build the approved proposal**; the builder runs the checks and the validator without stopping. If the validator finds a problem in the plan, **Revise the plan** sends it back to the planner for a new review and your approval. Accept the verified tests with **Register approved examples**. The reports are in \`pipeline-runs/\`.
+Review the generated \`test-plans/<feature>/plan.json\`, \`plan.md\` and \`review.md\`. Approve with **Build the approved proposal**; the builder runs the checks and the validator without stopping. If the validator finds a problem in the plan, **Revise the plan** sends it back to the planner for a new review and your approval. Accept the verified tests with **Register approved examples**. The buttons always show: **Build the approved proposal** refuses a plan whose review did not pass, and **Register approved examples** refuses tests whose validation did not pass. \`npm run qa:pipeline -- review <feature>\` and \`validation <feature>\` show where a feature stands.
 
 ## Commands
 

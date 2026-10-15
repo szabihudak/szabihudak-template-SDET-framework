@@ -3,9 +3,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { Type, type TSchema } from "@sinclair/typebox";
-
-import { validateSchema } from "../core/api/SchemaValidator";
+const PLAN_DIR = "test-plans";
+const REVIEW_FILE = "review.md";
+const VALIDATION_FILE = "validation.md";
 
 const PLAN_REVIEW_CHECK_IDS = [
   "plan-integrity",
@@ -16,233 +16,40 @@ const PLAN_REVIEW_CHECK_IDS = [
   "setup-and-scope",
   "conflicts-and-open-questions",
 ] as const;
-const IMPLEMENTATION_REVIEW_CHECK_IDS = [
-  "plan-build-identity",
+const VALIDATION_CHECK_IDS = [
   "scope-and-files",
   "case-assertions",
   "template-conformance",
   "evidence-and-expected-results",
   "project-boundaries",
 ] as const;
-// Technical gates every build report records; one Playwright check per
-// project the plan's cases run in is added to these.
-const BUILD_GATE_IDS = [
-  "plan-check",
-  "prettier",
-  "typecheck",
-  "architecture",
-  "plan-check-all",
-  "templates",
-] as const;
-const reportIdentity = {
-  schemaVersion: Type.Literal(1),
-  feature: Type.String({ pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" }),
-  planPath: Type.String({ minLength: 1 }),
-  planSha256: Type.String({ pattern: "^[a-f0-9]{64}$" }),
-};
-
-const reviewCheckSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    status: Type.Union([Type.Literal("passed"), Type.Literal("failed")]),
-    summary: Type.String({ minLength: 1 }),
-  },
-  { additionalProperties: false },
-);
-
-const findingSchema = Type.Object(
-  {
-    id: Type.String({ minLength: 1 }),
-    severity: Type.Union([Type.Literal("blocking"), Type.Literal("optional")]),
-    category: Type.Union([
-      Type.Literal("plan"),
-      Type.Literal("implementation"),
-      Type.Literal("environment"),
-    ]),
-    location: Type.String({ minLength: 1 }),
-    rule: Type.String({ minLength: 1 }),
-    problem: Type.String({ minLength: 1 }),
-    requiredChange: Type.String({ minLength: 1 }),
-  },
-  { additionalProperties: false },
-);
-
-const planReviewSchema = Type.Object(
-  {
-    ...reportIdentity,
-    verdict: Type.Union([Type.Literal("PASS"), Type.Literal("FAIL")]),
-    reviewChecks: Type.Array(reviewCheckSchema),
-    findings: Type.Array(findingSchema),
-    unresolvedQuestions: Type.Array(Type.String({ minLength: 1 })),
-  },
-  { additionalProperties: false },
-);
-
-const buildReportSchema = Type.Object(
-  {
-    ...reportIdentity,
-    attempt: Type.Integer({ minimum: 1 }),
-    status: Type.Union([Type.Literal("passed"), Type.Literal("failed")]),
-    changedFiles: Type.Array(
-      Type.Object(
-        {
-          path: Type.String({ minLength: 1 }),
-          change: Type.Union([
-            Type.Literal("created"),
-            Type.Literal("modified"),
-          ]),
-          exampleOrTemplateId: Type.Union([Type.String(), Type.Null()]),
-          summary: Type.String({ minLength: 1 }),
-        },
-        { additionalProperties: false },
-      ),
-    ),
-    implementedCases: Type.Array(
-      Type.Object(
-        {
-          caseId: Type.String({ minLength: 1 }),
-          files: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
-        },
-        { additionalProperties: false },
-      ),
-    ),
-    checks: Type.Array(
-      Type.Object(
-        {
-          id: Type.String({ minLength: 1 }),
-          command: Type.String({ minLength: 1 }),
-          status: Type.Union([
-            Type.Literal("passed"),
-            Type.Literal("failed"),
-            Type.Literal("notRun"),
-          ]),
-          resultLine: Type.String({ minLength: 1 }),
-        },
-        { additionalProperties: false },
-      ),
-    ),
-    deviations: Type.Array(Type.String({ minLength: 1 })),
-    unresolvedQuestions: Type.Array(Type.String({ minLength: 1 })),
-    evidencePaths: Type.Array(Type.String({ minLength: 1 })),
-  },
-  { additionalProperties: false },
-);
-
-const validationReportSchema = Type.Object(
-  {
-    ...reportIdentity,
-    buildReportPath: Type.String({ minLength: 1 }),
-    buildReportSha256: Type.String({ pattern: "^[a-f0-9]{64}$" }),
-    verdict: Type.Union([Type.Literal("PASS"), Type.Literal("FAIL")]),
-    reviewChecks: Type.Array(reviewCheckSchema),
-    caseCoverage: Type.Array(
-      Type.Object(
-        {
-          caseId: Type.String({ minLength: 1 }),
-          files: Type.Array(Type.String({ minLength: 1 })),
-          status: Type.Union([
-            Type.Literal("implemented"),
-            Type.Literal("missing"),
-            Type.Literal("outOfScope"),
-          ]),
-          summary: Type.String({ minLength: 1 }),
-        },
-        { additionalProperties: false },
-      ),
-    ),
-    findings: Type.Array(findingSchema),
-    evidenceOpened: Type.Array(Type.String({ minLength: 1 })),
-    unverified: Type.Array(Type.String({ minLength: 1 })),
-  },
-  { additionalProperties: false },
-);
 
 type Plan = {
   feature: string;
-  cases: { id: string; project: string }[];
-  files: { path: string; exampleOrTemplateId: string | null }[];
+  cases: { id: string }[];
+  files: { path: string }[];
 };
 
-type PlanContext = {
-  plan: Plan;
-  path: string;
-  sha256: string;
-  runDirectory: string;
-};
+type PlanContext = { plan: Plan; directory: string; sha256: string };
 
-type Identity = {
-  feature: string;
-  planPath: string;
-  planSha256: string;
+// The parts of review.md and validation.md the gates read; everything else in
+// the report is free text for the human.
+type Report = {
+  file: string;
+  planSha256?: string;
+  verdict?: string;
+  checks: Map<string, boolean>;
+  cases: Map<string, boolean>;
+  blockingFindings: string[];
+  problems: string[];
 };
 
 function fail(message: string): never {
   throw new Error(message);
 }
 
-function relativePath(file: string): string {
-  const relative = path.relative(process.cwd(), path.resolve(file));
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    return fail("Pipeline artifacts must remain inside the repository");
-  }
-  return relative.split(path.sep).join("/");
-}
-
-function readPlan(file: string): PlanContext {
-  const absolute = path.resolve(file);
-  const relative = relativePath(absolute);
-  const raw = fs.readFileSync(absolute, "utf8");
-  const plan = JSON.parse(raw) as Plan;
-  const expectedPath = `test-plans/${plan.feature}/plan.json`;
-  if (relative !== expectedPath) fail(`Plan must be stored at ${expectedPath}`);
-  if (!Array.isArray(plan.cases) || !Array.isArray(plan.files)) {
-    fail("Plan must contain cases and files arrays");
-  }
-  const sha256 = createHash("sha256").update(raw).digest("hex");
-  return {
-    plan,
-    path: relative,
-    sha256,
-    runDirectory: path.join("pipeline-runs", plan.feature, sha256),
-  };
-}
-
-function readJson(file: string, schema: TSchema): Record<string, any> {
-  const value: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-  validateSchema(schema, value);
-  return value as Record<string, any>;
-}
-
-function readMatchingReport(
-  context: PlanContext,
-  file: string,
-  schema: TSchema,
-): Record<string, any> {
-  const absolute = path.resolve(file);
-  const root = path.resolve(context.runDirectory);
-  if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) {
-    fail(`Report must be stored under ${context.runDirectory}`);
-  }
-  const report = readJson(absolute, schema);
-  const identity = report as Identity;
-  if (
-    identity.feature !== context.plan.feature ||
-    identity.planPath !== context.path ||
-    identity.planSha256 !== context.sha256
-  ) {
-    fail(`Report ${relativePath(absolute)} refers to a different plan version`);
-  }
-  return report;
-}
-
-// Returns the problem as a message, so each command reports every problem it
-// finds in one run instead of stopping at the first.
-function duplicates(values: string[], label: string): string[] {
-  return new Set(values).size !== values.length
-    ? [`${label} must be unique`]
-    : [];
-}
-
+// Each command reports every problem it finds in one run instead of stopping
+// at the first.
 function failOnProblems(problems: string[]): void {
   if (problems.length === 1) fail(problems[0]);
   if (problems.length > 1) {
@@ -252,88 +59,115 @@ function failOnProblems(problems: string[]): void {
   }
 }
 
-function requiredBuildChecks(plan: Plan): string[] {
-  return [
-    ...BUILD_GATE_IDS,
-    ...new Set(plan.cases.map(({ project }) => `playwright:${project}`)),
-  ];
+function readPlan(feature: string): PlanContext {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(feature)) {
+    fail(`Give the feature slug, such as login; got "${feature}"`);
+  }
+  const directory = path.join(PLAN_DIR, feature);
+  const file = path.join(directory, "plan.json");
+  if (!fs.existsSync(file)) fail(`No plan at ${file}`);
+  const raw = fs.readFileSync(file, "utf8");
+  const plan = JSON.parse(raw) as Plan;
+  if (plan.feature !== feature) fail(`${file} names feature ${plan.feature}`);
+  if (!Array.isArray(plan.cases) || !Array.isArray(plan.files)) {
+    fail(`${file} must contain cases and files arrays`);
+  }
+  return {
+    plan,
+    directory,
+    sha256: createHash("sha256").update(raw).digest("hex"),
+  };
 }
 
-function validatePlanReview(planFile: string): Record<string, any> {
-  const context = readPlan(planFile);
-  const file = path.join(context.runDirectory, "plan-review.json");
-  const report = readMatchingReport(context, file, planReviewSchema);
-  const ids = report.reviewChecks.map(({ id }: { id: string }) => id);
-  const missing = PLAN_REVIEW_CHECK_IDS.filter((id) => !ids.includes(id));
-  failOnProblems([
-    ...duplicates(ids, "Plan review check IDs"),
-    ...(missing.length
-      ? [`Plan review is missing checks: ${missing.join(", ")}`]
-      : []),
-  ]);
-  return report;
-}
-
-function checkPlanReview(planFile: string): void {
-  const context = readPlan(planFile);
-  const report = validatePlanReview(planFile);
-  const problems: string[] = [];
-  if (report.verdict !== "PASS") problems.push("Plan reviewer verdict is FAIL");
-  if (
-    report.reviewChecks.some(
-      ({ status }: { status: string }) => status !== "passed",
-    )
-  ) {
-    problems.push("Plan review contains failed checks");
+function parseReport(file: string, requiredChecks: readonly string[]): Report {
+  const report: Report = {
+    file,
+    checks: new Map(),
+    cases: new Map(),
+    blockingFindings: [],
+    problems: [],
+  };
+  if (!fs.existsSync(file)) {
+    report.problems.push(`${file} is missing`);
+    return report;
   }
-  if (
-    report.findings.some(
-      ({ severity }: { severity: string }) => severity === "blocking",
-    )
-  ) {
-    problems.push("Plan review contains blocking findings");
+  let section = "";
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    const heading = /^## (.+)$/.exec(line);
+    if (heading) {
+      section = heading[1].trim().toLowerCase();
+      continue;
+    }
+    const hash = /^Plan SHA-256: ([a-f0-9]{64})$/.exec(line);
+    if (hash) report.planSha256 = hash[1];
+    const verdict = /^Verdict: (PASS|FAIL)$/.exec(line);
+    if (verdict) report.verdict = verdict[1];
+    const item = /^- \[([ x])\] ([A-Za-z0-9_-]+): \S/.exec(line);
+    if (item && section === "checks") {
+      if (report.checks.has(item[2]))
+        report.problems.push(`${file}: check ${item[2]} is listed twice`);
+      report.checks.set(item[2], item[1] === "x");
+    } else if (item && section === "cases") {
+      if (report.cases.has(item[2]))
+        report.problems.push(`${file}: case ${item[2]} is listed twice`);
+      report.cases.set(item[2], item[1] === "x");
+    }
+    if (section === "findings" && line.startsWith("### ")) {
+      const finding =
+        /^### (\S+) \((blocking|optional), (plan|implementation|environment)\)$/.exec(
+          line,
+        );
+      if (!finding) {
+        report.problems.push(
+          `${file}: finding heading must read "### <ID> (<blocking|optional>, <plan|implementation|environment>)": ${line}`,
+        );
+      } else if (finding[2] === "blocking") {
+        report.blockingFindings.push(finding[1]);
+      }
+    }
   }
-  failOnProblems(problems);
-  console.log(
-    `✔ plan review passed: ${relativePath(path.join(context.runDirectory, "plan-review.json"))}`,
-  );
-}
-
-function validateBuildReport(
-  planFile: string,
-  buildFile: string,
-): Record<string, any> {
-  const context = readPlan(planFile);
-  const report = readMatchingReport(context, buildFile, buildReportSchema);
-  const problems: string[] = [];
-  const attemptNumber = /^attempt-(\d{3,})$/.exec(
-    path.basename(path.dirname(path.resolve(buildFile))),
-  )?.[1];
-  if (!attemptNumber || Number(attemptNumber) !== report.attempt) {
-    problems.push("Build report attempt does not match its directory");
-  }
-  const plannedCases = context.plan.cases.map(({ id }) => id);
-  const implemented = report.implementedCases.map(
-    ({ caseId }: { caseId: string }) => caseId,
-  );
-  problems.push(...duplicates(implemented, "Implemented case IDs"));
-  if (implemented.some((id: string) => !plannedCases.includes(id))) {
-    problems.push("Build report references a case not in the approved plan");
-  }
-  const checkIds = (report.checks as { id: string }[]).map(({ id }) => id);
-  problems.push(...duplicates(checkIds, "Build check IDs"));
-  const missing = requiredBuildChecks(context.plan).filter(
-    (id) => !checkIds.includes(id),
-  );
+  if (!report.planSha256)
+    report.problems.push(`${file}: missing the "Plan SHA-256: <hash>" line`);
+  if (!report.verdict)
+    report.problems.push(`${file}: missing the "Verdict: PASS|FAIL" line`);
+  const missing = requiredChecks.filter((id) => !report.checks.has(id));
   if (missing.length)
-    problems.push(`Build report is missing checks: ${missing.join(", ")}`);
-  failOnProblems(problems);
+    report.problems.push(`${file}: missing checks: ${missing.join(", ")}`);
   return report;
+}
+
+// Problems that keep a well-formed report from passing its gate.
+function passProblems(report: Report, context: PlanContext): string[] {
+  const problems: string[] = [];
+  if (report.planSha256 && report.planSha256 !== context.sha256) {
+    problems.push(
+      `${report.file} refers to an earlier version of the plan; run the review again`,
+    );
+  }
+  if (report.verdict === "FAIL") problems.push(`${report.file}: verdict FAIL`);
+  const failed = [...report.checks].filter(([, passed]) => !passed);
+  if (failed.length)
+    problems.push(
+      `${report.file}: failed checks: ${failed.map(([id]) => id).join(", ")}`,
+    );
+  if (report.blockingFindings.length)
+    problems.push(
+      `${report.file}: blocking findings: ${report.blockingFindings.join(", ")}`,
+    );
+  return problems;
+}
+
+function reviewProblems(context: PlanContext): string[] {
+  const report = parseReport(
+    path.join(context.directory, REVIEW_FILE),
+    PLAN_REVIEW_CHECK_IDS,
+  );
+  return [...report.problems, ...passProblems(report, context)];
 }
 
 // Files changed in the working tree and index compared with HEAD, plus new
-// untracked files, so a build report cannot leave out a changed file. Plan
-// artifacts and pipeline reports are not implementation changes.
+// untracked files. Plan artifacts and their reports are not implementation
+// changes.
 function changedInGit(): string[] | undefined {
   try {
     const run = (args: string[]) =>
@@ -345,296 +179,97 @@ function changedInGit(): string[] | undefined {
         ...run(["diff", "--name-only", "HEAD"]),
         ...run(["ls-files", "--others", "--exclude-standard"]),
       ]),
-    ].filter(
-      (file) =>
-        !file.startsWith("test-plans/") && !file.startsWith("pipeline-runs/"),
-    );
+    ].filter((file) => !file.startsWith(`${PLAN_DIR}/`));
   } catch {
     return undefined;
   }
 }
 
-function checkBuild(planFile: string, buildFile: string): void {
-  const context = readPlan(planFile);
-  checkPlanReview(planFile);
-  const report = validateBuildReport(planFile, buildFile);
-  const problems: string[] = [];
-  const plannedFiles = new Set(
-    context.plan.files.map(({ path: file }) => file),
-  );
-  const reported = report.changedFiles.map(
-    ({ path: file }: { path: string }) => file,
-  );
-  const unplanned = reported.filter((file: string) => !plannedFiles.has(file));
-  if (unplanned.length)
-    problems.push(`Unapproved changed files: ${unplanned.join(", ")}`);
-  const changed = changedInGit();
-  if (changed) {
-    const unplannedInGit = changed.filter((file) => !plannedFiles.has(file));
-    if (unplannedInGit.length)
-      problems.push(
-        `Git shows changes to files outside the plan: ${unplannedInGit.join(", ")}`,
-      );
-    const unreported = changed.filter(
-      (file) => plannedFiles.has(file) && !reported.includes(file),
-    );
-    if (unreported.length)
-      problems.push(
-        `Changed files missing from the build report: ${unreported.join(", ")}`,
-      );
-  }
-  for (const item of report.implementedCases as {
-    caseId: string;
-    files: string[];
-  }[]) {
-    if (item.files.some((file) => !plannedFiles.has(file))) {
-      problems.push(`Case ${item.caseId} maps to an unapproved file`);
-    }
-  }
-  const checkById = new Map<string, { status: string }>(
-    (report.checks as { id: string; status: string }[]).map((check) => [
-      check.id,
-      check,
-    ]),
-  );
-  const failed = requiredBuildChecks(context.plan).filter(
-    (id) => checkById.get(id)?.status !== "passed",
-  );
-  if (failed.length)
-    problems.push(`Required build checks did not pass: ${failed.join(", ")}`);
-  if (report.status !== "passed")
-    problems.push("Build report status is not passed");
-  if (report.deviations.length)
-    problems.push("A passing build report must not contain deviations");
-  if (report.implementedCases.length !== context.plan.cases.length) {
-    problems.push("Passing build report must map every approved case");
-  }
-  failOnProblems(problems);
-  console.log(
-    `✔ build report passed: ${relativePath(path.resolve(buildFile))}`,
-  );
+function scopeProblems(context: PlanContext): string[] {
+  const planned = new Set(context.plan.files.map(({ path: file }) => file));
+  const outside = (changedInGit() ?? []).filter((file) => !planned.has(file));
+  return outside.length
+    ? [`Git shows changes to files outside the plan: ${outside.join(", ")}`]
+    : [];
 }
 
-function validateValidationReport(
-  planFile: string,
-  buildFile: string,
-  validationFile: string,
-): Record<string, any> {
-  const context = readPlan(planFile);
-  checkBuild(planFile, buildFile);
-  const report = readMatchingReport(
-    context,
-    validationFile,
-    validationReportSchema,
+function validationProblems(context: PlanContext): string[] {
+  const report = parseReport(
+    path.join(context.directory, VALIDATION_FILE),
+    VALIDATION_CHECK_IDS,
   );
-  const problems: string[] = [];
-  const buildHash = createHash("sha256")
-    .update(fs.readFileSync(buildFile))
-    .digest("hex");
-  if (
-    report.buildReportPath !== relativePath(buildFile) ||
-    report.buildReportSha256 !== buildHash
-  ) {
+  const problems = [...report.problems, ...passProblems(report, context)];
+  const planned = context.plan.cases.map(({ id }) => id);
+  const unknown = [...report.cases.keys()].filter(
+    (id) => !planned.includes(id),
+  );
+  if (unknown.length)
     problems.push(
-      "Validation report does not identify this build report version",
+      `${report.file}: cases not in the plan: ${unknown.join(", ")}`,
     );
-  }
-  if (
-    path.dirname(path.resolve(validationFile)) !==
-    path.dirname(path.resolve(buildFile))
-  ) {
+  const notImplemented = planned.filter((id) => !report.cases.get(id));
+  if (notImplemented.length)
     problems.push(
-      "Validation report must be in the build report's attempt directory",
+      `${report.file}: cases not marked implemented: ${notImplemented.join(", ")}`,
     );
-  }
-
-  const caseCoverage = report.caseCoverage as {
-    caseId: string;
-    status: string;
-  }[];
-  problems.push(
-    ...duplicates(
-      caseCoverage.map(({ caseId }) => caseId),
-      "Validated case IDs",
-    ),
-  );
-  const plannedCases = new Set(context.plan.cases.map(({ id }) => id));
-  if (caseCoverage.some(({ caseId }) => !plannedCases.has(caseId))) {
-    problems.push(
-      "Validation report references a case not in the approved plan",
-    );
-  }
-  problems.push(
-    ...duplicates(
-      report.reviewChecks.map(({ id }: { id: string }) => id),
-      "Validation check IDs",
-    ),
-  );
-  const reviewCheckIds = new Set(
-    report.reviewChecks.map(({ id }: { id: string }) => id),
-  );
-  const missingReviewChecks = IMPLEMENTATION_REVIEW_CHECK_IDS.filter(
-    (id) => !reviewCheckIds.has(id),
-  );
-  if (missingReviewChecks.length) {
-    problems.push(
-      `Validation report is missing checks: ${missingReviewChecks.join(", ")}`,
-    );
-  }
-  failOnProblems(problems);
-  return report;
+  return problems;
 }
 
-function checkValidation(
-  planFile: string,
-  buildFile: string,
-  validationFile: string,
-): void {
-  const context = readPlan(planFile);
-  const report = validateValidationReport(planFile, buildFile, validationFile);
-  const problems: string[] = [];
-  if (report.verdict !== "PASS")
-    problems.push("Implementation validator verdict is FAIL");
-  if (
-    report.reviewChecks.some(
-      ({ status }: { status: string }) => status !== "passed",
-    )
-  ) {
-    problems.push("Implementation validation contains failed checks");
-  }
-  if (
-    report.findings.some(
-      ({ severity }: { severity: string }) => severity === "blocking",
-    )
-  ) {
-    problems.push("Implementation validation contains blocking findings");
-  }
-  const caseCoverage = report.caseCoverage as {
-    caseId: string;
-    status: string;
-  }[];
-  if (
-    caseCoverage.length !== context.plan.cases.length ||
-    context.plan.cases.some(
-      ({ id }) =>
-        !caseCoverage.some(
-          (item) => item.caseId === id && item.status === "implemented",
-        ),
-    )
-  ) {
-    problems.push(
-      "Passing validation report must account for every approved case",
-    );
-  }
-  failOnProblems(problems);
-  console.log(
-    `✔ implementation validation passed: ${relativePath(validationFile)}`,
-  );
-}
-
-function nextAttempt(planFile: string): string {
-  const context = readPlan(planFile);
-  const root = path.resolve(context.runDirectory);
-  fs.mkdirSync(root, { recursive: true });
-  const attempts = fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => /^attempt-(\d{3,})$/.exec(entry.name)?.[1])
-    .filter((value): value is string => value !== undefined)
-    .map(Number);
-  const number = Math.max(0, ...attempts) + 1;
-  const directory = path.join(
-    root,
-    `attempt-${String(number).padStart(3, "0")}`,
-  );
-  fs.mkdirSync(directory, { recursive: false });
-  return relativePath(directory);
-}
-
+// CI: every committed report is well-formed. Whether it passes for the current
+// plan is decided by the stage gates, not here.
 function checkAll(): void {
-  const root = path.resolve("pipeline-runs");
-  if (!fs.existsSync(root)) {
-    console.log("✔ no pipeline reports to check");
+  if (!fs.existsSync(PLAN_DIR)) {
+    console.log("✔ no review reports to check");
     return;
   }
-  const schemas: Record<string, TSchema> = {
-    "plan-review.json": planReviewSchema,
-    "build-report.json": buildReportSchema,
-    "validation-report.json": validationReportSchema,
-  };
+  const problems: string[] = [];
   let count = 0;
-  const visit = (directory: string) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const file = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(file);
-        continue;
-      }
-      const schema = schemas[entry.name];
-      if (!schema) continue;
-      const report = readJson(file, schema) as Identity;
-      // pipeline-runs/<feature>/<plan-sha256>/[attempt-NNN/]<report>
-      const [feature, planSha256] = path.relative(root, file).split(path.sep);
-      if (report.feature !== feature || report.planSha256 !== planSha256) {
-        fail(
-          `${relativePath(file)} is not stored under its feature and plan hash`,
-        );
-      }
+  for (const entry of fs.readdirSync(PLAN_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (const [name, checks] of [
+      [REVIEW_FILE, PLAN_REVIEW_CHECK_IDS],
+      [VALIDATION_FILE, VALIDATION_CHECK_IDS],
+    ] as const) {
+      const file = path.join(PLAN_DIR, entry.name, name);
+      if (!fs.existsSync(file)) continue;
+      problems.push(...parseReport(file, checks).problems);
       count += 1;
     }
-  };
-  visit(root);
-  console.log(`✔ checked ${count} pipeline report(s)`);
+  }
+  failOnProblems(problems);
+  console.log(`✔ checked ${count} review report(s)`);
 }
 
 function main(): void {
-  const [, , command, ...args] = process.argv;
+  const [, , command, feature] = process.argv;
   try {
-    if (command === "run-dir" && args[0]) {
-      const context = readPlan(args[0]);
-      fs.mkdirSync(context.runDirectory, { recursive: true });
-      console.log(context.runDirectory);
-    } else if (command === "metadata" && args[0]) {
-      const context = readPlan(args[0]);
-      console.log(
-        JSON.stringify(
-          {
-            feature: context.plan.feature,
-            planPath: context.path,
-            planSha256: context.sha256,
-            runDirectory: context.runDirectory,
-          },
-          null,
-          2,
-        ),
-      );
-    } else if (command === "hash" && args[0]) {
-      console.log(
-        createHash("sha256").update(fs.readFileSync(args[0])).digest("hex"),
-      );
-    } else if (command === "next-attempt" && args[0]) {
-      console.log(nextAttempt(args[0]));
-    } else if (command === "check-plan-review" && args[0]) {
-      checkPlanReview(args[0]);
-    } else if (command === "validate-plan-review" && args[0]) {
-      const report = validatePlanReview(args[0]);
-      console.log(`✔ plan-review report is valid (${report.verdict})`);
-    } else if (command === "validate-build" && args.length === 2) {
-      const report = validateBuildReport(args[0], args[1]);
-      console.log(`✔ build report is valid (${report.status})`);
-    } else if (command === "check-build" && args.length === 2) {
-      checkBuild(args[0], args[1]);
-    } else if (command === "validate-validation" && args.length === 3) {
-      const report = validateValidationReport(args[0], args[1], args[2]);
-      console.log(`✔ validation report is valid (${report.verdict})`);
-    } else if (command === "check-validation" && args.length === 3) {
-      checkValidation(args[0], args[1], args[2]);
-    } else if (command === "check-all") {
+    if (command === "check-all") {
       checkAll();
-    } else {
-      throw new Error(
-        "Usage: npm run qa:pipeline -- <metadata|hash|run-dir|next-attempt|validate-plan-review|check-plan-review|validate-build|check-build|validate-validation|check-validation|check-all> ...",
+      return;
+    }
+    if (!feature) {
+      fail(
+        "Usage: npm run qa:pipeline -- <hash|review|scope|validation> <feature>, or check-all",
       );
+    }
+    const context = readPlan(feature);
+    if (command === "hash") {
+      console.log(context.sha256);
+    } else if (command === "review") {
+      failOnProblems(reviewProblems(context));
+      console.log(`✔ plan review passed for ${feature}`);
+    } else if (command === "scope") {
+      failOnProblems([...reviewProblems(context), ...scopeProblems(context)]);
+      console.log(`✔ plan review passed and changes stay in scope: ${feature}`);
+    } else if (command === "validation") {
+      failOnProblems([
+        ...reviewProblems(context),
+        ...scopeProblems(context),
+        ...validationProblems(context),
+      ]);
+      console.log(`✔ implementation validation passed for ${feature}`);
+    } else {
+      fail(`Unknown command ${command}`);
     }
   } catch (caught) {
     console.error(
