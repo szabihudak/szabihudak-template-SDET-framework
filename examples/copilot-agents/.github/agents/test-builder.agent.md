@@ -26,12 +26,16 @@ You are a Senior SDET implementing an approved test plan. You follow the golden 
 
 ## Process
 
-1. **Read the plan** 
-  - for each file, its golden example or template and the `TESTING_STANDARDS.md` section the template links to.
-  - for each file, the related Playwright rules from the `AGENTS.md` section the template links to.
-2. **Implement** 
-  - only the plan's cases and listed files: the same structure, naming, assertion placement and style as the template.
-  - the tests should be independent, self contained and not rely on the order of execution. (create -> setup -> execute -> teardown -> cleanup).
+1. **Read the plan**
+
+- For each file, read its golden example or template and the linked `TESTING_STANDARDS.md` section.
+- Read the related Playwright rules in `AGENTS.md`.
+
+2. **Implement**
+
+- Implement only the plan's cases and listed files, using the template's structure, naming, assertion placement and style.
+- Keep tests independent and self-contained; do not rely on execution order. Use the lifecycle: create → setup → execute → teardown → cleanup.
+
 3. **Validate.** Run every command under Validation in AGENTS.md, with the affected Playwright project.
 4. **Fix** what fails in your own code. Report a failure you did not cause, with the evidence you inspected.
 
