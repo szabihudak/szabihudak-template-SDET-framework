@@ -2,7 +2,7 @@ import { test, expect } from "@app/fixtures/test-fixtures";
 import { mockTasksServerError } from "@app/mocks/taskApiMock";
 
 test.describe("Task Dashboard tests", () => {
-  test("keeps Create Task disabled until a title is entered", async ({
+  test("T001_TaskDashboard_E2E: keeps Create Task disabled until a title is entered", async ({
     tasksDashboardPage,
   }) => {
     await tasksDashboardPage.goto();
@@ -14,7 +14,7 @@ test.describe("Task Dashboard tests", () => {
     await expect(tasksDashboardPage.createTaskButton).toBeEnabled();
   });
 
-  test("authenticated user sees the tasks on the dashboard", async ({
+  test("T002_TaskDashboard_E2E: authenticated user sees the tasks on the dashboard", async ({
     tasksDashboardPage,
     createdTask,
   }) => {
@@ -33,7 +33,7 @@ test.describe("Task Dashboard tests", () => {
     ).toHaveText(request.priority);
   });
 
-  test("updates task priority through the edit dialog", async ({
+  test("T003_TaskDashboard_E2E: updates task priority through the edit dialog", async ({
     taskApi,
     tasksDashboardPage,
     createdTask,
@@ -94,7 +94,7 @@ test.describe("Task Dashboard tests", () => {
     ).toHaveText(unchangedTask.priority);
   });
 
-  test("shows error state when tasks API fails", async ({
+  test("T004_TaskDashboard_E2E: shows error state when tasks API fails", async ({
     authenticatedPage,
     tasksDashboardPage,
   }) => {

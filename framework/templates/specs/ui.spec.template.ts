@@ -5,7 +5,7 @@ import { test, expect } from "@app/fixtures/test-fixtures";
 import { mock__Domains__ServerError } from "@app/mocks/__domain__ApiMock";
 
 test.describe("__Domain__ Dashboard tests", () => {
-  test("keeps Create __Domain__ disabled until a title is entered", async ({
+  test("T001___Domain__Dashboard_E2E: keeps Create __Domain__ disabled until a title is entered", async ({
     __page__Page,
   }) => {
     await __page__Page.goto();
@@ -17,7 +17,7 @@ test.describe("__Domain__ Dashboard tests", () => {
     await expect(__page__Page.create__Domain__Button).toBeEnabled();
   });
 
-  test("authenticated user sees the __domains__ on the dashboard", async ({
+  test("T002___Domain__Dashboard_E2E: authenticated user sees the __domains__ on the dashboard", async ({
     __page__Page,
     created__Domain__,
   }) => {
@@ -36,7 +36,7 @@ test.describe("__Domain__ Dashboard tests", () => {
     ).toHaveText(request.priority);
   });
 
-  test("updates __domain__ priority through the edit dialog", async ({
+  test("T003___Domain__Dashboard_E2E: updates __domain__ priority through the edit dialog", async ({
     __domain__Api,
     __page__Page,
     created__Domain__,
@@ -97,7 +97,7 @@ test.describe("__Domain__ Dashboard tests", () => {
     ).toHaveText(unchanged__Domain__.priority);
   });
 
-  test("shows error state when __domains__ API fails", async ({
+  test("T004___Domain__Dashboard_E2E: shows error state when __domains__ API fails", async ({
     authenticatedPage,
     __page__Page,
   }) => {

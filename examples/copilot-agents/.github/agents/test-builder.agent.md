@@ -34,6 +34,7 @@ You are a Senior SDET implementing an approved test plan. You follow the golden 
 2. **Implement**
 
 - Implement only the plan's cases and listed files, using the template's structure, naming, assertion placement and style.
+- Prefix every Playwright `test()` title with the exact plan case ID and `: `, followed by a concise behavior; for table-driven cases, store each plan ID as `caseId` on its scenario and interpolate `caseId` into the generated test title.
 - Keep tests independent and self-contained; do not rely on execution order. Use the lifecycle: create → setup → execute → teardown → cleanup.
 
 3. **Validate.** Run every command under Validation in AGENTS.md, with the affected Playwright project.

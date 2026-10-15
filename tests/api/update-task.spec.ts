@@ -9,46 +9,56 @@ import { createTask } from "@app/data/taskFactory";
 
 const validTitleBoundaryScenarios = [
   {
+    caseId: "T003_Task_API",
     name: "accepts a 1-character title",
     title: "T",
   },
   {
+    caseId: "T004_Task_API",
     name: "accepts a 200-character title",
     title: "T".repeat(200),
   },
-] satisfies { name: string; title: string }[];
+] satisfies { caseId: string; name: string; title: string }[];
 
 type InvalidUpdateScenario = {
+  caseId: string;
   name: string;
   update: TaskUpdateRequest;
 };
 
 const invalidUpdateScenarios = [
   {
+    caseId: "T006_Task_API",
     name: "rejects an empty title",
     update: { title: "" },
   },
   {
+    caseId: "T007_Task_API",
     name: "rejects a title longer than 200 characters",
     update: { title: "T".repeat(201) },
   },
   {
+    caseId: "T008_Task_API",
     name: "rejects a description longer than 2000 characters",
     update: { description: "D".repeat(2001) },
   },
   {
+    caseId: "T009_Task_API",
     name: "rejects an unsupported priority",
     update: { priority: "critical" as TaskUpdateRequest["priority"] },
   },
   {
+    caseId: "T010_Task_API",
     name: "rejects an unsupported status",
     update: { status: "blocked" as TaskUpdateRequest["status"] },
   },
   {
+    caseId: "T011_Task_API",
     name: "rejects a negative position",
     update: { position: -1 },
   },
   {
+    caseId: "T012_Task_API",
     name: "rejects a non-integer position",
     update: { position: 1.5 },
   },
@@ -56,30 +66,39 @@ const invalidUpdateScenarios = [
 
 const unauthenticatedScenarios = [
   {
+    caseId: "T013_Task_API",
     name: "rejects an update without an authentication token",
     accessToken: "",
   },
   {
+    caseId: "T014_Task_API",
     name: "rejects an update with an invalid authentication token",
     accessToken: "Invalid-Token_123",
   },
-] satisfies { name: string; accessToken: string }[];
+] satisfies { caseId: string; name: string; accessToken: string }[];
 
 const taskIdScenarios = [
   {
+    caseId: "T015_Task_API",
     name: "returns not found for a nonexistent task ID",
     taskId: randomUUID(),
     expectedStatus: HTTP_STATUS.NOT_FOUND,
   },
   {
+    caseId: "T016_Task_API",
     name: "returns method not allowed when the task ID is missing",
     taskId: "",
     expectedStatus: HTTP_STATUS.METHOD_NOT_ALLOWED,
   },
-] satisfies { name: string; taskId: string; expectedStatus: number }[];
+] satisfies {
+  caseId: string;
+  name: string;
+  taskId: string;
+  expectedStatus: number;
+}[];
 
 test.describe("Update a Task API", () => {
-  test("updates every supported task field", async ({
+  test("T001_Task_API: updates every supported task field", async ({
     taskApi,
     authenticatedTestUser,
     createdTask,
@@ -111,7 +130,7 @@ test.describe("Update a Task API", () => {
     expect(body.position).toBe(position);
   });
 
-  test("accepts an update when other optional fields are omitted", async ({
+  test("T002_Task_API: accepts an update when other optional fields are omitted", async ({
     taskApi,
     authenticatedTestUser,
     createdTask,
@@ -132,26 +151,27 @@ test.describe("Update a Task API", () => {
   });
 
   for (const scenario of validTitleBoundaryScenarios) {
-    test(
-      scenario.name,
-      async ({ taskApi, authenticatedTestUser, createdTask }) => {
-        const user = authenticatedTestUser;
-        const response = await taskApi.updateTask(
-          createdTask.response.id,
-          { title: scenario.title },
-          user.accessToken,
-        );
-        expect(response.status()).toBe(HTTP_STATUS.OK);
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      taskApi,
+      authenticatedTestUser,
+      createdTask,
+    }) => {
+      const user = authenticatedTestUser;
+      const response = await taskApi.updateTask(
+        createdTask.response.id,
+        { title: scenario.title },
+        user.accessToken,
+      );
+      expect(response.status()).toBe(HTTP_STATUS.OK);
 
-        const body = await response.json();
-        validateSchema(taskResponseSchema, body);
+      const body = await response.json();
+      validateSchema(taskResponseSchema, body);
 
-        expect(body.title).toBe(scenario.title);
-      },
-    );
+      expect(body.title).toBe(scenario.title);
+    });
   }
 
-  test("accepts a description at the 2000-character limit", async ({
+  test("T005_Task_API: accepts a description at the 2000-character limit", async ({
     taskApi,
     authenticatedTestUser,
     createdTask,
@@ -173,25 +193,29 @@ test.describe("Update a Task API", () => {
   });
 
   for (const scenario of invalidUpdateScenarios) {
-    test(
-      scenario.name,
-      async ({ taskApi, authenticatedTestUser, createdTask }) => {
-        const user = authenticatedTestUser;
-        const response = await taskApi.updateTask(
-          createdTask.response.id,
-          scenario.update,
-          user.accessToken,
-        );
-        expect(response.status()).toBe(HTTP_STATUS.BAD_REQUEST);
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      taskApi,
+      authenticatedTestUser,
+      createdTask,
+    }) => {
+      const user = authenticatedTestUser;
+      const response = await taskApi.updateTask(
+        createdTask.response.id,
+        scenario.update,
+        user.accessToken,
+      );
+      expect(response.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
-        const body = await response.json();
-        expect(body.error).toBe(API_ERRORS.VALIDATION_FAILED);
-      },
-    );
+      const body = await response.json();
+      expect(body.error).toBe(API_ERRORS.VALIDATION_FAILED);
+    });
   }
 
   for (const scenario of unauthenticatedScenarios) {
-    test(scenario.name, async ({ taskApi, createdTask }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      taskApi,
+      createdTask,
+    }) => {
       const response = await taskApi.updateTask(
         createdTask.response.id,
         { priority: "high" },
@@ -205,7 +229,10 @@ test.describe("Update a Task API", () => {
   }
 
   for (const scenario of taskIdScenarios) {
-    test(scenario.name, async ({ taskApi, authenticatedTestUser }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      taskApi,
+      authenticatedTestUser,
+    }) => {
       const user = authenticatedTestUser;
       const response = await taskApi.updateTask(
         scenario.taskId,

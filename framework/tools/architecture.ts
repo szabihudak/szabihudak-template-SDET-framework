@@ -536,6 +536,207 @@ function testsOutsideDescribe(source: string): number[] {
     .map((match) => source.slice(0, match.index).split("\n").length);
 }
 
+const CASE_ID_TITLE_CHECK = {
+  id: "planned-case-id-in-test-title",
+  source: "AGENTS.md#playwright-rules",
+  message:
+    "Every planned API/UI test title must start with its exact plan case ID and a concise behavior description.",
+};
+
+type PlannedCase = { id: string; level: "API" | "UI" };
+type PlannedFeature = {
+  planPath: string;
+  cases: PlannedCase[];
+  files: string[];
+};
+type TestTitle = { line: number; title: string };
+
+function markdownTableRows(lines: string[]): string[][] {
+  return lines
+    .filter((line) => /^\s*\|/.test(line))
+    .filter((line) => !/^\s*\|\s*:?-{3,}/.test(line))
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^\||\|$/g, "")
+        .split("|")
+        .map((cell) => cell.trim().replace(/^`|`$/g, "")),
+    );
+}
+
+function planSection(lines: string[], title: string): string[] {
+  const start = lines.findIndex((line) => line.trim() === `## ${title}`);
+  if (start === -1) return [];
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => /^##\s/.test(line.trim()));
+  return rest.slice(0, end === -1 ? undefined : end);
+}
+
+function plannedFeatures(): PlannedFeature[] {
+  const result: PlannedFeature[] = [];
+  const root = path.join(ROOT, "test-plans");
+  if (!fs.existsSync(root)) return result;
+
+  const visit = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolute);
+        continue;
+      }
+      if (!entry.name.endsWith(".md")) continue;
+
+      const lines = fs.readFileSync(absolute, "utf8").split("\n");
+      const caseRows = markdownTableRows(planSection(lines, "Cases"));
+      const fileRows = markdownTableRows(planSection(lines, "Files"));
+      if (caseRows.length < 2 || fileRows.length < 2) continue;
+
+      const caseHeader = caseRows[0].map((cell) => cell.toLowerCase());
+      const idIndex = caseHeader.indexOf("id");
+      const levelIndex = caseHeader.indexOf("level");
+      const fileHeader = fileRows[0].map((cell) => cell.toLowerCase());
+      const fileIndex = fileHeader.indexOf("path");
+      if (idIndex === -1 || levelIndex === -1 || fileIndex === -1) continue;
+
+      const cases = caseRows.slice(1).flatMap((row) => {
+        const id = row[idIndex];
+        const level = row[levelIndex];
+        return id && (level === "API" || level === "UI")
+          ? [{ id, level: level as "API" | "UI" }]
+          : [];
+      });
+      const files = fileRows
+        .slice(1)
+        .map((row) => row[fileIndex])
+        .filter((file) => /^tests\/(api|ui)\/.*\.spec\.ts$/.test(file));
+      if (cases.length && files.length) {
+        result.push({
+          planPath: path.relative(ROOT, absolute).split(path.sep).join("/"),
+          cases,
+          files,
+        });
+      }
+    }
+  };
+
+  visit(root);
+  return result;
+}
+
+function testTitles(source: string): TestTitle[] {
+  const titles: TestTitle[] = [];
+  const pattern = /(?<![.\w])test\s*\(\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/g;
+  for (const match of source.matchAll(pattern)) {
+    titles.push({
+      line: source.slice(0, match.index).split("\n").length,
+      title: match[1] ?? match[2] ?? match[3],
+    });
+  }
+  return titles;
+}
+
+function plannedCaseTitleProblems(
+  file: string,
+  source: string,
+  features: PlannedFeature[],
+  usedIds: Map<string, string[]>,
+): string[] {
+  const problems: string[] = [];
+  const level = file.startsWith("tests/api/") ? "API" : "UI";
+  const relevant = features.filter((feature) => feature.files.includes(file));
+  if (relevant.length === 0) return problems;
+
+  const describeTitle =
+    /test\.describe\s*\(\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/.exec(source);
+  const suiteTitle =
+    describeTitle?.[1] ?? describeTitle?.[2] ?? describeTitle?.[3];
+  if (!suiteTitle?.trim() || suiteTitle.includes("__")) {
+    problems.push(`${file} must use a descriptive test.describe suite title`);
+  }
+
+  const expectedCases = relevant.flatMap((feature) =>
+    feature.cases.filter((item) => item.level === level),
+  );
+  const expectedById = new Map(expectedCases.map((item) => [item.id, item]));
+  const dynamicTitle = /^\$\{[^}]*\.caseId\}:\s+\$\{[^}]*\.name\}$/;
+  let hasDynamicCaseTitle = false;
+  const sourceCaseIdMatches = [
+    ...source.matchAll(
+      /\bcaseId\s*:\s*["'](T[0-9]{3,}_[A-Z][A-Za-z0-9]*_(?:API|E2E))["']/g,
+    ),
+  ].map((match) => match[1]);
+  if (new Set(sourceCaseIdMatches).size !== sourceCaseIdMatches.length) {
+    problems.push(
+      `${file} [${CASE_ID_TITLE_CHECK.id}] table-driven scenario caseId values must be unique. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+    );
+  }
+  const sourceCaseIds = new Set(sourceCaseIdMatches);
+  const seenInFile = new Set<string>();
+
+  for (const { line, title } of testTitles(source)) {
+    const match = /^(T[0-9]{3,}_[A-Z][A-Za-z0-9]*_(API|E2E)):\s+(.+)$/.exec(
+      title,
+    );
+    if (!match) {
+      if (dynamicTitle.test(title)) {
+        hasDynamicCaseTitle = true;
+      } else {
+        problems.push(
+          `${file}:${line} [${CASE_ID_TITLE_CHECK.id}] test title must start with its planned case ID and ': '. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+        );
+      }
+      continue;
+    }
+    const [, id, suffix, behavior] = match;
+    if (!expectedById.has(id)) {
+      problems.push(
+        `${file}:${line} [${CASE_ID_TITLE_CHECK.id}] unknown or wrong-plan case ID ${id}. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+      );
+    }
+    if (
+      (level === "API" && suffix !== "API") ||
+      (level === "UI" && suffix !== "E2E")
+    ) {
+      problems.push(
+        `${file}:${line} [${CASE_ID_TITLE_CHECK.id}] ${id} suffix does not match ${level}. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+      );
+    }
+    if (!behavior.trim()) {
+      problems.push(
+        `${file}:${line} [${CASE_ID_TITLE_CHECK.id}] ${id} needs a concise behavior description. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+      );
+    }
+    if (seenInFile.has(id)) {
+      problems.push(
+        `${file}:${line} [${CASE_ID_TITLE_CHECK.id}] duplicate test title ID ${id}. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+      );
+    }
+    seenInFile.add(id);
+  }
+
+  if (hasDynamicCaseTitle) {
+    for (const id of sourceCaseIds) {
+      if (!expectedById.has(id)) {
+        problems.push(
+          `${file} [${CASE_ID_TITLE_CHECK.id}] table case ID ${id} is not in the plan for this level. ${citation(CASE_ID_TITLE_CHECK.source) ?? CASE_ID_TITLE_CHECK.source}`,
+        );
+      }
+      seenInFile.add(id);
+    }
+  }
+
+  for (const feature of relevant) {
+    for (const id of seenInFile) {
+      if (!feature.cases.some((item) => item.id === id)) continue;
+      const key = `${feature.planPath}#${id}`;
+      const locations = usedIds.get(key) ?? [];
+      locations.push(file);
+      usedIds.set(key, locations);
+    }
+  }
+  return problems;
+}
+
 const MISSING_AWAIT_CHECK = {
   id: "await-playwright-assertions",
   source: "AGENTS.md#playwright-rules",
@@ -762,9 +963,12 @@ function main(): void {
     FIELD_COVERAGE_CHECK,
     UI_PAGE_ASSERTION_CHECK,
     API_BUSINESS_ASSERTION_CHECK,
+    CASE_ID_TITLE_CHECK,
     SNAPSHOT_UPDATE_CHECK,
   ];
   const cite = (source: string) => citation(source) ?? `(${source})`;
+  const planFeatures = plannedFeatures();
+  const plannedCaseTitleFiles = new Map<string, string[]>();
 
   for (const check of checks) {
     if (!citation(check.source)) {
@@ -831,6 +1035,15 @@ function main(): void {
     }
 
     if (isSpec(logicalFile)) {
+      for (const problem of plannedCaseTitleProblems(
+        logicalFile,
+        source,
+        planFeatures,
+        plannedCaseTitleFiles,
+      )) {
+        problems.push(problem);
+      }
+
       for (const line of unapprovedSkips(source)) {
         problems.push(
           `${file}:${line} [${SKIP_CHECK.id}] ${SKIP_CHECK.message} ${cite(SKIP_CHECK.source)}`,
@@ -888,6 +1101,23 @@ function main(): void {
       for (const line of missingAwaitAssertions(source)) {
         problems.push(
           `${file}:${line} [${MISSING_AWAIT_CHECK.id}] ${MISSING_AWAIT_CHECK.message} ${cite(MISSING_AWAIT_CHECK.source)}`,
+        );
+      }
+    }
+  }
+
+  for (const feature of planFeatures) {
+    for (const plannedCase of feature.cases) {
+      if (plannedCase.level !== "API" && plannedCase.level !== "UI") continue;
+      const key = `${feature.planPath}#${plannedCase.id}`;
+      const occurrences = plannedCaseTitleFiles.get(key) ?? [];
+      if (occurrences.length === 0) {
+        problems.push(
+          `${feature.planPath} [${CASE_ID_TITLE_CHECK.id}] planned case ${plannedCase.id} has no matching Playwright title in its listed spec files. ${cite(CASE_ID_TITLE_CHECK.source)}`,
+        );
+      } else if (occurrences.length > 1) {
+        problems.push(
+          `${feature.planPath} [${CASE_ID_TITLE_CHECK.id}] planned case ${plannedCase.id} appears in multiple specs: ${occurrences.join(", ")}. ${cite(CASE_ID_TITLE_CHECK.source)}`,
         );
       }
     }

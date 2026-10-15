@@ -12,46 +12,56 @@ import { create__Domain__ } from "@app/data/__domain__Factory";
 
 const validTitleBoundaryScenarios = [
   {
+    caseId: "T003___Domain___API",
     name: "accepts a 1-character title",
     title: "T",
   },
   {
+    caseId: "T004___Domain___API",
     name: "accepts a 200-character title",
     title: "T".repeat(200),
   },
-] satisfies { name: string; title: string }[];
+] satisfies { caseId: string; name: string; title: string }[];
 
 type InvalidUpdateScenario = {
+  caseId: string;
   name: string;
   update: __Domain__UpdateRequest;
 };
 
 const invalidUpdateScenarios = [
   {
+    caseId: "T006___Domain___API",
     name: "rejects an empty title",
     update: { title: "" },
   },
   {
+    caseId: "T007___Domain___API",
     name: "rejects a title longer than 200 characters",
     update: { title: "T".repeat(201) },
   },
   {
+    caseId: "T008___Domain___API",
     name: "rejects a description longer than 2000 characters",
     update: { description: "D".repeat(2001) },
   },
   {
+    caseId: "T009___Domain___API",
     name: "rejects an unsupported priority",
     update: { priority: "critical" as __Domain__UpdateRequest["priority"] },
   },
   {
+    caseId: "T010___Domain___API",
     name: "rejects an unsupported status",
     update: { status: "blocked" as __Domain__UpdateRequest["status"] },
   },
   {
+    caseId: "T011___Domain___API",
     name: "rejects a negative position",
     update: { position: -1 },
   },
   {
+    caseId: "T012___Domain___API",
     name: "rejects a non-integer position",
     update: { position: 1.5 },
   },
@@ -59,30 +69,39 @@ const invalidUpdateScenarios = [
 
 const unauthenticatedScenarios = [
   {
+    caseId: "T013___Domain___API",
     name: "rejects an update without an authentication token",
     accessToken: "",
   },
   {
+    caseId: "T014___Domain___API",
     name: "rejects an update with an invalid authentication token",
     accessToken: "Invalid-Token_123",
   },
-] satisfies { name: string; accessToken: string }[];
+] satisfies { caseId: string; name: string; accessToken: string }[];
 
 const __domain__IdScenarios = [
   {
+    caseId: "T015___Domain___API",
     name: "returns not found for a nonexistent __domain__ ID",
     __domain__Id: randomUUID(),
     expectedStatus: HTTP_STATUS.NOT_FOUND,
   },
   {
+    caseId: "T016___Domain___API",
     name: "returns method not allowed when the __domain__ ID is missing",
     __domain__Id: "",
     expectedStatus: HTTP_STATUS.METHOD_NOT_ALLOWED,
   },
-] satisfies { name: string; __domain__Id: string; expectedStatus: number }[];
+] satisfies {
+  caseId: string;
+  name: string;
+  __domain__Id: string;
+  expectedStatus: number;
+}[];
 
 test.describe("Update a __Domain__ API", () => {
-  test("updates every supported __domain__ field", async ({
+  test("T001___Domain___API: updates every supported __domain__ field", async ({
     __domain__Api,
     authenticatedTestUser,
     created__Domain__,
@@ -114,7 +133,7 @@ test.describe("Update a __Domain__ API", () => {
     expect(body.position).toBe(position);
   });
 
-  test("accepts an update when other optional fields are omitted", async ({
+  test("T002___Domain___API: accepts an update when other optional fields are omitted", async ({
     __domain__Api,
     authenticatedTestUser,
     created__Domain__,
@@ -136,7 +155,7 @@ test.describe("Update a __Domain__ API", () => {
 
   for (const scenario of validTitleBoundaryScenarios) {
     test(
-      scenario.name,
+      `${scenario.caseId}: ${scenario.name}`,
       async ({ __domain__Api, authenticatedTestUser, created__Domain__ }) => {
         const user = authenticatedTestUser;
         const response = await __domain__Api.update__Domain__(
@@ -154,7 +173,7 @@ test.describe("Update a __Domain__ API", () => {
     );
   }
 
-  test("accepts a description at the 2000-character limit", async ({
+  test("T005___Domain___API: accepts a description at the 2000-character limit", async ({
     __domain__Api,
     authenticatedTestUser,
     created__Domain__,
@@ -177,7 +196,7 @@ test.describe("Update a __Domain__ API", () => {
 
   for (const scenario of invalidUpdateScenarios) {
     test(
-      scenario.name,
+      `${scenario.caseId}: ${scenario.name}`,
       async ({ __domain__Api, authenticatedTestUser, created__Domain__ }) => {
         const user = authenticatedTestUser;
         const response = await __domain__Api.update__Domain__(
@@ -194,7 +213,7 @@ test.describe("Update a __Domain__ API", () => {
   }
 
   for (const scenario of unauthenticatedScenarios) {
-    test(scenario.name, async ({ __domain__Api, created__Domain__ }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({ __domain__Api, created__Domain__ }) => {
       const response = await __domain__Api.update__Domain__(
         created__Domain__.response.id,
         { priority: "high" },
@@ -208,7 +227,7 @@ test.describe("Update a __Domain__ API", () => {
   }
 
   for (const scenario of __domain__IdScenarios) {
-    test(scenario.name, async ({ __domain__Api, authenticatedTestUser }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({ __domain__Api, authenticatedTestUser }) => {
       const user = authenticatedTestUser;
       const response = await __domain__Api.update__Domain__(
         scenario.__domain__Id,

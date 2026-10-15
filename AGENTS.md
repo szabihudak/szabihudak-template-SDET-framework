@@ -95,6 +95,7 @@ The framework's Lighthouse policy (`framework/core/performance/`) is the one hel
 - Raise an assertion timeout only for a known slow operation, never to make a flaky test pass.
 - Never leave `test.only` in the code.
 - Group the tests of every spec in `test.describe()`, even a single test. Do not use `test.step()`; the test and its Page Object methods express the steps.
+- Give every `test.describe()` a concise suite title naming the behavior/component and test level. In planned API/UI specs, every `test()` title starts with its exact plan case ID followed by `: ` and a concise behavior, for example `T001_Login_API: accepts valid credentials` or `T002_Login_E2E: shows the signed-in navigation`. Use the same case ID once only in its spec; for table-driven tests, store a distinct `caseId` on every scenario and interpolate it into the generated test title. This keeps case results directly searchable in Playwright reports.
 
 ## Validation
 

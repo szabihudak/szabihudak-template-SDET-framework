@@ -133,6 +133,144 @@ function checkWorkflows(project: string, expectedSecrets: string[]): void {
   );
 }
 
+function checkPlannedCaseTitleRules(project: string): void {
+  const planDirectory = path.join(project, "test-plans");
+  const apiDirectory = path.join(project, "tests/api");
+  const uiDirectory = path.join(project, "tests/ui");
+  const planFile = path.join(planDirectory, "case-title-selftest.md");
+  const apiFile = path.join(apiDirectory, "case-title-selftest.spec.ts");
+  const uiFile = path.join(uiDirectory, "case-title-selftest.spec.ts");
+
+  fs.mkdirSync(planDirectory, { recursive: true });
+  fs.mkdirSync(apiDirectory, { recursive: true });
+  fs.mkdirSync(uiDirectory, { recursive: true });
+
+  const plan = `# Case title self-test
+
+## Cases
+
+| ID | Level | Case | Expected result | Source |
+| --- | --- | --- | --- | --- |
+| T001_CaseTitle_API | API | First API case | Returns expected result | requirement |
+| T002_CaseTitle_API | API | Second API case | Returns expected result | requirement |
+| T003_CaseTitle_E2E | UI | Visible page case | Shows expected heading | observed |
+
+## Files
+
+| Path | Reuse, extend or create | Golden example or template |
+| --- | --- | --- |
+| tests/api/case-title-selftest.spec.ts | create | api-spec |
+| tests/ui/case-title-selftest.spec.ts | create | ui-spec |
+`;
+  const apiSpec = `import { test, expect } from "@playwright/test";
+
+const scenarios = [
+  { caseId: "T001_CaseTitle_API", name: "first API case" },
+  { caseId: "T002_CaseTitle_API", name: "second API case" },
+];
+
+test.describe("Case title self-test API", () => {
+  for (const scenario of scenarios) {
+    test(\`\${scenario.caseId}: \${scenario.name}\`, async () => {
+      expect(true).toBe(true);
+    });
+  }
+});
+`;
+  const uiSpec = `import { test, expect } from "@playwright/test";
+
+test.describe("Case title self-test UI", () => {
+  test("T003_CaseTitle_E2E: shows the expected heading", async ({ homePage }) => {
+    await expect(homePage.heading).toBeVisible();
+  });
+});
+`;
+
+  const runLint = () =>
+    spawnSync("npx", ["tsx", "framework/tools/architecture.ts"], {
+      cwd: project,
+      encoding: "utf8",
+    });
+  const expectLintFailure = (
+    description: string,
+    expectedDiagnostic = "planned-case-id-in-test-title",
+  ) => {
+    const result = runLint();
+    const output = `${result.stdout}${result.stderr}`;
+    assert(
+      result.status !== 0,
+      `${description} unexpectedly passed architecture lint`,
+    );
+    assert(
+      output.includes(expectedDiagnostic),
+      `${description} failed without the ${expectedDiagnostic} diagnostic: ${output}`,
+    );
+  };
+
+  try {
+    fs.writeFileSync(planFile, plan);
+    fs.writeFileSync(apiFile, apiSpec);
+    fs.writeFileSync(uiFile, uiSpec);
+    run("npx tsx framework/tools/architecture.ts", project);
+
+    fs.writeFileSync(
+      apiFile,
+      apiSpec.replace(
+        "${scenario.caseId}: ${scenario.name}",
+        "${scenario.name}",
+      ),
+    );
+    expectLintFailure("missing case ID in a table-driven test title");
+
+    fs.writeFileSync(
+      apiFile,
+      apiSpec.replace("T001_CaseTitle_API", "T001_CaseTitle_E2E"),
+    );
+    expectLintFailure("wrong test level suffix");
+
+    fs.writeFileSync(
+      apiFile,
+      apiSpec.replace(
+        '{ caseId: "T002_CaseTitle_API", name: "second API case" },',
+        '{ caseId: "T001_CaseTitle_API", name: "second API case" },',
+      ),
+    );
+    expectLintFailure("duplicate case ID in table-driven scenarios");
+
+    fs.writeFileSync(
+      apiFile,
+      apiSpec.replace(
+        '{ caseId: "T002_CaseTitle_API", name: "second API case" },',
+        "",
+      ),
+    );
+    expectLintFailure("planned case with no matching title");
+
+    fs.writeFileSync(
+      apiFile,
+      apiSpec.replace(
+        'test.describe("Case title self-test API"',
+        'test.describe("")',
+      ),
+    );
+    expectLintFailure(
+      "missing descriptive suite title",
+      "must use a descriptive test.describe suite title",
+    );
+  } finally {
+    for (const file of [planFile, apiFile, uiFile]) {
+      fs.rmSync(file, { force: true });
+    }
+    for (const directory of [apiDirectory, uiDirectory, planDirectory]) {
+      if (fs.existsSync(directory) && fs.readdirSync(directory).length === 0) {
+        fs.rmdirSync(directory);
+      }
+    }
+  }
+
+  console.log("✔ plan case IDs map to descriptive API/UI test titles");
+}
+
 // The project holds the framework, its own application layer and nothing of
 // the UPEX reference implementation or the template tooling.
 function checkProjectFiles(project: string, scenario: Scenario): void {
@@ -587,6 +725,7 @@ async function runScenario(
     }
 
     checkProjectFiles(project, scenario);
+    checkPlannedCaseTitleRules(project);
     checkTestScripts(project, scenario);
 
     // setup removes framework/setup/selftest from projects, so fixtures come from the template.

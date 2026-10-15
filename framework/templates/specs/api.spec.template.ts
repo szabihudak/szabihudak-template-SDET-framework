@@ -15,12 +15,14 @@ import { create__Domain__, create__Domain__Payload } from "@app/data/__domain__F
 import type { UserApiClient } from "@app/api/clients/UserApiClient";
 
 type Missing__Domain__FieldScenario = {
+  caseId: string;
   name: string;
   missingField: keyof __Domain__Request;
 };
 
 const missing__Domain__FieldScenarios = [
   {
+    caseId: "T008___Domain___API",
     name: "rejects a missing title",
     missingField: "title",
   },
@@ -28,7 +30,7 @@ const missing__Domain__FieldScenarios = [
 
 // unasserted: position (the API contract does not define its value on create)
 test.describe("Create a __Domain__ API", () => {
-  test("creates a __domain__ matching the provider contract", async ({
+  test("T001___Domain___API: creates a __domain__ matching the provider contract", async ({
     userApi,
     __domain__Api,
     authenticatedTestUser,
@@ -50,7 +52,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults description to null when omitted", async ({
+  test("T002___Domain___API: defaults description to null when omitted", async ({
     userApi,
     __domain__Api,
     authenticatedTestUser,
@@ -74,7 +76,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults priority to medium when omitted", async ({
+  test("T003___Domain___API: defaults priority to medium when omitted", async ({
     userApi,
     __domain__Api,
     authenticatedTestUser,
@@ -98,7 +100,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults status to backlog when omitted", async ({
+  test("T004___Domain___API: defaults status to backlog when omitted", async ({
     userApi,
     __domain__Api,
     authenticatedTestUser,
@@ -122,7 +124,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("rejects __domain__ without user token", async ({ __domain__Api }) => {
+  test("T005___Domain___API: rejects __domain__ without user token", async ({ __domain__Api }) => {
     const __domain__Data = create__Domain__();
 
     const response = await __domain__Api.create__Domain__(__domain__Data, "");
@@ -133,7 +135,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
-  test("rejects __domain__ with invalid user token", async ({ __domain__Api }) => {
+  test("T006___Domain___API: rejects __domain__ with invalid user token", async ({ __domain__Api }) => {
     const __domain__Data = create__Domain__();
 
     const response = await __domain__Api.create__Domain__(__domain__Data, "Invalid-Token_123");
@@ -144,7 +146,7 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
-  test("rejects __domain__ with unsupported priority", async ({
+  test("T007___Domain___API: rejects __domain__ with unsupported priority", async ({
     __domain__Api,
     authenticatedTestUser,
   }) => {
@@ -163,7 +165,7 @@ test.describe("Create a __Domain__ API", () => {
   });
 
   for (const scenario of missing__Domain__FieldScenarios) {
-    test(scenario.name, async ({ __domain__Api, authenticatedTestUser }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({ __domain__Api, authenticatedTestUser }) => {
       const user = authenticatedTestUser;
       const __domain__Data = create__Domain__Payload({
         missingFields: [scenario.missingField],

@@ -12,12 +12,14 @@ import { createTask, createTaskPayload } from "@app/data/taskFactory";
 import type { UserApiClient } from "@app/api/clients/UserApiClient";
 
 type MissingTaskFieldScenario = {
+  caseId: string;
   name: string;
   missingField: keyof TaskRequest;
 };
 
 const missingTaskFieldScenarios = [
   {
+    caseId: "T008_Task_API",
     name: "rejects a missing title",
     missingField: "title",
   },
@@ -25,7 +27,7 @@ const missingTaskFieldScenarios = [
 
 // unasserted: position (the API contract does not define its value on create)
 test.describe("Create a Task API", () => {
-  test("creates a task matching the provider contract", async ({
+  test("T001_Task_API: creates a task matching the provider contract", async ({
     userApi,
     taskApi,
     authenticatedTestUser,
@@ -47,7 +49,7 @@ test.describe("Create a Task API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults description to null when omitted", async ({
+  test("T002_Task_API: defaults description to null when omitted", async ({
     userApi,
     taskApi,
     authenticatedTestUser,
@@ -71,7 +73,7 @@ test.describe("Create a Task API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults priority to medium when omitted", async ({
+  test("T003_Task_API: defaults priority to medium when omitted", async ({
     userApi,
     taskApi,
     authenticatedTestUser,
@@ -95,7 +97,7 @@ test.describe("Create a Task API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("defaults status to backlog when omitted", async ({
+  test("T004_Task_API: defaults status to backlog when omitted", async ({
     userApi,
     taskApi,
     authenticatedTestUser,
@@ -119,7 +121,9 @@ test.describe("Create a Task API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("rejects task without user token", async ({ taskApi }) => {
+  test("T005_Task_API: rejects task without user token", async ({
+    taskApi,
+  }) => {
     const taskData = createTask();
 
     const response = await taskApi.createTask(taskData, "");
@@ -130,7 +134,9 @@ test.describe("Create a Task API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
-  test("rejects task with invalid user token", async ({ taskApi }) => {
+  test("T006_Task_API: rejects task with invalid user token", async ({
+    taskApi,
+  }) => {
     const taskData = createTask();
 
     const response = await taskApi.createTask(taskData, "Invalid-Token_123");
@@ -141,7 +147,7 @@ test.describe("Create a Task API", () => {
     expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
   });
 
-  test("rejects task with unsupported priority", async ({
+  test("T007_Task_API: rejects task with unsupported priority", async ({
     taskApi,
     authenticatedTestUser,
   }) => {
@@ -160,7 +166,10 @@ test.describe("Create a Task API", () => {
   });
 
   for (const scenario of missingTaskFieldScenarios) {
-    test(scenario.name, async ({ taskApi, authenticatedTestUser }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      taskApi,
+      authenticatedTestUser,
+    }) => {
       const user = authenticatedTestUser;
       const taskData = createTaskPayload({
         missingFields: [scenario.missingField],

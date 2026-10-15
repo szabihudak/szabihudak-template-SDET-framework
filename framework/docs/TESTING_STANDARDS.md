@@ -8,6 +8,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 ## API Test Standard
 
+- Every API test title begins with its plan case ID (`Tnnn_Component_API: <behavior>`); keep the ID identical to the plan so Playwright results map directly back to planned coverage.
 - The schema-derived type is safe only after `validateSchema()`; use the response fields after it, never before.
 - API tests are browser-independent and run once, in the `api` project.
 - After the schema, assert as many values as the test can predict:
@@ -105,6 +106,8 @@ testUserData, registeredTestUser             → only where the application lets
 
 ## UI Spec Standard
 
+- Every UI test title begins with its plan case ID (`Tnnn_Component_E2E: <behavior>`); keep the ID identical to the plan so browser results map directly back to planned coverage.
+- Give each `test.describe()` a concise suite title naming the component/behavior and test level. Keep every test inside `test.describe()`, including single-test specs (required by `AGENTS.md`).
 - Every UI test asserts what the page shows: at least one visible element or text that proves the outcome. A changed URL or a successful network response alone is not enough; they may be asserted in addition. Only the setup self-test specs, tagged `@selftest`, are exempt: they run against any application and cannot know its elements.
 - Keep related assertions together, without a blank line between each one. Do not add Arrange/Act/Assert comments; comments explain non-obvious reasons only.
 - Tests stay compatible with every browser project that runs them. Browser-specific behavior is added only when it is intentional and documented.
