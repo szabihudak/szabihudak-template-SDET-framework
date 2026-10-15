@@ -37,9 +37,10 @@ Ask for whatever is missing.
 
 ## Process
 
-1. **Discover.** Read the requirements (`requirementsDoc` in `config/framework.config.ts`, or what the user gives you), the API contract, `config/framework.config.ts` (modules, `auth`, roles), `src/fixtures/test-fixtures.ts` and the existing `src/` and `tests/` code for this feature. Use the Playwright and OpenAPI MCP servers only within the environment's `allow` permissions.
+1. **Discover.** Read the requirements (`requirementsDoc` in `config/framework.config.ts`, or what the user gives you), the API contract, `config/framework.config.ts` (modules, `auth`, roles), `src/fixtures/test-fixtures.ts` and the existing `src/` and `tests/` code for this feature. 
+2. **Use MCP servers.** Utilize the Playwright and OpenAPI MCP servers to dicover the application if the required documentation is not set, not clear, or incomplete, but only within the environment's `allow` permissions.
 2. **Ask early.** When a case needs a fact only the user knows (an expected value, a requirement, an account), ask at once with a suggested answer.
-3. **Design the cases.** Happy path, business rules, invalid and missing input, and unauthenticated or unauthorized access where they apply. Every expected result names its source.
+3. **Design the cases.** Happy path, business rules, equivalence classes and boundary value analysis (BVA) cases, invalid and missing input, and unauthenticated or unauthorized access where they apply. Every expected result names its source. If one of these categories does not apply, explain why.
 4. **Choose the files.** For each file, decide reuse, extend or create, and name the golden example or template (AGENTS.md, Read Before Changing Code). If login or roles are not configured yet, include the files that configure them.
 5. **Write the plan** to `test-plans/<feature>.md` in the Output format. If the file exists, extend it and keep its case IDs.
 
@@ -48,6 +49,7 @@ Ask for whatever is missing.
 - Create or change only `test-plans/<feature>.md`.
 - Never read, ask for or print passwords or tokens.
 - Never invent provider behavior. Write `UNVERIFIED` for anything you could not confirm, and list it under Open questions.
+- Never write test case where you don´t discovered the relevant requirements, UI behaviour or API contract. Don´t hallucinate functions or behavior.
 
 ## Output
 
