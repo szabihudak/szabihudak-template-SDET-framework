@@ -74,16 +74,15 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
    `openQuestions`, not in executable cases. Assess every category below; use evidence-based N/A
    reasons where a category does not apply.
 
-   | Coverage category         | Consider                                                                                                                                        |
-   | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `happyPath`               | Primary successful behavior                                                                                                                     |
-   | `businessRules`           | Relevant rules, decisions, state transitions and invariants                                                                                     |
-   | `equivalencePartitions`   | Meaningful input classes; name the partitions tested                                                                                            |
-   | `boundaryValues`          | Meaningful limits; name the boundary values tested                                                                                              |
-   | `errorHandling`           | Failures supported by the contract or observed application behavior                                                                             |
-   | `emptyOmittedMissingData` | Empty, omitted and missing values; distinguish omitted required API fields from empty values; include `null` only when relevant to the contract |
-   | `unauthenticatedAccess`   | Protected operation and established unauthenticated behavior                                                                                    |
-   | `unauthorizedAccess`      | Established role or authorization behavior for the protected operation                                                                          |
+   - `happyPath`: primary successful behavior.
+   - `businessRules`: relevant rules, decisions, state transitions and invariants.
+   - `equivalencePartitions`: meaningful input classes; name the partitions tested.
+   - `boundaryValues`: meaningful limits; name the boundary values tested.
+   - `errorHandling`: failures supported by the contract or observed application behavior.
+   - `emptyOmittedMissingData`: empty, omitted and missing values; distinguish omitted required API
+     fields from empty values; include `null` only when relevant to the contract.
+   - `unauthenticatedAccess`: protected operation and established unauthenticated behavior.
+   - `unauthorizedAccess`: established role or authorization behavior for the protected operation.
 
    Give every case a plan-wide unique ID in the form `T<sequence>_<ComponentName>_<level>`, for
    example `T001_Login_API` or `T002_Login_E2E`. Use `API` for API cases and `E2E` for browser UI

@@ -58,8 +58,8 @@ the builder's command and case-to-file evidence.
 
 - **Implementation finding:** code/spec/template-conformance defect inside approved scope. Mark it
   `category: implementation`; return it to the parent test-builder subagent for a bounded fix.
-- **Plan finding:** incorrect/missing case, evidence, expected outcome or scope. Mark it `category:
-plan`; stop and return it to test-planner. A revised plan requires new plan review and renewed
+- **Plan finding:** incorrect/missing case, evidence, expected outcome or scope. Mark it
+  `category: plan`; stop and return it to test-planner. A revised plan requires new plan review and renewed
   human approval before implementation resumes.
 - **Environment finding:** environment limitation or external behavior not established by evidence.
   Mark it `category: environment`, state what was inspected, and do not misroute it as a code defect.
