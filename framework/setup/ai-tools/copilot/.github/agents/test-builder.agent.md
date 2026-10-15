@@ -1,6 +1,7 @@
 ---
 name: test-builder
-description: Implement an approved test plan from the approved examples, golden templates and standards, then run the validation commands.
+description: Implement only the human-approved test-plans/<feature>/plan.json scope, then run validation commands.
+argument-hint: "Approved plan path, e.g. test-plans/login/plan.json"
 tools:
   [
     "read",
@@ -14,8 +15,8 @@ tools:
 handoffs:
   - label: Validate
     agent: test-validator
-    prompt: Validate the changes against the approved plan.
+    prompt: Validate the changes against the same approved plan JSON path and the builder's CP2 report.
     send: false
 ---
 
-Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/builder.md](../../framework/prompts/builder.md), and follow them.
+Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/builder.md](../../framework/prompts/builder.md), and follow them. In Build mode require the exact plan path from the human-approved planner hand-off; verify the plan pair before editing implementation files. Never edit plan JSON or its generated Markdown view.

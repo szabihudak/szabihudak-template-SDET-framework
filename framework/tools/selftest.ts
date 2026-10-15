@@ -85,22 +85,44 @@ function checkPlanArtifacts(project: string): void {
   assert(fs.existsSync(viewFile), "plan refresh did not generate plan.md");
   const validView = fs.readFileSync(viewFile, "utf8");
 
-  const invalidPlan = JSON.parse(fixture);
-  invalidPlan.coverage[0].caseIds = ["API-99"];
-  fs.writeFileSync(planFile, `${JSON.stringify(invalidPlan, null, 2)}\n`);
-  const failedRefresh = spawnSync(
-    "npm",
-    ["run", "qa:plan", "--", "refresh", "test-plans/selftest-plan/plan.json"],
-    { cwd: project, encoding: "utf8" },
-  );
-  assert(
-    failedRefresh.status !== 0,
-    "invalid plan unexpectedly passed refresh",
-  );
-  assert(
-    fs.readFileSync(viewFile, "utf8") === validView,
-    "failed plan validation changed the generated Markdown view",
-  );
+  const invalidPlans = [
+    {
+      name: "unknown coverage case",
+      mutate: (plan: Record<string, any>) => {
+        plan.coverage[0].caseIds = ["T099_Login_API"];
+      },
+    },
+    {
+      name: "invalid case ID format",
+      mutate: (plan: Record<string, any>) => {
+        plan.cases[0].id = "API-01";
+      },
+    },
+    {
+      name: "duplicate case sequence number",
+      mutate: (plan: Record<string, any>) => {
+        plan.cases.push({ ...plan.cases[0], id: "T0001_OtherComponent_API" });
+      },
+    },
+  ];
+  for (const invalid of invalidPlans) {
+    const plan = JSON.parse(fixture);
+    invalid.mutate(plan);
+    fs.writeFileSync(planFile, `${JSON.stringify(plan, null, 2)}\n`);
+    const failedRefresh = spawnSync(
+      "npm",
+      ["run", "qa:plan", "--", "refresh", "test-plans/selftest-plan/plan.json"],
+      { cwd: project, encoding: "utf8" },
+    );
+    assert(
+      failedRefresh.status !== 0,
+      `${invalid.name} unexpectedly passed plan refresh`,
+    );
+    assert(
+      fs.readFileSync(viewFile, "utf8") === validView,
+      `failed ${invalid.name} validation changed the generated Markdown view`,
+    );
+  }
 
   fs.writeFileSync(planFile, fixture);
   run("npm run qa:plan -- check test-plans/selftest-plan/plan.json", project);
@@ -192,6 +214,59 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     ...AGENT_FILES,
   ]) {
     assert(exists(file), `${file} is missing`);
+  }
+
+  const builderPrompt = fs.readFileSync(
+    path.join(project, "framework/prompts/builder.md"),
+    "utf8",
+  );
+  const builderAgent = fs.readFileSync(
+    path.join(project, ".github/agents/test-builder.agent.md"),
+    "utf8",
+  );
+  const plannerPrompt = fs.readFileSync(
+    path.join(project, "framework/prompts/planner.md"),
+    "utf8",
+  );
+  for (const [source, requirement, label] of [
+    [builderPrompt, "npm run qa:plan -- check", "builder plan pre-check"],
+    [builderPrompt, "sole scope authority", "canonical JSON scope authority"],
+    [
+      builderPrompt,
+      "same exact plan path recorded in CP2",
+      "same plan for follow-up modes",
+    ],
+    [
+      builderPrompt,
+      "Fix exactly the validator findings",
+      "findings limited to approved scope",
+    ],
+    [
+      builderPrompt,
+      "Add only accepted files listed in that plan",
+      "example registration limited to plan files",
+    ],
+    [
+      builderPrompt,
+      "Never edit `test-plans/**/plan.json`",
+      "plan JSON immutability",
+    ],
+    [builderPrompt, "Approved plan:", "CP2 plan path report"],
+    [builderAgent, "Approved plan path", "builder agent plan input"],
+    [builderAgent, "Never edit plan JSON", "builder agent artifact boundary"],
+    [
+      plannerPrompt,
+      "Find an existing plan before designing cases",
+      "planner existing-plan-first rule",
+    ],
+    [plannerPrompt, "extend it; do not", "planner extends matching area plan"],
+    [plannerPrompt, "T001_Login_API", "planner case ID format"],
+    [plannerPrompt, "renumber surviving cases", "planner stable case IDs"],
+  ]) {
+    assert(
+      source.includes(requirement),
+      `generated builder instructions are missing ${label}`,
+    );
   }
 
   for (const file of [

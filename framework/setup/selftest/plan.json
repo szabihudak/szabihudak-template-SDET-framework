@@ -21,7 +21,7 @@
   "setupChanges": [],
   "cases": [
     {
-      "id": "API-01",
+      "id": "T001_PlanChecker_API",
       "title": "Validates the plan checker",
       "level": "API",
       "project": "api",
@@ -45,7 +45,7 @@
     {
       "category": "happyPath",
       "status": "covered",
-      "caseIds": ["API-01"],
+      "caseIds": ["T001_PlanChecker_API"],
       "reason": null
     },
     {

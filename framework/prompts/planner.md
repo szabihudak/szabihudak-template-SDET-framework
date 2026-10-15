@@ -57,7 +57,15 @@ mark behavior not observed. Use only scenario-relevant, non-destructive interact
 data. Never expose credentials. If the test account is missing, ask the user to run
 `npm run onboard`; if they defer it, continue and mark dependent behavior unverified.
 
-3. **Design cases and assess coverage.** Plan only the requested level: `API`, `UI`, or each level
+3. **Find an existing plan before designing cases.** Search `test-plans/**/plan.json` and compare
+   the feature, scenario, and component area. If one plan covers the same area, extend it; do not
+   create a duplicate plan. Preserve its feature slug, cases, IDs, evidence and files unless the
+   user explicitly changes them. Continue numbering after its highest case-ID sequence; do not
+   renumber existing cases or reuse deleted sequence numbers. If multiple plans match, or the
+   matching plan has conflicting environment, credentials role or test type, stop and ask which
+   plan/scope to update. Create a new plan only when no existing plan matches.
+
+4. **Design cases and assess coverage.** Plan only the requested level: `API`, `UI`, or each level
    relevant to `both`. In `requirements` mode, derive expected outcomes from requirements. In
    `exploratory` mode, include only behavior observed through permitted interactions or documented
    by the provider contract, and mark each case's basis; these are characterization cases, not
@@ -76,28 +84,32 @@ data. Never expose credentials. If the test account is missing, ask the user to 
    | `unauthenticatedAccess`   | Protected operation and established unauthenticated behavior                                                                                    |
    | `unauthorizedAccess`      | Established role or authorization behavior for the protected operation                                                                          |
 
-Give every case a design technique and unique level-based ID (for example `API-01` or `UI-01`).
-Preserve IDs for unchanged cases during revisions and update all references when an ID changes.
+Give every case a plan-wide unique ID in the form `T<sequence>_<ComponentName>_<level>`, for
+example `T001_Login_API` or `T002_Login_E2E`. Use `API` for API cases and `E2E` for browser UI
+cases. Write the component name in PascalCase without separators. Number cases in one sequence
+across both levels, starting at `T001`. On revisions, preserve IDs for unchanged cases, never
+renumber surviving cases or reuse removed numbers, and update every coverage reference when an ID
+changes. Use the same ID in the plan, generated view, builder report and validator findings.
 Keep cases independent, with their own data and cleanup as applicable. Do not limit case count
 based on project setup state.
 
-4. **Choose file sources.** For each file, use this order:
+5. **Choose file sources.** For each file, use this order:
    1. Applicable example from `config/approved-examples.json` (reuse or extend).
    2. Matching template from `framework/templates/index.json` (reuse or extend).
    3. If neither fits, explain the gap and propose what is missing.
 
    Record each file's path, reuse/extend/create decision, source ID and reason.
 
-5. **Plan setup changes.** Include authentication or other setup changes only when the supplied
+6. **Plan setup changes.** Include authentication or other setup changes only when the supplied
    scenario requires them. Otherwise keep current setup as context and report missing prerequisites;
    do not switch planning modes.
 
-6. **Write the plan.** Create or revise `test-plans/<feature-slug>/plan.json` as pretty-printed,
+7. **Write the plan.** Create or revise `test-plans/<feature-slug>/plan.json` as pretty-printed,
    strict JSON (no comments, trailing commas, Markdown fences or surrounding prose). JSON is
    canonical. Preserve the feature slug and unchanged case IDs. Never hand-edit the companion
    `plan.md`; it is generated from JSON.
 
-7. **Validate, self-repair and render.** After every creation or modification of `plan.json`,
+8. **Validate, self-repair and render.** After every creation or modification of `plan.json`,
    immediately run `npm run qa:plan -- refresh test-plans/<feature-slug>/plan.json`. It validates
    JSON and writes or refreshes `plan.md` only after every check passes. Treat the pair as one
    deliverable and present/commit both together. Never edit `plan.md` directly. If validation fails,
@@ -112,7 +124,7 @@ based on project setup state.
    in `draft`, report remaining errors and attempts, and stop before CP1. Never present a failing
    plan as ready for approval.
 
-8. **Stop at CP1.** Wait for the user's approval or requested revisions before implementation.
+9. **Stop at CP1.** Wait for the user's approval or requested revisions before implementation.
 
 ## Constraints
 
@@ -161,7 +173,7 @@ produces characterization cases based on observed behavior or the API contract.
   ],
   "cases": [
     {
-      "id": "API-01",
+      "id": "T001_Login_API",
       "title": "<short descriptive title>",
       "level": "<API|UI>",
       "project": "<configured Playwright project>",
@@ -185,7 +197,7 @@ produces characterization cases based on observed behavior or the API contract.
     {
       "category": "<happyPath|businessRules|equivalencePartitions|boundaryValues|errorHandling|emptyOmittedMissingData|unauthenticatedAccess|unauthorizedAccess>",
       "status": "<covered|notApplicable>",
-      "caseIds": ["API-01"],
+      "caseIds": ["T001_Login_API"],
       "reason": null
     }
   ],
@@ -222,9 +234,13 @@ Contract rules:
 - Include every required coverage category exactly once. `covered` requires one or more existing
   `caseIds` and `reason: null`. `notApplicable` requires an empty `caseIds` array and a specific,
   evidence-based `reason`.
-- Use unique case IDs and list every case ID in the coverage categories it supports. Every case
-  must have at least one design technique and supporting evidence IDs, unless its expected behavior
-  is explicitly marked UNVERIFIED and excluded from approved scope.
+- Case IDs must match `T<3-or-more-digits>_<PascalCaseComponent>_<API|E2E>` (for example
+  `T001_Login_API`, `T002_Login_E2E`). The numeric sequence is unique across the plan, and the ID
+  suffix must match `level` (`API` → `API`, `UI` → `E2E`). Preserve existing IDs across revisions;
+  do not renumber surviving cases or recycle sequence numbers. List each case ID in every coverage
+  category it supports.
+- Every case must have at least one design technique and supporting evidence IDs, unless its
+  expected behavior is explicitly marked UNVERIFIED and excluded from approved scope.
 - `setupChanges`, `outOfScope` and `openQuestions` are arrays; use empty arrays when there are none.
 - Keep `status` as `draft`. Approval is a human decision in the checkpoint, not a planner assertion.
 

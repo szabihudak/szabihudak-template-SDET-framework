@@ -71,7 +71,9 @@ const planSchema = Type.Object(
     cases: Type.Array(
       Type.Object(
         {
-          id: Type.String({ pattern: "^(API|UI)-[0-9]{2,}$" }),
+          id: Type.String({
+            pattern: "^T[0-9]{3,}_[A-Z][A-Za-z0-9]*_(API|E2E)$",
+          }),
           title: Type.String({ minLength: 1 }),
           level: Type.Union([Type.Literal("API"), Type.Literal("UI")]),
           project: Type.String({ minLength: 1 }),
@@ -193,6 +195,12 @@ function validatePlan(plan: Plan, file: string): void {
     "Case IDs",
   );
   assertUnique(
+    plan.cases.map(({ id }) =>
+      String(Number(id.match(/^T([0-9]{3,})_/)?.[1] ?? NaN)),
+    ),
+    "Case ID sequence numbers",
+  );
+  assertUnique(
     plan.coverage.map(({ category }) => category),
     "Coverage categories",
   );
@@ -245,9 +253,10 @@ function validatePlan(plan: Plan, file: string): void {
       throw new Error(
         `Case ${item.id} is not referenced by any coverage category`,
       );
+    const idLevel = item.id.split("_").at(-1);
     if (
-      (item.level === "API" && !item.id.startsWith("API-")) ||
-      (item.level === "UI" && !item.id.startsWith("UI-"))
+      (item.level === "API" && idLevel !== "API") ||
+      (item.level === "UI" && idLevel !== "E2E")
     ) {
       throw new Error(`Case ID ${item.id} does not match level ${item.level}`);
     }
