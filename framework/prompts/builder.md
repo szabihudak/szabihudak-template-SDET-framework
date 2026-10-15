@@ -71,8 +71,9 @@ or inconsistent.
    validator.
 
 6. **Automatically invoke test-validator once all technical gates pass.** Only after `check-build`
-   passes, invoke the `test-validator` subagent with the exact plan and build-report paths. It
-   writes `<attempt-dir>/validation-report.json` and returns its path and verdict. Confirm the
+   passes, invoke the `test-validator` subagent with exactly this message and nothing else:
+   `Validate <build-report-path> against <plan-path>. Write and validate validation-report.json.`
+   Add no summary, opinion or expected verdict. It writes `<attempt-dir>/validation-report.json` and returns its path and verdict. Confirm the
    report with `npm run qa:pipeline -- validate-validation <plan> <build-report> <validation-report>`;
    for PASS also with the PASS-only `check-validation`. There is no
    human checkpoint between the build and its verification. Route the findings of a FAIL report by

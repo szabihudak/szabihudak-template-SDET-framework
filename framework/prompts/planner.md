@@ -117,10 +117,12 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
    the plan in `draft`, report the remaining errors and stop before CP1.
 
 9. **Request the plan review.** Once the plan linter passes, invoke `test-plan-reviewer` as a
-   subagent with the exact plan path. It writes `pipeline-runs/<feature>/<plan-hash>/plan-review.json`;
-   confirm its structure with `npm run qa:pipeline -- validate-plan-review <plan-path>`. On FAIL,
-   repair the plan only for supported `plan` findings, rerun `refresh`, and invoke the reviewer
-   again; every revision has a new plan hash and therefore a new report. Allow at most three
+   subagent with exactly this message and nothing else:
+   `Review <plan-path>. Write and validate plan-review.json.` Add no summary, opinion or expected
+   verdict. It writes `pipeline-runs/<feature>/<plan-hash>/plan-review.json`; confirm its structure
+   with `npm run qa:pipeline -- validate-plan-review <plan-path>`. On FAIL, repair the plan only for
+   supported `plan` findings, rerun `refresh`, and invoke the reviewer again with the same message;
+   every revision has a new plan hash and therefore a new report. Allow at most three
    plan-review cycles. If it still fails, stop before CP1 and report the report path and the
    unresolved findings. Never present a failing plan as ready for approval.
 
