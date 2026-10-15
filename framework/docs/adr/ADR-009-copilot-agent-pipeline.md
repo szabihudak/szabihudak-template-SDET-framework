@@ -26,15 +26,15 @@ GitHub Copilot custom agents combine instructions, allowed tools and explicit ha
 Generated projects use four GitHub Copilot custom agents, installed by `npm run setup` into `.github/agents/`. Two of them are verifiers that run as subagents, one before and one after implementation:
 
 ```text
-test-planner ──subagent──▶ test-plan-reviewer          writes plan-review.json (semantic review)
-     │  FAIL: planner revises the plan (at most three cycles)
-     │  PASS: CP1, the human approves this plan hash
+test-planner ──subagent──▶ test-plan-reviewer          writes review.md (semantic review)
+     │  FAIL: planner revises the plan (at most three cycles; asks the human at once
+     │        when a finding needs a fact only the human can supply)
+     │  PASS: CP1, the human approves this plan version
      ▼
 [Build the approved proposal]
      ▼
-test-builder ──technical gates──▶ build-report.json
-     │  check-build PASS
-     └──subagent──▶ test-validator                     writes validation-report.json
+test-builder ──technical gates, qa:pipeline scope──▶
+     └──subagent──▶ test-validator                     writes validation.md
                        implementation finding → test-builder fixes (at most three cycles)
                        plan finding           → [Revise the plan] → test-planner → review → CP1 again
                        environment finding    → reported to the human
@@ -42,7 +42,9 @@ test-builder ──technical gates──▶ build-report.json
 ```
 
 - The two verifiers have separate roles. The plan reviewer checks what the plan linter (`qa:plan`) cannot: that expected results follow from cited sources, that coverage and N/A decisions agree with the evidence, and that the scope does not contradict itself. The implementation validator compares the diff, the implemented tests and the build report with the approved plan; it does not rerun the builder's technical gates.
-- Reports are files, not chat summaries: `pipeline-runs/<feature>/<plan-sha256>/plan-review.json`, then `attempt-NNN/build-report.json` and `validation-report.json`. Every report records the plan hash, and the validation report also records the build report hash. `npm run qa:pipeline` validates their structure and identity, and its PASS-only commands (`check-plan-review`, `check-build`, `check-validation`) gate each stage. `check-build` also compares the files git shows as changed with the plan, so a build report cannot leave out a changed file. A revised plan has a new hash, so an earlier review or approval never applies to it.
+- Reports are files, not chat summaries: `test-plans/<feature>/review.md` and `validation.md`, Markdown for the human with a fixed header (`Plan SHA-256:`, `Verdict:`), one line per required check and one heading per finding. Each new cycle replaces the file; git keeps the history. `npm run qa:pipeline` takes only the feature name: `review` and `validation` pass only for a PASS report of the current plan hash, and `scope` also requires that git shows no changed file outside the plan. A revised plan has a new hash, so an earlier review or approval never applies to it.
+- The builder records the technical gates in its final chat report rather than in a report file; CI reruns the same gates. The hand-off buttons always show, so the builder itself refuses a plan whose review did not pass and registers examples only after a passing validation.
+- Each subagent is invoked with one fixed line naming the plan, so the caller cannot steer the review, and the verifiers ignore anything else in the invocation.
 - The human decisions are the plan approval at CP1 and the final acceptance; the hand-overs between them are buttons the user clicks (`send: false`), and the click is the approval. The builder invokes the validator without a human checkpoint in between.
 - The planner-to-builder hand-off identifies the approved `test-plans/<feature>/plan.json`; the builder checks the JSON/Markdown pair and uses JSON, not a chat summary, as its scope authority.
 - The builder does not edit plan JSON or its generated Markdown. A scope change returns to planning and requires renewed human approval.

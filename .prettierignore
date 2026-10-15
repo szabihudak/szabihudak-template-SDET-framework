@@ -2,8 +2,6 @@
 framework/templates/**/*.template.*
 # Generated as strict JSON by framework/tools/templates.ts
 .vscode/qa.code-snippets
-# Plan artifacts: the approval is bound to the plan.json hash, and qa:plan check
+# Plan artifacts: the reviews are bound to the plan.json hash, and qa:plan check
 # compares plan.md byte for byte with its rendering
 test-plans/
-# Pipeline reports are bound to file hashes; reformatting would invalidate them
-pipeline-runs/
