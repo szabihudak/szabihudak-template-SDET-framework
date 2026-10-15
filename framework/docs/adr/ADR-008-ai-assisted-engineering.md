@@ -4,7 +4,7 @@
 
 Accepted
 
-Amended by ADR-009: generated projects use the GitHub Copilot agents test-planner, test-builder and test-validator instead of the `/first-tests` prompts, and Claude Code files are no longer installed. The principles below are unchanged.
+Amended by ADR-009 (the `/first-tests` prompts and Claude Code files were replaced by Copilot agents) and ADR-010 (setup installs no agents; projects choose their own). The principles below are unchanged.
 
 ---
 

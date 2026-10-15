@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { parseEnv } from "node:util";
 
 // The one test account npm run onboard adds when the project has no roles yet.
-// The test-planner agent keeps it and proposes how it logs in.
+// The login method is configured afterwards (README.md, Configure login).
 export const DEFAULT_ROLE = {
   name: "user",
   usernameEnv: "USER_USERNAME",

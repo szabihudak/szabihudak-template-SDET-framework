@@ -4,7 +4,7 @@ import path from "node:path";
 import { categoryScriptNames } from "./test-scripts";
 
 // What the installer tells the user to do once it is done: the rest happens
-// in VS Code with the GitHub Copilot agents (ADR-009).
+// in the IDE: login, then the first tests (ADR-010).
 
 export type Onboarding = "done" | "incomplete" | "skipped";
 
@@ -47,7 +47,8 @@ function agentSteps({ mcp }: ProjectState): string[] {
     ...(mcp.length > 0
       ? [`Start the MCP servers when VS Code asks ${serverList(mcp)}`]
       : []),
-    "Copilot Chat -> select the test-planner agent",
+    "Configure login: README.md, Configure login",
+    "Write the first tests from the golden templates (AGENTS.md)",
   ];
 }
 
@@ -88,9 +89,6 @@ export function nextSteps(options: FinishOptions, mark = "->"): string[] {
   return [
     `${mark} The installer is done. Continue in your IDE:`,
     ...steps.map((step, index) => `   ${index + 1}. ${step}`),
-    "",
-    "test-planner writes a JSON plan and generated Markdown view; only that pair can change.",
-    "You approve; test-builder implements it and test-validator checks the result.",
     ...(options.testScripts?.length
       ? [
           "",

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-010: setup no longer installs the agents. The pipeline below is the state of commit `e9edbfc`.
 
 Amends ADR-007 (setup no longer asks for an AI tool) and ADR-008 (the commands and the way the rules are loaded).
 

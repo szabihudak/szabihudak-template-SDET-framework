@@ -70,206 +70,6 @@ function assertPlan(project: string, expected: string[]): void {
   console.log(`✔ CI plan is ${JSON.stringify(expected)}`);
 }
 
-function checkPlanArtifacts(project: string): void {
-  const planDirectory = path.join(project, "test-plans", "selftest-plan");
-  fs.mkdirSync(planDirectory, { recursive: true });
-  const planFile = path.join(planDirectory, "plan.json");
-  const viewFile = path.join(planDirectory, "plan.md");
-  const fixture = fs.readFileSync(
-    path.join(ROOT, SELFTEST_DIR, "plan.json"),
-    "utf8",
-  );
-  fs.writeFileSync(planFile, fixture);
-
-  run("npm run qa:plan -- refresh test-plans/selftest-plan/plan.json", project);
-  assert(fs.existsSync(viewFile), "plan refresh did not generate plan.md");
-  const validView = fs.readFileSync(viewFile, "utf8");
-
-  const invalidPlans = [
-    {
-      name: "unknown coverage case",
-      mutate: (plan: Record<string, any>) => {
-        plan.coverage[0].caseIds = ["T099_Login_API"];
-      },
-    },
-    {
-      name: "invalid case ID format",
-      mutate: (plan: Record<string, any>) => {
-        plan.cases[0].id = "API-01";
-      },
-    },
-    {
-      name: "duplicate case sequence number",
-      mutate: (plan: Record<string, any>) => {
-        plan.cases.push({ ...plan.cases[0], id: "T0001_OtherComponent_API" });
-      },
-    },
-  ];
-  for (const invalid of invalidPlans) {
-    const plan = JSON.parse(fixture);
-    invalid.mutate(plan);
-    fs.writeFileSync(planFile, `${JSON.stringify(plan, null, 2)}\n`);
-    const failedRefresh = spawnSync(
-      "npm",
-      ["run", "qa:plan", "--", "refresh", "test-plans/selftest-plan/plan.json"],
-      { cwd: project, encoding: "utf8" },
-    );
-    assert(
-      failedRefresh.status !== 0,
-      `${invalid.name} unexpectedly passed plan refresh`,
-    );
-    assert(
-      fs.readFileSync(viewFile, "utf8") === validView,
-      `failed ${invalid.name} validation changed the generated Markdown view`,
-    );
-  }
-
-  fs.writeFileSync(planFile, fixture);
-  run("npm run qa:plan -- check test-plans/selftest-plan/plan.json", project);
-  run("npm run qa:plan -- check-all", project);
-  console.log(
-    "✔ plan JSON validation, Markdown generation and failure preservation",
-  );
-}
-
-function checkPipelineArtifacts(project: string): void {
-  const feature = "selftest-plan";
-  const planSha256 = execSync(
-    `npm run --silent qa:pipeline -- hash ${feature}`,
-    { cwd: project },
-  )
-    .toString()
-    .trim();
-  const plan = JSON.parse(
-    fs.readFileSync(
-      path.join(project, `test-plans/${feature}/plan.json`),
-      "utf8",
-    ),
-  );
-  const checks = (ids: string[], mark = "x") =>
-    ids.map((id) => `- [${mark}] ${id}: self-test verified ${id}`);
-  const report = (title: string, verdict: string, sections: string[]) =>
-    [
-      `# ${title}: ${feature}`,
-      "",
-      `Plan SHA-256: ${planSha256}`,
-      `Verdict: ${verdict}`,
-      "",
-      ...sections,
-      "",
-    ].join("\n");
-  const reviewFile = path.join(project, `test-plans/${feature}/review.md`);
-  const validationFile = path.join(
-    project,
-    `test-plans/${feature}/validation.md`,
-  );
-  const review = report("Plan review", "PASS", [
-    "## Checks",
-    "",
-    ...checks([
-      "plan-integrity",
-      "case-quality",
-      "coverage-decisions",
-      "evidence-support",
-      "template-selection",
-      "setup-and-scope",
-      "conflicts-and-open-questions",
-    ]),
-  ]);
-  const validationChecks = [
-    "scope-and-files",
-    "case-assertions",
-    "template-conformance",
-    "evidence-and-expected-results",
-    "project-boundaries",
-  ];
-  const caseLines = plan.cases.map(
-    (item: { id: string }) =>
-      `- [x] ${item.id}: tests/api/selftest.spec.ts; self-test case mapping`,
-  );
-  const validation = report("Implementation validation", "PASS", [
-    "## Checks",
-    "",
-    ...checks(validationChecks),
-    "",
-    "## Cases",
-    "",
-    ...caseLines,
-  ]);
-  const rejected = (command: string, message: string) => {
-    const result = spawnSync(
-      "npm",
-      ["run", "qa:pipeline", "--", command, feature],
-      { cwd: project, encoding: "utf8" },
-    );
-    assert(result.status !== 0, message);
-  };
-
-  rejected("review", "a missing review.md passed the plan review gate");
-  fs.writeFileSync(reviewFile, review);
-  run(`npm run qa:pipeline -- review ${feature}`, project);
-  run(`npm run qa:pipeline -- scope ${feature}`, project);
-  rejected("validation", "a missing validation.md passed the validation gate");
-  fs.writeFileSync(validationFile, validation);
-  run(`npm run qa:pipeline -- validation ${feature}`, project);
-  run("npm run qa:pipeline -- check-all", project);
-
-  fs.writeFileSync(
-    validationFile,
-    report("Implementation validation", "FAIL", [
-      "## Checks",
-      "",
-      ...checks(validationChecks),
-      "",
-      "## Cases",
-      "",
-      ...caseLines,
-      "",
-      "## Findings",
-      "",
-      "### IV-001 (blocking, implementation)",
-      "",
-      "- Problem: expected self-test finding",
-    ]),
-  );
-  run("npm run qa:pipeline -- check-all", project);
-  rejected("validation", "a FAIL validation passed the validation gate");
-
-  fs.writeFileSync(
-    validationFile,
-    report("Implementation validation", "PASS", [
-      "## Checks",
-      "",
-      ...checks(validationChecks),
-      "",
-      "## Cases",
-      "",
-      ...caseLines.slice(1),
-    ]),
-  );
-  rejected("validation", "a validation missing a plan case passed its gate");
-
-  fs.writeFileSync(reviewFile, review.replace(planSha256, "0".repeat(64)));
-  rejected("review", "a review of an earlier plan version passed its gate");
-
-  fs.writeFileSync(
-    reviewFile,
-    `${review}\n## Findings\n\n### PR-001 blocking plan\n`,
-  );
-  const malformed = spawnSync(
-    "npm",
-    ["run", "qa:pipeline", "--", "check-all"],
-    { cwd: project, encoding: "utf8" },
-  );
-  assert(
-    malformed.status !== 0,
-    "a malformed finding heading passed qa:pipeline check-all",
-  );
-  fs.writeFileSync(reviewFile, review);
-  fs.writeFileSync(validationFile, validation);
-  console.log("✔ review reports bound to the plan version and stage gates");
-}
-
 // Validates the workflows setup installed: parseable YAML, the managed secrets
 // block listing exactly the expected secrets, and the container image matching
 // the installed Playwright version.
@@ -343,121 +143,15 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/templates/README.md",
     "framework/templates/index.json",
     "framework/tools/doctor.ts",
-    "framework/tools/plan.ts",
-    "framework/tools/pipeline.ts",
     "framework/docs/TESTING_STANDARDS.md",
     "src/fixtures/test-fixtures.ts",
     "config/approved-examples.json",
     "AGENTS.md",
     "install.sh",
-    ...AGENT_FILES,
+    ".github/copilot-instructions.md",
   ]) {
     assert(exists(file), `${file} is missing`);
   }
-
-  const builderPrompt = fs.readFileSync(
-    path.join(project, "framework/prompts/builder.md"),
-    "utf8",
-  );
-  const builderAgent = fs.readFileSync(
-    path.join(project, ".github/agents/test-builder.agent.md"),
-    "utf8",
-  );
-  const planReviewerAgent = fs.readFileSync(
-    path.join(project, ".github/agents/test-plan-reviewer.agent.md"),
-    "utf8",
-  );
-  const validatorAgent = fs.readFileSync(
-    path.join(project, ".github/agents/test-validator.agent.md"),
-    "utf8",
-  );
-  const plannerPrompt = fs.readFileSync(
-    path.join(project, "framework/prompts/planner.md"),
-    "utf8",
-  );
-  for (const [source, requirement, label] of [
-    [builderPrompt, "npm run qa:plan -- check", "builder plan pre-check"],
-    [builderPrompt, "sole scope authority", "canonical JSON scope authority"],
-    [
-      builderPrompt,
-      "same exact plan path and hash",
-      "same plan for follow-up modes",
-    ],
-    [
-      builderPrompt,
-      "Fix exactly the `implementation` findings",
-      "findings limited to approved scope",
-    ],
-    [
-      builderPrompt,
-      "Add only accepted files listed in that plan",
-      "example registration limited to plan files",
-    ],
-    [
-      builderPrompt,
-      "Never edit `test-plans/**/plan.json`",
-      "plan JSON immutability",
-    ],
-    [builderPrompt, "Approved plan:", "CP2 plan path report"],
-    [builderAgent, "Approved plan path", "builder agent plan input"],
-    [builderAgent, "Never edit plan JSON", "builder agent artifact boundary"],
-    [
-      plannerPrompt,
-      "Find an existing plan before designing cases",
-      "planner existing-plan-first rule",
-    ],
-    [plannerPrompt, "extend it; do not", "planner extends matching area plan"],
-    [plannerPrompt, "T001_Login_API", "planner case ID format"],
-    [plannerPrompt, "renumber surviving cases", "planner stable case IDs"],
-    [plannerPrompt, "test-plan-reviewer", "automatic plan review subagent"],
-    [plannerPrompt, "review.md", "plan review report artifact"],
-    [
-      plannerPrompt,
-      "stop at once and ask",
-      "planner asks for facts only the user can supply",
-    ],
-    [
-      builderPrompt,
-      "Automatically invoke test-validator once all technical gates pass",
-      "automatic implementation verification after technical gates",
-    ],
-    [builderPrompt, "validation.md", "implementation validation report"],
-    [builderPrompt, "qa:pipeline -- scope", "scope gate before validation"],
-    [
-      builderPrompt,
-      "**Revise the plan**",
-      "plan findings return to the planner",
-    ],
-    [builderAgent, "Revise the plan", "builder hand-off back to the planner"],
-    [
-      plannerPrompt,
-      "qa:pipeline -- review",
-      "PASS-only plan review gate before CP1",
-    ],
-    [
-      planReviewerAgent,
-      "qa:pipeline -- review",
-      "plan reviewer checks its report",
-    ],
-    [
-      validatorAgent,
-      "Do not rerun builder technical gates",
-      "no duplicate gates",
-    ],
-    [validatorAgent, "validation.md", "implementation verifier report"],
-    [planReviewerAgent, "review.md", "plan reviewer report output"],
-  ]) {
-    assert(
-      source.includes(requirement),
-      `generated builder instructions are missing ${label}`,
-    );
-  }
-  // The validator runs only as the builder's subagent, so it offers no
-  // hand-off buttons of its own.
-  assert(
-    !validatorAgent.includes("handoffs:"),
-    "test-validator still declares hand-offs",
-  );
 
   for (const file of [
     "src/api/clients/TaskApiClient.ts",
@@ -529,16 +223,6 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(project, "package.json"), "utf8"),
   );
-  assert(
-    packageJson.scripts["qa:plan"] === "tsx framework/tools/plan.ts",
-    "generated project does not retain the plan validation command",
-  );
-  assert(
-    packageJson.scripts["qa:pipeline"] === "tsx framework/tools/pipeline.ts",
-    "generated project does not retain the pipeline report command",
-  );
-  checkPlanArtifacts(project);
-  checkPipelineArtifacts(project);
   assert(
     !packageJson.scripts.setup && !packageJson.scripts["qa:selftest"],
     "package.json still has template-only scripts",
@@ -717,25 +401,18 @@ type Scenario = {
 
 const PERFORMANCE_PACKAGES = ["@lhci/cli", "chrome-launcher", "lighthouse"];
 const ROLE_SECRETS = ["USER_USERNAME", "USER_PASSWORD"];
-// Every project gets the GitHub Copilot agents and their task files (ADR-009).
-const AGENT_FILES = [
-  ".github/copilot-instructions.md",
-  ".github/agents/test-planner.agent.md",
-  ".github/agents/test-plan-reviewer.agent.md",
-  ".github/agents/test-builder.agent.md",
-  ".github/agents/test-validator.agent.md",
-  "framework/prompts/planner.md",
-  "framework/prompts/plan-reviewer.md",
-  "framework/prompts/builder.md",
-  "framework/prompts/validator.md",
-];
-// Files of the earlier Claude Code and /first-tests setup that must not return.
+// AI files setup no longer installs: the earlier Claude Code and /first-tests
+// setup, and the Copilot agent pipeline (ADR-010; examples/copilot-agents).
 const REMOVED_AI_FILES = [
   "CLAUDE.md",
   ".claude",
   ".mcp.json",
   ".github/prompts",
-  "framework/prompts/first-tests.md",
+  ".github/agents",
+  "framework/prompts",
+  "framework/tools/plan.ts",
+  "framework/tools/pipeline.ts",
+  "examples",
 ];
 // The minimal scenario enables database tests without an environment that
 // allows them; setup must still record the URL and the CI secret.

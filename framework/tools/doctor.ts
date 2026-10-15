@@ -79,15 +79,15 @@ async function main(): Promise<void> {
 
   if (Object.keys(config.roles).length === 0) {
     console.log(
-      "ℹ Login is not configured yet (auth and roles in config/framework.config.ts). The test-planner agent proposes it.",
+      "ℹ Login is not configured yet: set auth and roles in config/framework.config.ts (README.md, Configure login).",
     );
   } else if (
     config.auth.api.strategy === "none" &&
     config.auth.browser.strategy === "none"
   ) {
-    // npm run onboard adds the role before the test-planner agent proposes the login.
+    // npm run onboard adds the role before the login method is configured.
     console.log(
-      "ℹ The login method is not configured yet (auth in config/framework.config.ts), so the test account cannot be tried. The test-planner agent proposes it.",
+      "ℹ The login method is not configured yet, so the test account cannot be tried: set auth in config/framework.config.ts (README.md, Configure login).",
     );
   }
 
@@ -179,7 +179,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `\nAll checks passed${warnings > 0 ? ` with ${warnings} warning(s)` : ""}. Next: plan the tests with the test-planner agent in GitHub Copilot Chat.`,
+    `\nAll checks passed${warnings > 0 ? ` with ${warnings} warning(s)` : ""}. Next: write the first tests from the golden templates (AGENTS.md).`,
   );
 }
 
