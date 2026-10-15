@@ -101,8 +101,8 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
 6. **Plan setup changes.** Include authentication or other setup changes only when the supplied
    scenario requires them. Otherwise keep current setup as context and report missing prerequisites;
    do not switch planning modes. List every file a setup change touches in `files`, such as
-   `config/framework.config.ts`, `.env.example` or `src/fixtures/test-fixtures.ts`: the builder may
-   change only listed files.
+   `config/framework.config.ts`, `.env.example`, `src/fixtures/test-fixtures.ts` or the CI workflows
+   that `npm run qa:sync-ci-secrets` updates: the builder may change only listed files.
 
 7. **Write the plan.** Create or revise `test-plans/<feature-slug>/plan.json` as pretty-printed,
    strict JSON (no comments, trailing commas, Markdown fences or surrounding prose). JSON is

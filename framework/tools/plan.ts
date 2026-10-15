@@ -157,28 +157,31 @@ const planSchema = Type.Object(
 
 type Plan = typeof planSchema extends { static: infer T } ? T : never;
 
-function assertUnique(values: string[], label: string): void {
+// Returns the problem as a message, so validatePlan can report every problem
+// in one run instead of stopping at the first.
+function duplicates(values: string[], label: string): string[] {
   const seen = new Set<string>();
-  const duplicates = values.filter((value) =>
+  const repeated = values.filter((value) =>
     seen.has(value) ? true : (seen.add(value), false),
   );
-  if (duplicates.length > 0) {
-    throw new Error(
-      `${label} must be unique; duplicates: ${[...new Set(duplicates)].join(", ")}`,
-    );
-  }
+  return repeated.length > 0
+    ? [
+        `${label} must be unique; duplicates: ${[...new Set(repeated)].join(", ")}`,
+      ]
+    : [];
 }
 
 function validatePlan(plan: Plan, file: string): void {
   validateSchema(planSchema, plan);
 
+  const problems: string[] = [];
   const expectedDirectory = path.resolve(PLAN_DIR, plan.feature);
   const actualDirectory = path.resolve(path.dirname(file));
   if (
     actualDirectory !== expectedDirectory ||
     path.basename(file) !== PLAN_FILE
   ) {
-    throw new Error(
+    problems.push(
       `Plan must be stored at ${PLAN_DIR}/${plan.feature}/${PLAN_FILE}`,
     );
   }
@@ -186,34 +189,35 @@ function validatePlan(plan: Plan, file: string): void {
   const evidenceById = new Map(
     plan.discovery.map((entry) => [entry.id, entry]),
   );
-  assertUnique(
-    plan.discovery.map(({ id }) => id),
-    "Evidence IDs",
-  );
-  assertUnique(
-    plan.cases.map(({ id }) => id),
-    "Case IDs",
-  );
-  assertUnique(
-    plan.cases.map(({ id }) =>
-      String(Number(id.match(/^T([0-9]{3,})_/)?.[1] ?? NaN)),
+  problems.push(
+    ...duplicates(
+      plan.discovery.map(({ id }) => id),
+      "Evidence IDs",
     ),
-    "Case ID sequence numbers",
-  );
-  assertUnique(
-    plan.coverage.map(({ category }) => category),
-    "Coverage categories",
+    ...duplicates(
+      plan.cases.map(({ id }) => id),
+      "Case IDs",
+    ),
+    ...duplicates(
+      plan.cases.map(({ id }) =>
+        String(Number(id.match(/^T([0-9]{3,})_/)?.[1] ?? NaN)),
+      ),
+      "Case ID sequence numbers",
+    ),
+    ...duplicates(
+      plan.coverage.map(({ category }) => category),
+      "Coverage categories",
+    ),
   );
 
-  const expectedCategories = new Set<string>(CATEGORIES);
   const actualCategories = new Set<string>(
     plan.coverage.map(({ category }) => category),
   );
-  const missingCategories = [...expectedCategories].filter(
+  const missingCategories = CATEGORIES.filter(
     (category) => !actualCategories.has(category),
   );
   if (missingCategories.length > 0) {
-    throw new Error(
+    problems.push(
       `Missing coverage categories: ${missingCategories.join(", ")}`,
     );
   }
@@ -223,7 +227,7 @@ function validatePlan(plan: Plan, file: string): void {
   for (const item of plan.coverage) {
     for (const id of item.caseIds) {
       if (!caseIds.has(id))
-        throw new Error(
+        problems.push(
           `Coverage ${item.category} references unknown case ${id}`,
         );
       coveredCaseIds.add(id);
@@ -232,7 +236,7 @@ function validatePlan(plan: Plan, file: string): void {
       item.status === "covered" &&
       (item.caseIds.length === 0 || item.reason !== null)
     ) {
-      throw new Error(
+      problems.push(
         `Covered category ${item.category} requires case IDs and a null reason`,
       );
     }
@@ -240,17 +244,17 @@ function validatePlan(plan: Plan, file: string): void {
       item.status === "notApplicable" &&
       (item.caseIds.length > 0 || !item.reason?.trim())
     ) {
-      throw new Error(
+      problems.push(
         `Not-applicable category ${item.category} requires no case IDs and a reason`,
       );
     }
-  }
-  for (const item of plan.coverage) {
-    assertUnique(item.caseIds, `Case IDs in coverage ${item.category}`);
+    problems.push(
+      ...duplicates(item.caseIds, `Case IDs in coverage ${item.category}`),
+    );
   }
   for (const item of plan.cases) {
     if (!coveredCaseIds.has(item.id))
-      throw new Error(
+      problems.push(
         `Case ${item.id} is not referenced by any coverage category`,
       );
     const idLevel = item.id.split("_").at(-1);
@@ -258,24 +262,28 @@ function validatePlan(plan: Plan, file: string): void {
       (item.level === "API" && idLevel !== "API") ||
       (item.level === "UI" && idLevel !== "E2E")
     ) {
-      throw new Error(`Case ID ${item.id} does not match level ${item.level}`);
+      problems.push(`Case ID ${item.id} does not match level ${item.level}`);
     }
-    const evidence = item.evidenceIds.map((id) => {
+    const evidence = item.evidenceIds.flatMap((id) => {
       const entry = evidenceById.get(id);
-      if (!entry)
-        throw new Error(`Case ${item.id} references unknown evidence ${id}`);
-      if (!entry.verified)
-        throw new Error(
+      if (!entry) {
+        problems.push(`Case ${item.id} references unknown evidence ${id}`);
+        return [];
+      }
+      if (!entry.verified) {
+        problems.push(
           `Case ${item.id} cannot rely on unverified evidence ${id}`,
         );
-      return entry;
+        return [];
+      }
+      return [entry];
     });
     if (plan.mode === "requirements") {
       if (
         item.basis !== "requirement" ||
         !evidence.some(({ sourceType }) => sourceType === "requirements")
       ) {
-        throw new Error(
+        problems.push(
           `Requirements-mode case ${item.id} needs verified requirements evidence and basis=requirement`,
         );
       }
@@ -288,7 +296,7 @@ function validatePlan(plan: Plan, file: string): void {
         item.basis === "requirement" ||
         !evidence.some((entry) => entry.sourceType === sourceType)
       ) {
-        throw new Error(
+        problems.push(
           `Exploratory case ${item.id} needs verified ${sourceType} evidence matching its basis`,
         );
       }
@@ -298,8 +306,14 @@ function validatePlan(plan: Plan, file: string): void {
   for (const item of plan.setupChanges) {
     for (const id of item.evidenceIds) {
       if (!evidenceById.has(id))
-        throw new Error(`Setup change references unknown evidence ${id}`);
+        problems.push(`Setup change references unknown evidence ${id}`);
     }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `Plan has ${problems.length} problem(s):\n${problems.map((problem) => `- ${problem}`).join("\n")}`,
+    );
   }
 }
 
