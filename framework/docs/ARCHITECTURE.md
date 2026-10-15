@@ -127,7 +127,7 @@ The template repository itself runs the UPEX pipeline instead: images built once
 
 Enforced by tools:
 
-- `npm run lint:architecture`: the mechanical subset of the rules in `AGENTS.md`, such as assertions only in specs, layer import boundaries and no automatic baseline updates. The checks are defined in `framework/tools/architecture.ts`. Each one cites the documented rule it enforces, every violation names that rule (for example `(AGENTS.md → Layer Rules)`), and the linter fails if a cited section does not exist.
+- `npm run lint:architecture`: the mechanical subset of the rules in `AGENTS.md` and `TESTING_STANDARDS.md`, such as assertions only in specs, layer import boundaries, no automatic baseline updates, and the shapes of the golden spec templates (response assertion order, error-field assertions, factory data, role fixtures, scenario arrays for similar cases). The checks are defined in `framework/tools/architecture.ts`. Each one cites the documented rule it enforces, every violation names that rule (for example `(AGENTS.md → Layer Rules)`), and the linter fails if a cited section does not exist.
 - `npm run qa:templates:check`: every template reproduces its canonical file, every rules link resolves, approved examples exist, the catalogue and snippets are current.
 - `npm run typecheck`, `npx prettier --check .`, and the configuration and environment schemas at load time.
 

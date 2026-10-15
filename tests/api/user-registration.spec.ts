@@ -7,6 +7,11 @@ import { validateSchema } from "@framework/api/SchemaValidator";
 import { createTestUser, createTestUserPayload } from "@app/data/userFactory";
 import { API_MESSAGES } from "@app/api/constants/apiMessages";
 
+type ValidRegistrationScenario = {
+  name: string;
+  overrides: Partial<TestUser>;
+};
+
 type EmptyFieldScenario = {
   name: string;
   overrides: Partial<TestUser>;
@@ -18,6 +23,17 @@ type MissingFieldScenario = {
   name: string;
   missingField: keyof TestUser;
 };
+
+const validRegistrationScenarios = [
+  {
+    name: "registers a valid user",
+    overrides: {},
+  },
+  {
+    name: "accepts a 6-character password",
+    overrides: { password: "123456" },
+  },
+] satisfies ValidRegistrationScenario[];
 
 const emptyFieldScenarios = [
   {
@@ -57,33 +73,21 @@ const missingFieldScenarios: MissingFieldScenario[] = [
 
 // unasserted: user.id (UNVERIFIED whether the API contract defines its format)
 test.describe("User Registration API", () => {
-  test("registers a valid user", async ({ userApi }) => {
-    const userData = createTestUser();
+  for (const scenario of validRegistrationScenarios) {
+    test(scenario.name, async ({ userApi }) => {
+      const userData = createTestUser(scenario.overrides);
 
-    const response = await userApi.register(userData);
-    expect(response.status()).toBe(HTTP_STATUS.CREATED);
+      const response = await userApi.register(userData);
+      expect(response.status()).toBe(HTTP_STATUS.CREATED);
 
-    const body = await response.json();
-    validateSchema(userRegistrationSchema, body);
+      const body = await response.json();
+      validateSchema(userRegistrationSchema, body);
 
-    expect(body.message).toBe(API_MESSAGES.USER_CREATED);
-    expect(body.user.email).toBe(userData.email);
-    expect(body.user.name).toBe(userData.name);
-  });
-
-  test("accepts a 6-character password", async ({ userApi }) => {
-    const userData = createTestUser({ password: "123456" });
-
-    const response = await userApi.register(userData);
-    expect(response.status()).toBe(HTTP_STATUS.CREATED);
-
-    const body = await response.json();
-    validateSchema(userRegistrationSchema, body);
-
-    expect(body.message).toBe(API_MESSAGES.USER_CREATED);
-    expect(body.user.email).toBe(userData.email);
-    expect(body.user.name).toBe(userData.name);
-  });
+      expect(body.message).toBe(API_MESSAGES.USER_CREATED);
+      expect(body.user.email).toBe(userData.email);
+      expect(body.user.name).toBe(userData.name);
+    });
+  }
 
   test("rejects a password shorter than 6 characters", async ({ userApi }) => {
     const userData = createTestUser({ password: "12345" });

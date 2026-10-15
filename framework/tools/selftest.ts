@@ -271,6 +271,174 @@ test.describe("Case title self-test UI", () => {
   console.log("✔ plan case IDs map to descriptive API/UI test titles");
 }
 
+// The template-conformance rules reject the shapes the golden spec templates
+// avoid; each variant breaks one rule of an otherwise conforming spec.
+function checkTemplateConformanceRules(project: string): void {
+  const files = {
+    spec: "tests/api/conformance-selftest.spec.ts",
+    factory: "src/data/conformanceSelftestFactory.ts",
+    schema: "src/api/schemas/ConformanceSelftestSchema.ts",
+  };
+  const factory = `export function createConformanceItem(options: { title?: string } = {}) {
+  return { title: options.title ?? "conformance item", note: "note" };
+}
+`;
+  const schema = `export const conformanceItemSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    title: { type: "string" },
+  },
+};
+`;
+  const spec = `import { test, expect } from "@app/fixtures/test-fixtures";
+import { validateSchema } from "@framework/api/SchemaValidator";
+import { conformanceItemSchema } from "@app/api/schemas/ConformanceSelftestSchema";
+import { createConformanceItem } from "@app/data/conformanceSelftestFactory";
+
+const unauthenticatedScenarios = [
+  { name: "rejects a missing token", accessToken: "" },
+  { name: "rejects an invalid token", accessToken: "invalid" },
+];
+
+test.describe("Conformance self-test API", () => {
+  test("creates an item", async ({ itemApi }) => {
+    const itemData = createConformanceItem();
+
+    const response = await itemApi.createItem(itemData);
+    expect(response.status()).toBe(201);
+
+    const body = await response.json();
+    validateSchema(conformanceItemSchema, body);
+
+    expect(body.title).toBe(itemData.title);
+  });
+
+  for (const scenario of unauthenticatedScenarios) {
+    test(scenario.name, async ({ itemApi }) => {
+      const itemData = createConformanceItem();
+
+      const response = await itemApi.createItem(itemData, scenario.accessToken);
+      expect(response.status()).toBe(401);
+
+      const body = await response.json();
+      expect(body.error).toBe("Unauthorized");
+    });
+  }
+});
+`;
+  const similarTests = spec.replace(
+    /  for \(const scenario[\s\S]*?\n  }\n/,
+    ["", "invalid"]
+      .map(
+        (token) => `  test("rejects token ${token}", async ({ itemApi }) => {
+    const itemData = createConformanceItem();
+
+    const response = await itemApi.createItem(itemData, "${token}");
+    expect(response.status()).toBe(401);
+
+    const body = await response.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+`,
+      )
+      .join("\n"),
+  );
+  const variants: { rule: string; source: string }[] = [
+    {
+      rule: "no-boolean-wrapped-assertions",
+      source: spec.replace(
+        'expect(body.error).toBe("Unauthorized");',
+        'expect(body.error).toBe("Unauthorized");\n      expect(isError(body)).toBe(true);',
+      ),
+    },
+    {
+      rule: "success-response-order",
+      source: spec
+        .replace("\n    expect(body.title).toBe(itemData.title);", "")
+        .replace(
+          "validateSchema(conformanceItemSchema, body);",
+          "expect(body.title).toBe(itemData.title);\n    validateSchema(conformanceItemSchema, body);",
+        ),
+    },
+    {
+      rule: "negative-response-fields",
+      source: spec.replace(
+        '\n      expect(body.error).toBe("Unauthorized");',
+        "",
+      ),
+    },
+    {
+      rule: "role-credentials-in-login-specs",
+      source: spec.replace(
+        "const itemData = createConformanceItem();\n\n    const response = await itemApi.createItem(itemData);",
+        'const credentials = getRoleCredentials("user");\n    const itemData = createConformanceItem({ title: credentials.username });\n\n    const response = await itemApi.createItem(itemData);',
+      ),
+    },
+    {
+      rule: "no-inline-payload-to-api-client",
+      source: spec.replace(
+        "itemApi.createItem(itemData);",
+        'itemApi.createItem({ title: "inline", note: "note" });',
+      ),
+    },
+    { rule: "similar-tests-as-scenarios", source: similarTests },
+    {
+      rule: "request-fields-exact-match",
+      source: spec.replace(
+        "expect(body.title).toBe(itemData.title);",
+        "expect(body.title).toBeTruthy();",
+      ),
+    },
+  ];
+  const created = [
+    path.join(project, "src/data"),
+    path.join(project, "src/api/schemas"),
+    path.join(project, "src/api"),
+    path.join(project, "tests/api"),
+  ].filter((directory) => !fs.existsSync(directory));
+  const write = (file: string, content: string) => {
+    fs.mkdirSync(path.dirname(path.join(project, file)), { recursive: true });
+    fs.writeFileSync(path.join(project, file), content);
+  };
+  const lint = () =>
+    spawnSync("npx", ["tsx", "framework/tools/architecture.ts"], {
+      cwd: project,
+      encoding: "utf8",
+    });
+
+  try {
+    write(files.factory, factory);
+    write(files.schema, schema);
+    write(files.spec, spec);
+    run("npx tsx framework/tools/architecture.ts", project);
+
+    assert(
+      similarTests !== spec,
+      "the similar-tests variant did not replace the scenario loop",
+    );
+    for (const { rule, source } of variants) {
+      assert(source !== spec, `the ${rule} variant did not change the spec`);
+      write(files.spec, source);
+      const result = lint();
+      const output = `${result.stdout}${result.stderr}`;
+      assert(
+        result.status !== 0 && output.includes(`[${rule}]`),
+        `a spec breaking ${rule} was not reported: ${output}`,
+      );
+    }
+  } finally {
+    for (const file of Object.values(files)) {
+      fs.rmSync(path.join(project, file), { force: true });
+    }
+    for (const directory of created) {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  }
+
+  console.log("✔ template-conformance rules reject each broken spec shape");
+}
+
 // The project holds the framework, its own application layer and nothing of
 // the UPEX reference implementation or the template tooling.
 function checkProjectFiles(project: string, scenario: Scenario): void {
@@ -726,6 +894,7 @@ async function runScenario(
 
     checkProjectFiles(project, scenario);
     checkPlannedCaseTitleRules(project);
+    checkTemplateConformanceRules(project);
     checkTestScripts(project, scenario);
 
     // setup removes framework/setup/selftest from projects, so fixtures come from the template.

@@ -10,6 +10,8 @@ For every change that follows a golden pattern:
 2. `framework/templates/index.json`: the generic golden templates and when to use each.
 3. The `framework/docs/TESTING_STANDARDS.md` section each template you use links to (its `rules` field).
 
+A test plan designs its cases by the Test Design Standard in `TESTING_STANDARDS.md`.
+
 Only when a change has no golden pattern, or alters a layer responsibility, an execution boundary, authentication, environment permissions, CI or a quality gate, also read `framework/docs/ARCHITECTURE.md`, the relevant `TESTING_STANDARDS.md` sections and `framework/docs/adr/` (ADR-007 for the template architecture, ADR-008 for AI-assisted engineering).
 
 ## Workflow
@@ -65,7 +67,7 @@ The golden templates show what each layer owns. This table lists what it must ne
 | Page / Component Object | assertions; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures)      |
 | Domain database client  | assertions; string-interpolated SQL                                                                                            |
 | Mock                    | inventing states the UI does not support                                                                                       |
-| Spec                    | raw locators, raw SQL, fixed waits                                                                                             |
+| Spec                    | raw locators, raw SQL, fixed waits, boolean-wrapped assertions, request data with several fields written inline                |
 
 The framework's Lighthouse policy (`framework/core/performance/`) is the one helper that asserts: its thresholds decide the result.
 
@@ -84,7 +86,7 @@ The framework's Lighthouse policy (`framework/core/performance/`) is the one hel
 - Report evidence by source (provider contract, repository, running application) and mark anything not verified as UNVERIFIED.
 - Exploratory API calls and UI form submissions are allowed only when the selected environment has `allow.interactiveDiscovery: true` and the task requires the interaction. Limit calls to the supplied scenario and use test-owned data. Never invoke DELETE endpoints, destructive resets or irreversible actions during planning; stop for explicit human approval if discovery needs them. OpenAPI MCP contract reads and Playwright inspection may run with discovery permission off, but must remain read-only.
 - In failure analysis, state which evidence you actually inspected (error message, error context, trace, screenshot). Never present an unopened artifact as evidence, or uncertain evidence as a confirmed defect.
-- Never commit secrets. Credentials come from `.env` (git-ignored) or CI secrets.
+- Never commit secrets, and never read, ask for or print passwords or tokens. Credentials come from `.env` (git-ignored) or CI secrets.
 
 ## Playwright Rules
 

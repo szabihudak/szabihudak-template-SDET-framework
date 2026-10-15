@@ -6,22 +6,31 @@ The golden templates show how each layer and test type is built. This document h
 
 The workflow, the validation commands and the hard rules are in `AGENTS.md`; the reasoning behind the architecture is in `ARCHITECTURE.md`. Examples name the UPEX reference implementation the templates are derived from.
 
+## Test Design Standard
+
+- A test plan covers, for each behavior, the categories that apply: the happy path, business rules, equivalence classes and boundary values, invalid and missing input, and unauthenticated or unauthorized access. A category that does not apply is named with the reason.
+- Cases with the same steps that differ only in their data and expected result are one scenario group, built from the `api-scenario-spec` template (see the [Negative API Test Standard](#negative-api-test-standard)).
+
 ## API Test Standard
 
+- Cases are designed by the [Test Design Standard](#test-design-standard).
 - Every API test title begins with its plan case ID (`Tnnn_Component_API: <behavior>`); keep the ID identical to the plan so Playwright results map directly back to planned coverage.
-- The schema-derived type is safe only after `validateSchema()`; use the response fields after it, never before.
+- The schema-derived type is safe only after `validateSchema()`; use the response fields after it, never before. A successful response is checked in this order: the status, `validateSchema()`, then the fields. `npm run lint:architecture` reports a successful body that is never validated or a field asserted before `validateSchema()`.
 - API tests are browser-independent and run once, in the `api` project.
 - After the schema, assert as many values as the test can predict:
-  - deterministic fields (values from the request, documented defaults, the owner) by exact value;
+  - deterministic fields (values from the request, documented defaults, the owner) by exact value. A field that echoes the request is compared with the request value (`expect(body.title).toBe(taskData.title)`); `npm run lint:architecture` reports a response field that echoes a factory-built request field and is never compared with `toBe`, `toEqual` or `toStrictEqual`;
   - generated fields (ids, timestamps) by format, declared in the schema where the contract defines it (for example `format: "uuid"`, `format: "date-time"`), and by relations the contract or an observed response establishes (such as the same id on a later read);
   - a field whose value the contract does not define is covered by its schema type; do not invent an expected value.
 - A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`. A nested field is listed by its path (`user.id`). `npm run lint:architecture` checks that every schema field, including those of nested objects, is asserted (directly, or through an enclosing object compared with `toEqual` or `toStrictEqual`), has a format, or is listed this way.
 - The main success test of an operation covers every field this way; focused scenario tests (boundaries, single-field updates) assert the fields the scenario is about.
+- A helper that only one spec needs stays in that spec and may assert, like `getCurrentUser` in the `api-spec` template. A helper that several specs need becomes a fixture or a client setup helper.
 - A test that expects an error status follows the [Negative API Test Standard](#negative-api-test-standard).
 
 ## Negative API Test Standard
 
 - Assert the status and the error fields.
+- Assert the error fields directly: `expect(body.error).toBe(...)`, or `toEqual` on a nested object. Never wrap the check in a function that returns true or false (`expect(isError(body)).toBe(true)`): its failure does not say which field is wrong. `npm run lint:architecture` reports a read error body without a field assertion and any assertion of that shape.
+- Cases with the same steps that differ only in data and expected result are one scenario array with a `caseId` per entry, generated with `for (const scenario of ...)` as in the `api-scenario-spec` template. A case that must stay a separate test says why on the line above it: `// separate-test: <reason>`. `npm run lint:architecture` reports tests whose client calls and assertions differ only in strings and numbers.
 - Assert an error field or message only when the provider contract or an observed response establishes it.
 - Add a reusable error schema only when the provider has a stable, meaningful error contract worth validating, not for symmetry with success schemas.
 - A successful response in the same spec follows the [API Test Standard](#api-test-standard).
@@ -64,6 +73,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 - `createX()` returns a complete, domain-valid object with strong types and explicit overrides; `createXPayload()` starts from it and may omit request fields for negative tests.
 - Business-invalid values the type allows (`password: "12345"`, `email: ""`) go through normal overrides.
+- A request with several fields comes from the factory (`createTask({ title: "..." })`) or a scenario array, never an object literal written into the client call. A single-field partial update (`{ priority: "high" }`) is the scenario itself and stays inline. `npm run lint:architecture` reports the rest.
 - A value the type rejects is built locally in the negative test that owns it, with the smallest escape (`"critical" as TaskRequest["priority"]`). Never widen a domain type or add a generic invalid-data factory for it.
 - Extend the existing domain factory before creating a new one.
 
@@ -71,6 +81,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 - Create or extend a fixture for reusable setup, state, dependency composition or lifecycle, never to hide trivial construction.
 - Order fixtures by their dependency flow, reuse lower-level fixtures, keep each one focused, and clean up what it owns.
+- Every test follows the lifecycle create → setup → execute → teardown → cleanup. Create, setup, teardown and cleanup belong in fixtures: the data the test needs, authenticated clients and Pages, and the deletion of what the fixture created. The test body only executes the behavior and asserts it. Data a test creates in its own body is cleaned up by a fixture or listed as a known gap.
 - Authenticated fixtures use the role accounts: `apiTokenFor(role)` and `authenticatedPageFor(getRoleCredentials(role))` (see the [Authentication Standard](#authentication-standard)).
 - Database fixtures reuse `DatabaseClient`, close the pool, and never bypass the `allow.database` guard.
 
@@ -92,6 +103,7 @@ testUserData, registeredTestUser             → only where the application lets
 ```
 
 - Objects that act on an authenticated Page are built from that Page, or from a fixture that depends on it.
+- Only login specs (a file name containing `login` or `authentication`) call `getRoleCredentials()` or a client's `login()` themselves; every other spec gets its token or Page from the role fixtures. `npm run lint:architecture` reports the rest.
 
 ## Page Object Standard
 
@@ -106,6 +118,7 @@ testUserData, registeredTestUser             → only where the application lets
 
 ## UI Spec Standard
 
+- Cases are designed by the [Test Design Standard](#test-design-standard).
 - Every UI test title begins with its plan case ID (`Tnnn_Component_E2E: <behavior>`); keep the ID identical to the plan so browser results map directly back to planned coverage.
 - Give each `test.describe()` a concise suite title naming the component/behavior and test level. Keep every test inside `test.describe()`, including single-test specs (required by `AGENTS.md`).
 - Every UI test asserts what the page shows: at least one visible element or text that proves the outcome. A changed URL or a successful network response alone is not enough; they may be asserted in addition. Only the setup self-test specs, tagged `@selftest`, are exempt: they run against any application and cannot know its elements.

@@ -28,6 +28,19 @@ const missing__Domain__FieldScenarios = [
   },
 ] satisfies Missing__Domain__FieldScenario[];
 
+const unauthenticatedScenarios = [
+  {
+    caseId: "T005___Domain___API",
+    name: "rejects __domain__ without user token",
+    accessToken: "",
+  },
+  {
+    caseId: "T006___Domain___API",
+    name: "rejects __domain__ with invalid user token",
+    accessToken: "Invalid-Token_123",
+  },
+] satisfies { caseId: string; name: string; accessToken: string }[];
+
 // unasserted: position (the API contract does not define its value on create)
 test.describe("Create a __Domain__ API", () => {
   test("T001___Domain___API: creates a __domain__ matching the provider contract", async ({
@@ -124,27 +137,18 @@ test.describe("Create a __Domain__ API", () => {
     expect(body.userId).toBe(currentUser.user.id);
   });
 
-  test("T005___Domain___API: rejects __domain__ without user token", async ({ __domain__Api }) => {
-    const __domain__Data = create__Domain__();
+  for (const scenario of unauthenticatedScenarios) {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({ __domain__Api }) => {
+      const __domain__Data = create__Domain__();
 
-    const response = await __domain__Api.create__Domain__(__domain__Data, "");
-    expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
+      const response = await __domain__Api.create__Domain__(__domain__Data, scenario.accessToken);
+      expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
-    const body = await response.json();
+      const body = await response.json();
 
-    expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
-  });
-
-  test("T006___Domain___API: rejects __domain__ with invalid user token", async ({ __domain__Api }) => {
-    const __domain__Data = create__Domain__();
-
-    const response = await __domain__Api.create__Domain__(__domain__Data, "Invalid-Token_123");
-    expect(response.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-
-    const body = await response.json();
-
-    expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
-  });
+      expect(body.error).toBe(API_ERRORS.UNAUTHORIZED);
+    });
+  }
 
   test("T007___Domain___API: rejects __domain__ with unsupported priority", async ({
     __domain__Api,
@@ -165,7 +169,10 @@ test.describe("Create a __Domain__ API", () => {
   });
 
   for (const scenario of missing__Domain__FieldScenarios) {
-    test(`${scenario.caseId}: ${scenario.name}`, async ({ __domain__Api, authenticatedTestUser }) => {
+    test(`${scenario.caseId}: ${scenario.name}`, async ({
+      __domain__Api,
+      authenticatedTestUser,
+    }) => {
       const user = authenticatedTestUser;
       const __domain__Data = create__Domain__Payload({
         missingFields: [scenario.missingField],

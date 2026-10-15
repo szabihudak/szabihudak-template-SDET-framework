@@ -2,6 +2,7 @@
 // @template Canonical source: tests/ui/task-dashboard.spec.ts. Rules: framework/docs/TESTING_STANDARDS.md#ui-spec-standard
 // @template Replace the tokens described in framework/templates/index.json. Fields, locators and test data are illustrative.
 import { test, expect } from "@app/fixtures/test-fixtures";
+import { create__Domain__ } from "@app/data/__domain__Factory";
 import { mock__Domains__ServerError } from "@app/mocks/__domain__ApiMock";
 
 test.describe("__Domain__ Dashboard tests", () => {
@@ -44,12 +45,12 @@ test.describe("__Domain__ Dashboard tests", () => {
   }) => {
     const __domain__ToUpdate = created__Domain__.response;
     const unchanged__Domain__ = await __domain__Api.create__Domain__ForUser(
-      {
+      create__Domain__({
         title: "Priority Update Unchanged __Domain__",
         description: "__Domain__ that should retain its original priority",
         priority: "medium",
         status: "backlog",
-      },
+      }),
       authenticatedTestUser.accessToken,
     );
     const updatedPriority = "high";

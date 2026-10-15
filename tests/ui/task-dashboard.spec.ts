@@ -1,4 +1,5 @@
 import { test, expect } from "@app/fixtures/test-fixtures";
+import { createTask } from "@app/data/taskFactory";
 import { mockTasksServerError } from "@app/mocks/taskApiMock";
 
 test.describe("Task Dashboard tests", () => {
@@ -41,12 +42,12 @@ test.describe("Task Dashboard tests", () => {
   }) => {
     const taskToUpdate = createdTask.response;
     const unchangedTask = await taskApi.createTaskForUser(
-      {
+      createTask({
         title: "Priority Update Unchanged Task",
         description: "Task that should retain its original priority",
         priority: "medium",
         status: "backlog",
-      },
+      }),
       authenticatedTestUser.accessToken,
     );
     const updatedPriority = "high";
