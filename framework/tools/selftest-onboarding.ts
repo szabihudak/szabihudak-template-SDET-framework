@@ -347,13 +347,13 @@ function checkNextSteps(): void {
       expected: [
         "code .",
         "Start the MCP servers when VS Code asks (playwright, openapi)",
-        "Copilot Chat -> select the test-planner agent",
+        "Configure login: README.md, Configure login",
       ],
       absent: [],
     },
     {
       mcp: [],
-      expected: ["code .", "Copilot Chat -> select the test-planner agent"],
+      expected: ["code .", "Configure login: README.md, Configure login"],
       absent: ["Start the MCP servers"],
     },
   ];
@@ -456,7 +456,7 @@ async function checkInstaller(project: string): Promise<void> {
       "| [x] project | -> | [x] install | -> | [x] browsers | -> | doctor |",
       "[x] Stage 1: Framework setup ====> [>] Stage 2: First tests (optional)",
       " INSTALLER | NEXT: IN YOUR IDE",
-      "| test account | | | test-planner | -> | review & run |",
+      "| test account | | | login | -> | first tests |",
       "🚀 STAGE 1 - Framework setup",
       "🧪 STAGE 2 - First tests (optional)",
       "✅ Stage 1 Framework setup done",
@@ -468,7 +468,7 @@ async function checkInstaller(project: string): Promise<void> {
       "| - Dijkstra |",
       "👉 The installer is done. Continue in your IDE:",
       "1. npm run onboard (adds the test account to .env)",
-      "Copilot Chat -> select the test-planner agent",
+      "Configure login: README.md, Configure login",
     ]) {
       assert(
         terminal.output.includes(expected),
@@ -514,12 +514,11 @@ async function checkInstaller(project: string): Promise<void> {
       `install.sh with a test account exited with ${filled.code}:\n${filled.output}`,
     );
     for (const expected of [
-      // The test-planner agent relies on this doctor line to find the account in .env.
       '✔ credentials for role "user" are set',
-      "| [x] test account | | | test-planner | -> | review & run |",
+      "| [x] test account | | | login | -> | first tests |",
       ">> STAGE 2 - First tests (optional)",
       "[x] Stage 1 Framework setup done",
-      "[x] Stage 2 First tests test account in .env -> next: test-planner",
+      "[x] Stage 2 First tests test account in .env -> next: configure login",
       "\\m/\n +=====",
       "| [x] INSTALLER FINISHED |",
       "-> The installer is done. Continue in your IDE:",

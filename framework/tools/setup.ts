@@ -43,7 +43,6 @@ const BROWSER_MODULES = [
 
 // GitHub Copilot files: instructions and the planner, builder and validator
 // agents (ADR-009).
-const AI_TOOLS_DIR = "framework/setup/ai-tools";
 
 const MODULES = [
   "api",
@@ -82,7 +81,7 @@ const templatePath = (file: string) => path.join(ROOT, file);
 
 // Starter files, AI tool files and the project file list. An in-place setup
 // stages them first, because it removes them from the folder it transforms.
-const RESOURCES = [STARTER_DIR, AI_TOOLS_DIR, PROJECT_FILES];
+const RESOURCES = [STARTER_DIR, PROJECT_FILES];
 let sourceRoot = ROOT;
 const sourcePath = (file: string) => path.join(sourceRoot, file);
 
@@ -445,7 +444,7 @@ function buildEnvExample(answers: Answers, config: FrameworkConfig): string {
   if (Object.keys(config.roles).length === 0) {
     lines.push(
       "# Test accounts: add one USERNAME/PASSWORD pair per role after configuring",
-      "# login and roles (the test-planner agent proposes them).",
+      "# login and roles (README.md, Configure login).",
     );
   }
 
@@ -672,17 +671,11 @@ async function createSkeleton(
   }
 }
 
-// The Copilot agents and their instructions. AGENTS.md stays the single source
-// of rules; the task logic lives in framework/prompts.
-function installAiTools(project: string): void {
-  copyDirectory(path.join(AI_TOOLS_DIR, "copilot"), project);
-}
-
 // Versions are pinned: the servers run through npx on the developer's machine.
 const PLAYWRIGHT_MCP = "@playwright/mcp@0.0.83";
 const OPENAPI_MCP = "@ivotoby/openapi-mcp-server@1.16.1";
 
-// MCP servers for the test-planner agent: OpenAPI dynamic mode exposes contract
+// MCP servers for AI tools in the IDE: OpenAPI dynamic mode exposes contract
 // discovery and invocation tools; AGENTS.md gates invocation by environment.
 function mcpServers(answers: Answers): Record<string, string[]> {
   const servers: Record<string, string[]> = {};
@@ -802,9 +795,20 @@ Playwright tests created from the SDET framework template.
 
 1. \`npm run doctor\`: checks the configuration and that the application is reachable.
 2. Optional: register a dedicated test account in the application, then run \`npm run onboard\` to put it into \`.env\` (stage 2 of \`./install.sh\` offers the same step). You can skip this and fill in \`.env\` later.
-3. Configure login and plan tests with the Copilot agents in VS Code: select **test-planner** in Copilot Chat. It uses \`requirementsDoc\` when configured, otherwise performs exploratory discovery when the selected environment allows it. It writes \`test-plans/<feature>/plan.json\` and generates \`plan.md\` only after validation; **test-plan-reviewer** reviews it before you approve it with **Build the approved proposal**; **test-builder** implements it and has **test-validator** verify the result. See [Testing with the agents](#testing-with-the-agents).
+3. Configure login: see [Configure login](#configure-login).
 4. Put the accounts of any further roles into \`.env\` yourself (never into a prompt), then run \`npm run doctor\`, which signs in with them, and \`npm run qa:sync-ci-secrets\`.
-5. Register the approved tests in \`config/approved-examples.json\`: they become the examples for the next tests.
+5. Write the first tests: follow \`AGENTS.md\`, starting from the golden template for each file (\`framework/templates/index.json\`). Any AI tool in your IDE can follow \`AGENTS.md\`; see [Writing tests with AI tools](#writing-tests-with-ai-tools).
+6. Register reviewed tests in \`config/approved-examples.json\`: they become the examples for the next tests.
+
+## Configure login
+
+Setup configures no login, because it depends on the application. Set it in \`config/framework.config.ts\`:
+
+- \`auth.api\`: \`{ strategy: "bearer", loginPath, usernameField, passwordField, tokenField }\` when the API issues a bearer token from a login request, otherwise \`{ strategy: "none" }\`.
+- \`auth.browser\`: \`{ strategy: "nextAuth", csrfPath, callbackPath, landingPath, usernameField, passwordField }\` for a NextAuth credentials login, otherwise \`{ strategy: "none" }\`.
+- \`roles\`: one entry per role, naming its \`.env\` variables, such as \`user: { usernameEnv: "USER_USERNAME", passwordEnv: "USER_PASSWORD" }\` (\`npm run onboard\` adds the first one).
+
+Take the paths and field names from the API contract or the login request the application sends. Then run \`npm run doctor\`: it signs in with every role and reports what fails.
 
 ## Structure
 
@@ -817,18 +821,11 @@ Playwright tests created from the SDET framework template.
 
 Each folder under \`src/\` and \`tests/\` has a README naming what belongs there and its golden templates.
 
-## Testing with the agents
+## Writing tests with AI tools
 
-Open the project in VS Code, start the MCP servers when asked, and select an agent in GitHub Copilot Chat. The agents follow \`AGENTS.md\`, the approved examples and the golden templates.
+\`AGENTS.md\` holds the rules, and \`.github/copilot-instructions.md\` makes GitHub Copilot load it; \`.vscode/mcp.json\` adds the Playwright and OpenAPI MCP servers when the project has them. The checks in \`AGENTS.md\` and CI apply to every change, whoever wrote it.
 
-| Agent | Does | Changes files |
-| --- | --- | --- |
-| **test-planner** | Uses requirements if configured, otherwise plans exploratory characterization cases from permitted API/UI discovery. Produces a validated JSON plan and generated Markdown view, then waits for approval | Plan artifacts only |
-| **test-builder** | Implements the approved scope from the approved examples and golden templates, then runs the validation commands | Yes |
-| **test-plan-reviewer** | Subagent of the planner: reviews the plan's evidence, coverage and scope before you see it | Its report only |
-| **test-validator** | Subagent of the builder: reviews the implementation against the approved plan | Its report only |
-
-Review the generated \`test-plans/<feature>/plan.json\`, \`plan.md\` and \`review.md\`. Approve with **Build the approved proposal**; the builder runs the checks and the validator without stopping. If the validator finds a problem in the plan, **Revise the plan** sends it back to the planner for a new review and your approval. Accept the verified tests with **Register approved examples**. The buttons always show: **Build the approved proposal** refuses a plan whose review did not pass, and **Register approved examples** refuses tests whose validation did not pass. \`npm run qa:pipeline -- review <feature>\` and \`validation <feature>\` show where a feature stands.
+Optional planner and builder agents for GitHub Copilot are in the template's \`examples/copilot-agents/\`; its README says how to copy them into \`.github/agents/\`.
 
 ## Commands
 
@@ -1050,7 +1047,6 @@ async function main(): Promise<void> {
   prepareProject(project, inPlace);
   installStarterFiles(project, answers);
   syncWorkflowSecrets(project, secretNames);
-  installAiTools(project);
   await writeMcpConfig(project, answers);
   await createSkeleton(project, answers);
 
@@ -1091,7 +1087,7 @@ async function main(): Promise<void> {
     "npm run doctor   (checks the configuration and that the URLs are reachable)",
     loginConfigured
       ? "npm run onboard  (puts the role test accounts into .env), then npm run doctor again."
-      : "Optional: npm run onboard  (adds the first role and test account). Then select the test-planner agent in Copilot Chat to plan from requirements or permitted exploratory discovery.",
+      : "Optional: npm run onboard  (adds the first role and test account). Then configure login (README.md, Configure login).",
   ];
   // install.sh continues with the installation and stage 2.
   const nextSteps = process.env.QA_SETUP_RESULT

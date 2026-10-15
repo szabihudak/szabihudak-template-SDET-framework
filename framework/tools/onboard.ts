@@ -38,7 +38,7 @@ function finish(outcome: Outcome): void {
 }
 
 function firstTestsCommand(): string {
-  return "select the test-planner agent in GitHub Copilot Chat";
+  return "configure login (README.md, Configure login) and write the first tests";
 }
 
 function laterInstructions(roles: Role[]): string {
@@ -47,7 +47,7 @@ function laterInstructions(roles: Role[]): string {
     "  - run npm run onboard (it asks only for the account), or",
     roles.length > 0
       ? `  - put ${roles.flatMap((role) => [role.usernameEnv, role.passwordEnv]).join(" and ")} into .env yourself.`
-      : "  - let the test-planner agent propose the roles, then fill in their USERNAME/PASSWORD pairs in .env.",
+      : "  - add the roles in config/framework.config.ts (README.md, Configure login), then fill in their USERNAME/PASSWORD pairs in .env.",
     "Then run npm run doctor. For CI, add the same names as GitHub Actions secrets.",
   ].join("\n");
 }

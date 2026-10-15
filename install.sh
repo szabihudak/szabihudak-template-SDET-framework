@@ -97,7 +97,7 @@ flow() {
     labels=(project install browsers doctor)
   else
     title="$(mark '🧪' '>>') $(paint '1;36' 'STAGE 2 - First tests') $(paint 33 '(optional)')"
-    labels=("test account" "test-planner" "review & run")
+    labels=("test account" "login" "first tests")
     split=1
   fi
   for i in "${!labels[@]}"; do
@@ -207,7 +207,7 @@ summary() {
     echo "  $(mark '❌' '[!]') $(paint 31 'Stage 1  Framework setup   doctor reported problems -> fix them, then run: npm run doctor')"
   fi
   case "$ONBOARD" in
-    done) echo "  $(mark '✅' '[x]') $(paint 32 'Stage 2  First tests       test account in .env -> next: test-planner')" ;;
+    done) echo "  $(mark '✅' '[x]') $(paint 32 'Stage 2  First tests       test account in .env -> next: configure login')" ;;
     incomplete) echo "  $(mark '❌' '[!]') $(paint 31 'Stage 2  First tests       incomplete -> fill in .env, or run: npm run onboard')" ;;
     *) echo "  $(mark '⏭️' '[-]') $(paint 33 'Stage 2  First tests       skipped -> run: npm run onboard')" ;;
   esac

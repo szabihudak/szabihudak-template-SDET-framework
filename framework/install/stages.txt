@@ -3,6 +3,6 @@
   |  Framework setup          | ---> |  First tests              |
   |                           |      |                           |
   |  - project & modules      |      |  - test account (.env)    |
-  |  - install & browsers     |      |  - next: test-planner     |
+  |  - install & browsers     |      |  - next: configure login  |
   |  - doctor check           |      |  - skip? npm run onboard  |
   +---------------------------+      +---------------------------+

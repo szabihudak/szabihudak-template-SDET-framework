@@ -23,9 +23,9 @@ framework/     template-owned; replaced as a whole on a template update
   core/        the framework, imported as @framework/...
   templates/   golden templates and their catalogue (index.json)
   tools/       setup, doctor, onboard, ci-plan, sync-ci-secrets, lint, template checks
-  prompts/     planner, builder and validator tasks for the Copilot agents
   docs/        architecture, testing standards, AI workflow, ADRs
-  setup/       starter files, Copilot agent files, self-test (template only)
+  setup/       starter files, self-test (template only)
+examples/      optional Copilot agents to copy into a project (template only)
 src/           project-owned application layer, imported as @app/...
 tests/         project-owned specs
 config/        project-owned configuration and approved examples
@@ -135,7 +135,7 @@ Enforced by review: test intent, golden-template choice, realistic mocks, no inv
 
 ## AI-Assisted Engineering
 
-The framework has no AI provider integration (ADR-007). Generated projects use four GitHub Copilot agents (ADR-009): **test-planner** creates a canonical JSON plan and validated generated Markdown view, which its subagent **test-plan-reviewer** reviews before human approval; **test-builder** implements the approved scope, runs the technical gates and has its subagent **test-validator** review the implementation against the plan. The two reviews, `test-plans/<feature>/review.md` and `validation.md`, are bound to the plan hash and checked by `npm run qa:pipeline`; the human approves the plan and accepts the result. Plans use requirements mode when expectations are supplied, otherwise exploratory mode produces explicitly labeled characterization cases. Their tasks are in `framework/prompts/`, and every agent follows `AGENTS.md`. Repository rules decide structure; contract and runtime discovery provide application evidence. ADR-008 records the approach and the validation behind it; ADR-009 records the Copilot agents.
+The framework has no AI provider integration (ADR-007) and setup installs no AI agents (ADR-010). Every project gets `AGENTS.md`, `.github/copilot-instructions.md`, which makes GitHub Copilot load it, and `.vscode/mcp.json` with the Playwright and OpenAPI MCP servers it needs. Any AI tool follows `AGENTS.md`; the deterministic gates (`lint:architecture`, `qa:templates:check`, typecheck, the Playwright tests) and CI decide whether a change is accepted, whoever wrote it. Repository rules decide structure; contract and runtime discovery provide application evidence. Optional planner and builder agents for GitHub Copilot are in `examples/copilot-agents/`. ADR-008 records the approach and the validation behind it; ADR-010 records why agents are left to each project.
 
 ## Known Gaps
 

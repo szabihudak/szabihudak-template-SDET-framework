@@ -4,7 +4,7 @@
 
 Accepted
 
-Amended by ADR-009: setup no longer asks for an AI tool; every project gets the GitHub Copilot agents test-planner, test-builder and test-validator, whose tasks are in `framework/prompts/`.
+Amended by ADR-009 (setup no longer asks for an AI tool) and ADR-010 (setup installs no AI agents; optional examples in `examples/copilot-agents/`).
 
 ---
 
@@ -79,7 +79,6 @@ framework/       template-owned; replaced as a whole on a template update
   core/          the framework itself, imported as @framework/...
   templates/     golden templates and their catalogue (index.json)
   tools/         doctor, lint, ci-plan, sync-ci-secrets
-  prompts/       planner, builder and validator tasks for the Copilot agents (ADR-009)
   docs/          standards, architecture, ADRs
 src/             project-owned application layer, imported as @app/...
 tests/           project-owned specs
