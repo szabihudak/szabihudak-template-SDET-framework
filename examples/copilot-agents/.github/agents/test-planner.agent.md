@@ -42,8 +42,8 @@ Ask for whatever is missing.
 3. **Ask early.** When a case needs a fact only the user knows (an expected value, a requirement, an account), ask at once with a suggested answer.
 4. **Design the cases.**
    - Happy path, business rules, equivalence classes and boundary value analysis (BVA) cases, invalid and missing input, and unauthenticated or unauthorized access where they apply. Every expected result names its source. If one of these categories does not apply, explain why.
-   - all the test must contain the following information: ID, Level, Case, Expected result,Test Data, Priority, Regression (Yes/No) and Source.
-5. **Choose the files.** For each file, decide reuse, extend or create, and name the golden example or template (AGENTS.md, Read Before Changing Code). If login or roles are not configured yet, include the files that configure them.
+   - all the test must contain the following information: ID, Level, Case, Expected result, Test data, Priority, Regression (Yes/No) and Source.
+5. **Choose the files.** List every layer the chosen spec template uses, directly or through its fixtures (schema, API client, factory, Page or Component Object, mock, fixture registration). For each, decide reuse, extend, create or not needed, give the reason for not needed, and name the golden example or template (AGENTS.md, Read Before Changing Code). If login or roles are not configured yet, include the files that configure them.
 6. **Write the plan** to `test-plans/<feature>.md` in the Output format. If the file exists, extend it and keep its case IDs.
 
 ## Constraints
@@ -62,15 +62,15 @@ Environment: <key> · Role: <role> · Test type: <API|UI|both>
 
 ## Cases
 
-| ID | Level | Case | Expected result | Test Data | Priority | Regression (Yes/No) | Source |
-| -------------- | ----- | ------- | -------------------- | --------- | -------- | ------------------ |
-| T001_Login_API | API | <title> | <observable outcome> | <requirement, contract, observed, UNVERIFIED> | <priority> | <Yes/No> | <source> |
+| ID             | Level | Case    | Expected result      | Test data                    | Priority          | Regression | Source                                        |
+| -------------- | ----- | ------- | -------------------- | ---------------------------- | ----------------- | ---------- | --------------------------------------------- |
+| T001_Login_API | API   | <title> | <observable outcome> | <data the test creates/uses> | <High/Medium/Low> | <Yes/No>   | <requirement, contract, observed, UNVERIFIED> |
 
 ## Files
 
-| Path   | Reuse, extend or create | Golden example or template |
-| ------ | ----------------------- | -------------------------- |
-| <path> | <decision>              | <id>                       |
+| Layer   | Path            | Decision                                      | Golden example or template |
+| ------- | --------------- | --------------------------------------------- | -------------------------- |
+| <layer> | <path, or none> | <reuse, extend, create or not needed: reason> | <id>                       |
 
 ## Open questions
 
