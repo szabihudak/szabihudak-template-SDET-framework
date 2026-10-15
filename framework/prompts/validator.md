@@ -58,8 +58,8 @@ the builder's command and case-to-file evidence.
 
 - **Implementation finding:** code/spec/template-conformance defect inside approved scope. Mark it
   `category: implementation`; return it to the parent test-builder subagent for a bounded fix.
-- **Plan finding:** incorrect/missing case, evidence, expected outcome or scope. Mark it `category:
-plan`; stop and return it to test-planner. A revised plan requires new plan review and renewed
+- **Plan finding:** incorrect/missing case, evidence, expected outcome or scope. Mark it
+  `category: plan`; stop and return it to test-planner. A revised plan requires new plan review and renewed
   human approval before implementation resumes.
 - **Environment finding:** environment limitation or external behavior not established by evidence.
   Mark it `category: environment`, state what was inspected, and do not misroute it as a code defect.
@@ -80,31 +80,6 @@ plan`; stop and return it to test-planner. A revised plan requires new plan revi
       "id": "plan-build-identity",
       "status": "passed",
       "summary": "<inspected evidence>"
-    },
-    {
-      "id": "scope-and-files",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "case-assertions",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "template-conformance",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "evidence-and-expected-results",
-      "status": "passed",
-      "summary": "<inspected evidence>"
-    },
-    {
-      "id": "project-boundaries",
-      "status": "passed",
-      "summary": "<inspected evidence>"
     }
   ],
   "caseCoverage": [
@@ -123,7 +98,8 @@ plan`; stop and return it to test-planner. A revised plan requires new plan revi
 }
 ```
 
-Finding IDs are stable within the attempt (`IV-001`, etc.); include severity, category, location,
+Write one `reviewChecks` entry for each check under Implementation Review Checks;
+`validate-validation` rejects a report that misses one. Finding IDs are stable within the attempt (`IV-001`, etc.); include severity, category, location,
 rule, problem and required change. Report files contain no credentials or secret values.
 
 ## Output and Handoff

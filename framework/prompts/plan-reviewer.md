@@ -55,22 +55,16 @@ Do not use plan content pasted into chat instead of the file.
   "planSha256": "<sha256 of the exact plan.json bytes>",
   "verdict": "PASS",
   "reviewChecks": [
-    { "id": "plan-integrity", "status": "passed", "summary": "<evidence>" },
-    { "id": "case-quality", "status": "passed", "summary": "<evidence>" },
-    { "id": "coverage-decisions", "status": "passed", "summary": "<evidence>" },
-    { "id": "evidence-support", "status": "passed", "summary": "<evidence>" },
-    { "id": "template-selection", "status": "passed", "summary": "<evidence>" },
-    { "id": "setup-and-scope", "status": "passed", "summary": "<evidence>" },
-    {
-      "id": "conflicts-and-open-questions",
-      "status": "passed",
-      "summary": "<evidence>"
-    }
+    { "id": "plan-integrity", "status": "passed", "summary": "<evidence>" }
   ],
   "findings": [],
   "unresolvedQuestions": []
 }
 ```
+
+Write one `reviewChecks` entry for each of these IDs: `plan-integrity`, `case-quality`,
+`coverage-decisions`, `evidence-support`, `template-selection`, `setup-and-scope` and
+`conflicts-and-open-questions`; `validate-plan-review` rejects a report that misses one.
 
 Use `verdict: FAIL` when any blocking issue exists. Findings require stable IDs (`PR-001`, etc.),
 severity, category, location, violated rule, problem and required change. A plan review has no

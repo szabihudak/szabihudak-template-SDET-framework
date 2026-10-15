@@ -51,12 +51,10 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
 
    If requirements are absent, continue in exploratory mode; do not block solely because there is no
    requirements document. Ask one message with one line per ambiguous requirement and a suggested
-   default. Record conflicts between requirements, contract and runtime behavior as discrepancies or
-   open questions; never invent a resolution. Before interactive calls or form submissions, verify
-   the selected environment has `allow.interactiveDiscovery: true`; otherwise remain read-only and
-   mark behavior not observed. Use only scenario-relevant, non-destructive interactions and test-owned
-   data. Never expose credentials. If the test account is missing, ask the user to run
-   `npm run onboard`; if they defer it, continue and mark dependent behavior unverified.
+   default. Record conflicts between requirements, contract and runtime behavior in `openQuestions`;
+   never invent a resolution. Without `allow.interactiveDiscovery: true`, stay read-only and mark
+   behavior not observed. If the test account is missing, ask the user to run `npm run onboard`; if
+   they defer it, continue and mark dependent behavior unverified.
 
 3. **Find an existing plan before designing cases.** Search `test-plans/**/plan.json` and compare
    the feature, scenario, and component area. If one plan covers the same area, extend it; do not
@@ -74,16 +72,15 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
    `openQuestions`, not in executable cases. Assess every category below; use evidence-based N/A
    reasons where a category does not apply.
 
-   | Coverage category         | Consider                                                                                                                                        |
-   | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `happyPath`               | Primary successful behavior                                                                                                                     |
-   | `businessRules`           | Relevant rules, decisions, state transitions and invariants                                                                                     |
-   | `equivalencePartitions`   | Meaningful input classes; name the partitions tested                                                                                            |
-   | `boundaryValues`          | Meaningful limits; name the boundary values tested                                                                                              |
-   | `errorHandling`           | Failures supported by the contract or observed application behavior                                                                             |
-   | `emptyOmittedMissingData` | Empty, omitted and missing values; distinguish omitted required API fields from empty values; include `null` only when relevant to the contract |
-   | `unauthenticatedAccess`   | Protected operation and established unauthenticated behavior                                                                                    |
-   | `unauthorizedAccess`      | Established role or authorization behavior for the protected operation                                                                          |
+   - `happyPath`: primary successful behavior.
+   - `businessRules`: relevant rules, decisions, state transitions and invariants.
+   - `equivalencePartitions`: meaningful input classes; name the partitions tested.
+   - `boundaryValues`: meaningful limits; name the boundary values tested.
+   - `errorHandling`: failures supported by the contract or observed application behavior.
+   - `emptyOmittedMissingData`: empty, omitted and missing values; distinguish omitted required API
+     fields from empty values; include `null` only when relevant to the contract.
+   - `unauthenticatedAccess`: protected operation and established unauthenticated behavior.
+   - `unauthorizedAccess`: established role or authorization behavior for the protected operation.
 
    Give every case a plan-wide unique ID in the form `T<sequence>_<ComponentName>_<level>`, for
    example `T001_Login_API` or `T002_Login_E2E`. Use `API` for API cases and `E2E` for browser UI
@@ -103,26 +100,21 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
 
 6. **Plan setup changes.** Include authentication or other setup changes only when the supplied
    scenario requires them. Otherwise keep current setup as context and report missing prerequisites;
-   do not switch planning modes.
+   do not switch planning modes. List every file a setup change touches in `files`, such as
+   `config/framework.config.ts`, `.env.example` or `src/fixtures/test-fixtures.ts`: the builder may
+   change only listed files.
 
 7. **Write the plan.** Create or revise `test-plans/<feature-slug>/plan.json` as pretty-printed,
    strict JSON (no comments, trailing commas, Markdown fences or surrounding prose). JSON is
    canonical. Preserve the feature slug and unchanged case IDs. Never hand-edit the companion
    `plan.md`; it is generated from JSON.
 
-8. **Validate, self-repair and render.** After every creation or modification of `plan.json`,
-   immediately run `npm run qa:plan -- refresh test-plans/<feature-slug>/plan.json`. It validates
-   JSON and writes or refreshes `plan.md` only after every check passes. Treat the pair as one
-   deliverable and present/commit both together. Never edit `plan.md` directly. If validation fails,
-   repair JSON and rerun `refresh`; the previous Markdown remains untouched until JSON passes. Do
-   not regenerate the view when JSON has not changed. If the command is unavailable, do not claim a
-   validated pair; report the tooling gap and stop before CP1. CI uses read-only `check` commands
-   and must fail on a missing or stale Markdown view; it never silently regenerates it.
-
-   On any parse, manual-check or linter failure, diagnose and repair the plan yourself; do not send
-   a draft to the builder or ask the user to fix a correctable plan error. Rerun the failed check
-   after each repair, for at most three repair-and-recheck attempts. If it still fails, leave the
-   artifact in `draft`, report remaining errors and attempts, and stop before CP1.
+8. **Validate, self-repair and render.** After every change to `plan.json`, run
+   `npm run qa:plan -- refresh test-plans/<feature-slug>/plan.json`. It validates the JSON and only
+   then writes `plan.md`; present and commit both files together. On a failure, repair the JSON
+   yourself and rerun `refresh`, for at most three attempts; do not send a draft to the builder or
+   ask the user to fix a correctable error. If it still fails, or the command is unavailable, leave
+   the plan in `draft`, report the remaining errors and stop before CP1.
 
 9. **Request the plan review.** Once the plan linter passes, invoke `test-plan-reviewer` as a
    subagent with the exact plan path. It writes `pipeline-runs/<feature>/<plan-hash>/plan-review.json`;
@@ -145,7 +137,6 @@ the canonical JSON plan and its generated Markdown view. The rules in AGENTS.md 
   `.env` and `.env.example`, apart from `TEST_ENV`.
 - Never invent provider behavior: every endpoint, field, status code and page element comes from a
   source identified in Discover. Mark everything else UNVERIFIED.
-- Do not propose an abstraction for hypothetical reuse or symmetry; follow AGENTS.md.
 
 ## Plan JSON Contract
 
@@ -190,7 +181,7 @@ produces characterization cases based on observed behavior or the API contract.
       "project": "<configured Playwright project>",
       "basis": "<requirement|providerContract|observedBehavior>",
       "techniques": ["<design technique>"],
-      "preconditions": ["<required state, or none>"],
+      "preconditions": ["<required state>"],
       "steps": ["<action>"],
       "expectedResult": "<observable outcome>",
       "testData": {
@@ -226,64 +217,50 @@ produces characterization cases based on observed behavior or the API contract.
       "reason": "<why this file is in scope>"
     }
   ],
-  "openQuestions": ["<question with suggested default, or none>"]
+  "openQuestions": ["<question with suggested default>"]
 }
 ```
 
 Contract rules:
 
-- Use `verified: false` for unverified discovery and identify it as `UNVERIFIED` in `finding`.
-- Include a discovery entry for every fact that affects a case or setup change; reference it from
-  `evidenceIds`. Valid `sourceType` values: `requirements`, `repository`, `provider-contract`,
-  `running-application`.
-- In `requirements` mode, every case must use `basis: requirement` and cite verified requirement
-  evidence. In `exploratory` mode, use `basis: providerContract` or `basis: observedBehavior` and
-  cite matching verified evidence. Exploratory cases characterize behavior; they do not claim it is
-  the intended business outcome.
-- Never base a case solely on unverified evidence. Record assumptions as open questions and
-  requirement/contract/runtime conflicts as discrepancies; do not resolve them by guessing.
-- Include every required coverage category exactly once. `covered` requires one or more existing
-  `caseIds` and `reason: null`. `notApplicable` requires an empty `caseIds` array and a specific,
-  evidence-based `reason`.
-- Case IDs must match `T<3-or-more-digits>_<PascalCaseComponent>_<API|E2E>` (for example
-  `T001_Login_API`, `T002_Login_E2E`). The numeric sequence is unique across the plan, and the ID
-  suffix must match `level` (`API` → `API`, `UI` → `E2E`). Preserve existing IDs across revisions;
-  do not renumber surviving cases or recycle sequence numbers. List each case ID in every coverage
-  category it supports.
-- Every case must have at least one design technique and supporting evidence IDs, unless its
-  expected behavior is explicitly marked UNVERIFIED and excluded from approved scope.
-- `setupChanges`, `outOfScope` and `openQuestions` are arrays; use empty arrays when there are none.
-- Keep `status` as `draft`. Approval is a human decision in the checkpoint, not a planner assertion.
+`qa:plan` checks the structure: required fields and values, the case ID format and uniqueness,
+every reference, every coverage category exactly once, and verified evidence for every case. Fix
+what it reports. These rules it cannot check:
 
-## Chat Response
-
-After the plan checker and plan reviewer pass and both artifacts are current, respond with a concise
-summary only:
-
-- JSON and generated Markdown paths, feature slug and planning mode.
-- Case IDs and count, grouped by level.
-- Coverage categories marked not applicable, with brief reasons.
-- Plan linter result, plan-review report path/verdict, and confirmation that Markdown was generated
-  from the valid JSON.
-- Any unresolved questions or UNVERIFIED evidence.
+- Use `verified: false` for unverified discovery and write `UNVERIFIED` in its `finding`.
+- Add a discovery entry for every fact a case or setup change relies on, and cite it in
+  `evidenceIds`.
+- In `requirements` mode, every case uses `basis: requirement` and cites verified requirements
+  evidence. In `exploratory` mode, cases use `basis: providerContract` or `basis: observedBehavior`
+  with matching verified evidence; they characterize behavior and do not claim it is intended.
+- A case cites only verified evidence. Put assumptions, unverified behavior and conflicts between
+  requirements, contract and runtime in `openQuestions`, each with a suggested default; never
+  resolve them by guessing.
+- A `notApplicable` coverage category needs a specific, evidence-based reason.
+- When there are none, `setupChanges`, `outOfScope` and `openQuestions` are empty arrays, never
+  `["none"]`.
+- Keep `status` as `draft`. Approval is a human decision at CP1, not a planner assertion.
 
 ## Checkpoint CP1
 
-End with this block, filled in:
+After the plan checker and the plan reviewer pass, respond with only this block, filled in:
 
 ```markdown
 ## Checkpoint CP1: Approved scope
 
 - Feature: <kebab-case-slug>
+- Mode: <requirements|exploratory>
 - Plan: `test-plans/<feature-slug>/plan.json`
 - Human-readable view: `test-plans/<feature-slug>/plan.md`
 - Plan SHA-256: <plan-hash from `npm run qa:pipeline -- metadata <plan-path>`>
 - Plan-review report: `pipeline-runs/<feature-slug>/<plan-hash>/plan-review.json`
 - Plan-review verdict: PASS
 - Decision needed: approve this plan artifact, or say what to change
-- Evidence: <verified sources, UNVERIFIED items, and plan-check result>
+- Evidence: <verified sources and plan-check result>
 - Files: <exact list from plan.json>
-- Tests: <exact list of case IDs from plan.json>
+- Tests: <exact case IDs from plan.json, grouped by level>
+- Not applicable: <coverage categories and brief reasons, or none>
+- Open questions: <unresolved questions and UNVERIFIED items, or none>
 - On approve: **Build the approved proposal** → test-builder
 - On reject: tell me what to change; I revise this plan
 ```

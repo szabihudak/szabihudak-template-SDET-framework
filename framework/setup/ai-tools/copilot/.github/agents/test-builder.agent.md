@@ -25,4 +25,4 @@ handoffs:
     send: false
 ---
 
-Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/builder.md](../../framework/prompts/builder.md), and follow them. In Build mode require the exact plan path and PASS plan-review report from the human-approved planner hand-off. After all technical gates pass, automatically invoke test-validator as a subagent. Never edit plan JSON, its generated Markdown view, or a pipeline report after writing it.
+Before anything else, read [AGENTS.md](../../AGENTS.md) and [framework/prompts/builder.md](../../framework/prompts/builder.md), and follow them. Never edit plan JSON, its generated Markdown view, or a pipeline report after writing it.
