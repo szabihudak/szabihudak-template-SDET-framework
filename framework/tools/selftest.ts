@@ -446,6 +446,13 @@ test.describe("Conformance self-test API", () => {
       ),
     },
     { rule: "similar-tests-as-scenarios", source: similarTests },
+    {
+      rule: "no-partial-success-comparison",
+      source: spec.replace(
+        "expect(body.title).toBe(itemData.title);",
+        "expect(body).toMatchObject({ title: itemData.title });",
+      ),
+    },
   ];
   const created = [
     path.join(project, "src/data"),

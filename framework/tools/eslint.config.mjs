@@ -354,6 +354,7 @@ export default tseslint.config(
     rules: {
       "architecture/api-field-coverage": "error",
       "architecture/api-tests-assert-business-fields": "error",
+      "architecture/no-partial-success-comparison": "error",
     },
   },
   {

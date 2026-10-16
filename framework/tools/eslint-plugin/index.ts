@@ -3,6 +3,7 @@ import apiTestsAssertBusinessFields from "./rules/api-tests-assert-business-fiel
 import negativeResponseFields from "./rules/negative-response-fields.ts";
 import noBooleanWrappedAssertions from "./rules/no-boolean-wrapped-assertions.ts";
 import noInlinePayloadToApiClient from "./rules/no-inline-payload-to-api-client.ts";
+import noPartialSuccessComparison from "./rules/no-partial-success-comparison.ts";
 import noSkippedTests from "./rules/no-skipped-tests.ts";
 import noSuccessSchemaOnNegativeResponse from "./rules/no-success-schema-on-negative-response.ts";
 import planCaseSteps from "./rules/plan-case-steps.ts";
@@ -29,6 +30,7 @@ export default {
     "negative-response-fields": negativeResponseFields,
     "no-boolean-wrapped-assertions": noBooleanWrappedAssertions,
     "no-inline-payload-to-api-client": noInlinePayloadToApiClient,
+    "no-partial-success-comparison": noPartialSuccessComparison,
     "no-skipped-tests": noSkippedTests,
     "no-success-schema-on-negative-response": noSuccessSchemaOnNegativeResponse,
     "parameterized-sql": parameterizedSql,

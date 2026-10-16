@@ -48,6 +48,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
   - generated fields (ids, timestamps) by format, declared in the schema where the contract defines it (for example `format: "uuid"`, `format: "date-time"`), and by relations the contract or an observed response establishes (such as the same id on a later read);
   - a field whose value the contract does not define is covered by its schema type; do not invent an expected value.
 - A field left unasserted on purpose is listed above the `test.describe` with its reason, for example `// unasserted: position (the API contract does not define its value on create)`. A nested field is listed by its path (`user.id`). `npm run lint:architecture` checks that every schema field, including those of nested objects, is asserted (directly, or through an enclosing object compared with `toEqual` or `toStrictEqual`), has a format, or is listed this way.
+- Compare a successful body or a nested object as a whole with `toEqual` or `toStrictEqual`, not with `expect.objectContaining` or `toMatchObject`, which let missing assertions and unexpected values pass. A partial comparison says why on the line above it: `// partial: <reason>`. `npm run lint:architecture` reports a partial comparison of a validated body without that reason.
 - The main success test of an operation covers every field this way; focused scenario tests (boundaries, single-field updates) assert the fields the scenario is about.
 - A helper that only one spec needs stays in that spec and may assert, like `getCurrentUser` in the `api-spec` template. A helper that several specs need becomes a fixture or a client setup helper.
 - A test that expects an error status follows the [Negative API Test Standard](#negative-api-test-standard).
@@ -64,7 +65,7 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 ## API Client Standard
 
-- Add a method to the client that owns the domain, following its request construction.
+- Add a method to the client that owns the domain, following its request construction. A client owns one domain, named after it (`TaskApiClient`); an operation of another domain goes to that domain's client, created if it does not exist, never to the nearest existing one.
 - Keep raw response methods wherever tests need control over the status and negative behavior. Clients contain no assertions.
 - Setup helpers (such as `createTaskForUser`) may validate and throw, because successful setup is their contract.
 - Do not introduce a generic base client until real duplication demands one.
@@ -86,7 +87,8 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 ## Schema Standard
 
 - A TypeBox schema is the single source of a provider contract. Derive the type with `Static<typeof schema>`; never keep a separate interface for the same contract.
-- Model the observed provider behavior: required and optional fields, nullable values, formats, enums and server-generated defaults.
+- Model the provider behavior the contract defines: required and optional fields, nullable values, formats, enums and server-generated defaults. Where the contract is silent, model the observed response and mark the case `observed` in its plan. When a response contradicts the contract, the schema keeps the contract and the difference is reported (AGENTS.md, Hard Rules).
+- One schema per request body and per response body of an operation, named after it (`LoginCredentialsSchema`, `AuthenticationSchema`). Two operations share a schema only when the contract gives them the same component; never widen a schema to fit another operation's body.
 - Every `Type.Object`, including nested ones, declares `{ additionalProperties: false }`, so a response with unexpected fields fails validation instead of passing silently.
 
 ## Constants Standard
