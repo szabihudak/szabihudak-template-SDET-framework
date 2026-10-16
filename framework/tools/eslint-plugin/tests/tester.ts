@@ -1,4 +1,5 @@
 import { describe, it } from "node:test";
+import markdown from "@eslint/markdown";
 import { RuleTester } from "eslint";
 import type { Rule } from "eslint";
 import tseslint from "typescript-eslint";
@@ -16,6 +17,16 @@ export function run(name: string, rule: unknown, cases: Cases): void {
   tester.run(name, rule as Rule.RuleModule, cases);
 }
 
+// The plan rules read test-plans/*.md as the config does.
+const planTester = new RuleTester({
+  plugins: { markdown },
+  language: "markdown/gfm",
+});
+
+export function runPlan(name: string, rule: unknown, cases: Cases): void {
+  planTester.run(name, rule as Rule.RuleModule, cases);
+}
+
 // A spec with one describe around the given tests.
 export const spec = (tests: string, imports = "") =>
   `import { test, expect } from "@app/fixtures/test-fixtures";
@@ -23,4 +34,44 @@ ${imports}
 test.describe("Rule self-test", () => {
 ${tests}
 });
+`;
+
+// A plan that follows the format; the plan rule tests change one part of it.
+export const PLAN = `# Login test plan
+
+## Risks
+
+| ID | Risk | Impact | Likelihood | Level |
+| --- | --- | --- | --- | --- |
+| R1 | Valid users cannot log in | High | Medium | High |
+| R2 | Login accepts invalid input | Medium | Medium | Medium |
+
+## Cases
+
+| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T001_Login_API | API | logs in | happy path | HTTP 200 | R1 | High | Yes | contract |
+| T002_Login_API | API | rejects a short password | boundary value analysis | HTTP 400 | R2 | Medium | Yes | contract |
+
+## Coverage
+
+| Category | Cases or reason |
+| --- | --- |
+| happy path | T001_Login_API |
+| business rules | not applicable: the contract defines no rule beyond input validation |
+| equivalence classes and boundary values | T002_Login_API |
+| invalid and missing input | T002_Login_API |
+| unauthenticated or unauthorized access | not applicable: login is a public endpoint |
+| exploratory | charter: 30 minutes on error messages |
+
+## Steps
+
+### T001_Login_API
+
+1. Log in with the user role.
+2. Check the status and the schema.
+
+### T002_Login_API
+
+1. Log in with a five-character password.
 `;
