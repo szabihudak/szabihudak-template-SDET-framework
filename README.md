@@ -129,7 +129,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 | `npm run doctor`               | Check configuration, reachability, credentials and login                    |
 | `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)            |
 | `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows               |
-| `npm run lint:architecture`    | Enforce layer and import rules                                              |
+| `npm run lint:architecture`    | ESLint architecture rules and test plan format, then plan ↔ spec checks     |
 | `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                             |
 | `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json` |
 | `npm run qa:templates:extract` | Re-extract templates after an intended canonical change                     |
@@ -143,6 +143,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/TESTING_STANDARDS.md](framework/docs/TESTING_STANDARDS.md): implementation standards per layer and test type
 - [framework/docs/adr/ADR-008-ai-assisted-engineering.md](framework/docs/adr/ADR-008-ai-assisted-engineering.md): how AI agents are used: review first, evidence by source
 - [framework/docs/adr/ADR-010-agents-outside-the-template.md](framework/docs/adr/ADR-010-agents-outside-the-template.md): why setup installs no agents, and the optional examples
+- [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 
 ## Reference Implementation

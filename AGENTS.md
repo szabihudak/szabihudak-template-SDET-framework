@@ -111,7 +111,7 @@ npm run qa:templates:check
 npx playwright test --project=<affected project>
 ```
 
-Run the affected tests against the target environment. Do not claim a command passed unless it ran and passed. If it could not run, say so.
+`npm run lint:architecture` runs ESLint (the rules in `framework/tools/eslint.config.mjs` and `framework/tools/eslint-plugin/`, including the test plan format), then the plan-to-spec checks; the VS Code ESLint extension shows the same problems while you edit. Run the affected tests against the target environment. Do not claim a command passed unless it ran and passed. If it could not run, say so.
 
 ## Golden Template Changes
 
