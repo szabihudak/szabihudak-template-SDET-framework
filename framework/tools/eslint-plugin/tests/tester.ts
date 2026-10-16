@@ -48,30 +48,19 @@ export const PLAN = `# Login test plan
 
 ## Cases
 
-| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T001_Login_API | API | logs in | happy path | HTTP 200 | R1 | High | Yes | contract |
-| T002_Login_API | API | rejects a short password | boundary value analysis | HTTP 400 | R2 | Medium | Yes | contract |
+| ID | Level | Case | Technique | Type | Steps | Expected result | Risk | Priority | Regression | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T001_Login_API | API | logs in | happy path | Positive | 1. Log in with the user role.<br>2. Check the status and the schema. | HTTP 200 | R1 | High | Yes | contract |
+| T002_Login_API | API | rejects a short password | boundary value analysis | Negative | 1. Log in with a five-character password.<br>2. Check the status. | HTTP 400 | R2 | Medium | Yes | contract |
 
 ## Coverage
 
 | Category | Cases or reason |
 | --- | --- |
 | happy path | T001_Login_API |
-| business rules | not applicable: the contract defines no rule beyond input validation |
-| equivalence classes and boundary values | T002_Login_API |
-| invalid and missing input | T002_Login_API |
-| unauthenticated or unauthorized access | not applicable: login is a public endpoint |
+| boundary values | T002_Login_API |
+| equivalence classes | not applicable: the contract defines no input classes beyond the password length |
+| business flow | not applicable: the contract defines no rule beyond input validation |
+| error handling | not applicable: no unexpected input identified |
 | exploratory | charter: 30 minutes on error messages |
-
-## Steps
-
-### T001_Login_API
-
-1. Log in with the user role.
-2. Check the status and the schema.
-
-### T002_Login_API
-
-1. Log in with a five-character password.
 `;

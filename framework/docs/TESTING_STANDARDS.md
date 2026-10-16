@@ -8,12 +8,26 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 
 ## Test Design Standard
 
-- A test plan covers, for each behavior, the categories that apply: the happy path, business rules, equivalence classes and boundary values, invalid and missing input, and unauthenticated or unauthorized access. A category that does not apply is named with the reason.
-- A plan (`test-plans/<feature>.md`) has these sections besides Files and Open questions. `npm run lint:architecture` checks each of them on the Markdown syntax tree (`plan-*` rules); whether a technique fits a case and whether a risk is rated right is decided in review.
-  - **Risks:** `| ID | Risk | Impact | Likelihood | Level |`. Impact and Likelihood are High, Medium or Low; Level follows the matrix below. Every risk is covered by at least one case.
-  - **Cases:** at least `| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |`. Technique is exactly one of: happy path, equivalence partitioning, boundary value analysis, decision table, state transition, business rule, error guessing. Risk lists the risk IDs the case covers. Priority is the highest Level of those risks. Regression is Yes for a High or Medium risk and No for a Low one; a case that differs says why (`No: needs a fresh account per run`), for example because it is not deterministic.
-  - **Coverage:** `| Category | Cases or reason |`, one row for each category above and one for `exploratory`, with the case IDs that cover it or `not applicable: <reason>`. Exploratory testing is done by a person, not by a case: its row is `charter: <what, how long, which risk>` or `not applicable: <reason>`. Every case is in at least one category.
-  - **Steps:** `### <case ID>` for every case, followed by its numbered steps.
+- A test plan covers, for each behavior, the categories that apply: the happy path, boundary values, equivalence classes, business flows and error handling. Invalid and missing input and unauthenticated or unauthorized access are Negative cases in the category of their technique. A category that does not apply is named with the reason.
+- A plan (`test-plans/<feature>.md`) has these sections besides Files and Open questions. `npm run lint:architecture` checks each of them on the Markdown syntax tree (`plan-*` rules); whether a technique or a Type fits a case and whether a risk is rated right is decided in review.
+  - **Risks:** `| ID | Risk | Impact | Likelihood | Level |`. A risk is something that can go wrong in the behavior under test; a side effect of running the tests (such as accounts left in a shared environment) is an open question, not a risk. Impact and Likelihood are High, Medium or Low; Level follows the matrix below. Every risk is covered by at least one case.
+  - **Cases:** at least `| ID | Level | Case | Technique | Type | Steps | Expected result | Risk | Priority | Regression | Source |`.
+    - Technique is exactly one of the techniques in the table below; it places the case in its category.
+    - Type is `Positive` (the behavior succeeds) or `Negative` (it is rejected), as the category allows.
+    - Steps are numbered from 1 in the cell, at least two, separated by `<br>`: `1. Log in<br>2. Check the status`.
+    - Risk is exactly one risk ID; Priority is that risk's Level.
+    - Regression is `Yes` for a High or Medium risk and `No` for a Low one. A case that differs uses one of these reasons: `No: persistent data without cleanup`, `No: depends on unstable or external state`, `No: manual only`, `Yes: main path, cheap and stable`.
+    - Cases are ordered by category, then Positive before Negative, then Priority High, Medium, Low. A new plan numbers its IDs in that order; a case that is already implemented keeps its ID, and a new case takes the next free one.
+  - **Coverage:** `| Category | Cases or reason |`, one row for each category in the order below, with the cases its technique places there or `not applicable: <reason>`. Every case is in its own category's row and in no other. Exploratory testing is done by a person, not by a case: its row is `charter: <what, how long, which risk>` or `not applicable: <reason>`.
+
+  | Category            | Technique                                       | Type                 |
+  | ------------------- | ----------------------------------------------- | -------------------- |
+  | happy path          | happy path                                      | Positive             |
+  | boundary values     | boundary value analysis                         | Positive or Negative |
+  | equivalence classes | equivalence partitioning                        | Positive or Negative |
+  | business flow       | business rule, decision table, state transition | Positive or Negative |
+  | error handling      | error guessing                                  | Negative             |
+  | exploratory         | a charter, no case                              |                      |
 
   | Impact \ Likelihood | Low    | Medium | High   |
   | ------------------- | ------ | ------ | ------ |

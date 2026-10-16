@@ -156,36 +156,22 @@ function checkPlannedCaseTitleRules(project: string): void {
 
 ## Cases
 
-| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T001_CaseTitle_API | API | First API case | happy path | Returns expected result | R1 | High | Yes | requirement |
-| T002_CaseTitle_API | API | Second API case | equivalence partitioning | Returns expected result | R1 | High | Yes | requirement |
-| T003_CaseTitle_E2E | UI | Visible page case | happy path | Shows expected heading | R2 | Low | No | observed |
+| ID | Level | Case | Technique | Type | Steps | Expected result | Risk | Priority | Regression | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T001_CaseTitle_API | API | First API case | happy path | Positive | 1. Call the API.<br>2. Check the result. | Returns expected result | R1 | High | Yes | requirement |
+| T003_CaseTitle_E2E | UI | Visible page case | happy path | Positive | 1. Open the home page.<br>2. Check the heading. | Shows expected heading | R2 | Low | No | observed |
+| T002_CaseTitle_API | API | Second API case | equivalence partitioning | Positive | 1. Call the API with other data.<br>2. Check the result. | Returns expected result | R1 | High | Yes | requirement |
 
 ## Coverage
 
 | Category | Cases or reason |
 | --- | --- |
 | happy path | T001_CaseTitle_API, T003_CaseTitle_E2E |
-| business rules | not applicable: the self-test has no business rule |
-| equivalence classes and boundary values | T002_CaseTitle_API |
-| invalid and missing input | not applicable: the self-test sends no input |
-| unauthenticated or unauthorized access | not applicable: the self-test is public |
+| boundary values | not applicable: the self-test sends no bounded input |
+| equivalence classes | T002_CaseTitle_API |
+| business flow | not applicable: the self-test has no business rule |
+| error handling | not applicable: the self-test sends no unexpected input |
 | exploratory | not applicable: the self-test has nothing to explore |
-
-## Steps
-
-### T001_CaseTitle_API
-
-1. Call the API.
-
-### T002_CaseTitle_API
-
-1. Call the API with other data.
-
-### T003_CaseTitle_E2E
-
-1. Open the home page.
 
 ## Files
 
@@ -291,17 +277,18 @@ test.describe("Case title self-test UI", () => {
     );
 
     fs.writeFileSync(apiFile, apiSpec);
+    const caseRows = plan.split("\n").filter((line) => line.startsWith("| T"));
     const planVariants: [string, string, string, string][] = [
       [
         "two techniques",
-        "| happy path | Returns",
-        "| happy path, error guessing | Returns",
+        "| happy path | Positive | 1. Call the API.",
+        "| happy path, error guessing | Positive | 1. Call the API.",
         "plan-case-technique",
       ],
       [
-        "missing steps",
-        "### T003_CaseTitle_E2E\n\n1. Open the home page.\n",
-        "",
+        "one step",
+        "1. Open the home page.<br>2. Check the heading.",
+        "1. Open the home page.",
         "plan-case-steps",
       ],
       [
@@ -311,9 +298,21 @@ test.describe("Case title self-test UI", () => {
         "plan-coverage",
       ],
       [
+        "a Low case before a High one",
+        `${caseRows[0]}\n${caseRows[1]}`,
+        `${caseRows[1]}\n${caseRows[0]}`,
+        "plan-coverage",
+      ],
+      [
         "priority not from its risk",
         "| R1 | High | Yes | requirement |",
         "| R1 | Medium | Yes | requirement |",
+        "plan-risk-priority",
+      ],
+      [
+        "two risks",
+        "| R2 | Low | No | observed |",
+        "| R1, R2 | Low | No | observed |",
         "plan-risk-priority",
       ],
     ];

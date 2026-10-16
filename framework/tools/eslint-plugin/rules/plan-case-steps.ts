@@ -1,44 +1,57 @@
 import type { MarkdownRuleDefinition } from "@eslint/markdown";
 import { say } from "../ast.ts";
-import { cases, readPlan, SOURCE } from "../plan.ts";
+import { cases, readPlan, SOURCE, steps } from "../plan.ts";
 import type { MarkdownNode } from "../plan.ts";
 
 const ID = "plan-case-steps";
+const STEP = /^(\d+)\.\s+\S/;
 
-// Every planned case has its steps: "### <case ID>" under "## Steps" with a
-// numbered list. A Steps heading without a planned case is reported too.
+// Every planned case has at least two steps in its Steps cell, numbered from 1
+// and separated by <br>. A separate "## Steps" section is the old format.
 const rule: MarkdownRuleDefinition = {
   meta: {
     type: "problem",
     messages: {
-      missing: say(
+      noColumn: say(ID, "The Cases table needs a Steps column.", SOURCE),
+      steps: say(
         ID,
-        '{{id}} needs "### {{id}}" under "## Steps" with numbered steps.',
+        '{{id}} needs at least two steps in its Steps cell, numbered from 1: "1. <step><br>2. <step>".',
         SOURCE,
       ),
-      unknown: say(ID, "{{id}} is not a case in the Cases table.", SOURCE),
+      section: say(
+        ID,
+        '"## Steps" is replaced by the Steps column of the Cases table.',
+        SOURCE,
+      ),
     },
     schema: [],
   },
   create: (context) => ({
     root(node) {
       const plan = readPlan(node as unknown as MarkdownNode);
-      const planned = cases(plan);
+      const table = plan.tables.get("cases");
 
-      for (const { id, row } of planned) {
-        if (!plan.steps.get(id)?.items) {
-          context.report({
-            loc: (row.cell("id")?.node ?? row.node).position!,
-            messageId: "missing",
-            data: { id },
-          });
-        }
+      if (plan.stepsSection) {
+        context.report({
+          loc: plan.stepsSection.position!,
+          messageId: "section",
+        });
       }
-      for (const [id, { heading }] of plan.steps) {
-        if (!planned.some((item) => item.id === id)) {
+      if (!table) return;
+      if (!table.columns.includes("steps")) {
+        context.report({ loc: table.node.position!, messageId: "noColumn" });
+        return;
+      }
+      for (const { id, row } of cases(plan)) {
+        const cell = row.cell("steps");
+        const items = cell ? steps(cell) : [];
+        const numbered = items.every(
+          (item, index) => Number(STEP.exec(item)?.[1]) === index + 1,
+        );
+        if (items.length < 2 || !numbered) {
           context.report({
-            loc: heading.position!,
-            messageId: "unknown",
+            loc: (cell?.node ?? row.node).position!,
+            messageId: "steps",
             data: { id },
           });
         }

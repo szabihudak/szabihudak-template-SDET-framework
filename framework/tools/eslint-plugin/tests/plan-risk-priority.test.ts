@@ -6,7 +6,11 @@ runPlan("plan-risk-priority", rule, {
     PLAN,
     PLAN.replace(
       "| R2 | Medium | Yes |",
-      "| R2 | Medium | No: needs a fresh account per run |",
+      "| R2 | Medium | No: persistent data without cleanup |",
+    ),
+    PLAN.replace("| Medium | Medium | Medium |", "| Low | Low | Low |").replace(
+      "| R2 | Medium | Yes |",
+      "| R2 | Low | Yes: main path, cheap and stable |",
     ),
   ],
   invalid: [
@@ -31,6 +35,21 @@ runPlan("plan-risk-priority", rule, {
     {
       code: PLAN.replace("| R2 | Medium | Yes |", "| R2 | Medium | No |"),
       errors: [{ messageId: "regression" }],
+    },
+    {
+      code: PLAN.replace(
+        "| R2 | Medium | Yes |",
+        "| R2 | Medium | No: needs a fresh account per run |",
+      ),
+      errors: [{ messageId: "regression" }],
+    },
+    {
+      code: PLAN.replace("| R2 | Medium | Yes |", "| R2 | Medium | |"),
+      errors: [{ messageId: "regression" }],
+    },
+    {
+      code: PLAN.replace("| R2 | Medium | Yes |", "| R1, R2 | High | Yes |"),
+      errors: [{ messageId: "uncovered" }, { messageId: "risk" }],
     },
     {
       code: PLAN.replace("| R2 | Medium | Yes |", "| R9 | Medium | Yes |"),
