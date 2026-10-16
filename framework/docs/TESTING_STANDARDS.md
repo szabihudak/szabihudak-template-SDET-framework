@@ -9,6 +9,18 @@ The workflow, the validation commands and the hard rules are in `AGENTS.md`; the
 ## Test Design Standard
 
 - A test plan covers, for each behavior, the categories that apply: the happy path, business rules, equivalence classes and boundary values, invalid and missing input, and unauthenticated or unauthorized access. A category that does not apply is named with the reason.
+- A plan (`test-plans/<feature>.md`) has these sections besides Files and Open questions. `npm run lint:architecture` checks each of them on the Markdown syntax tree (`plan-*` rules); whether a technique fits a case and whether a risk is rated right is decided in review.
+  - **Risks:** `| ID | Risk | Impact | Likelihood | Level |`. Impact and Likelihood are High, Medium or Low; Level follows the matrix below. Every risk is covered by at least one case.
+  - **Cases:** at least `| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |`. Technique is exactly one of: happy path, equivalence partitioning, boundary value analysis, decision table, state transition, business rule, error guessing. Risk lists the risk IDs the case covers. Priority is the highest Level of those risks. Regression is Yes for a High or Medium risk and No for a Low one; a case that differs says why (`No: needs a fresh account per run`), for example because it is not deterministic.
+  - **Coverage:** `| Category | Cases or reason |`, one row for each category above and one for `exploratory`, with the case IDs that cover it or `not applicable: <reason>`. Exploratory testing is done by a person, not by a case: its row is `charter: <what, how long, which risk>` or `not applicable: <reason>`. Every case is in at least one category.
+  - **Steps:** `### <case ID>` for every case, followed by its numbered steps.
+
+  | Impact \ Likelihood | Low    | Medium | High   |
+  | ------------------- | ------ | ------ | ------ |
+  | High                | Medium | High   | High   |
+  | Medium              | Low    | Medium | High   |
+  | Low                 | Low    | Low    | Medium |
+
 - Cases with the same steps that differ only in their data and expected result are one scenario group, built from the `api-scenario-spec` template (see the [Negative API Test Standard](#negative-api-test-standard)).
 
 ## API Test Standard

@@ -147,13 +147,45 @@ function checkPlannedCaseTitleRules(project: string): void {
 
   const plan = `# Case title self-test
 
+## Risks
+
+| ID | Risk | Impact | Likelihood | Level |
+| --- | --- | --- | --- | --- |
+| R1 | The API returns a wrong result | High | Medium | High |
+| R2 | The page hides its heading | Low | Low | Low |
+
 ## Cases
 
-| ID | Level | Case | Expected result | Source |
-| --- | --- | --- | --- | --- |
-| T001_CaseTitle_API | API | First API case | Returns expected result | requirement |
-| T002_CaseTitle_API | API | Second API case | Returns expected result | requirement |
-| T003_CaseTitle_E2E | UI | Visible page case | Shows expected heading | observed |
+| ID | Level | Case | Technique | Expected result | Risk | Priority | Regression | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T001_CaseTitle_API | API | First API case | happy path | Returns expected result | R1 | High | Yes | requirement |
+| T002_CaseTitle_API | API | Second API case | equivalence partitioning | Returns expected result | R1 | High | Yes | requirement |
+| T003_CaseTitle_E2E | UI | Visible page case | happy path | Shows expected heading | R2 | Low | No | observed |
+
+## Coverage
+
+| Category | Cases or reason |
+| --- | --- |
+| happy path | T001_CaseTitle_API, T003_CaseTitle_E2E |
+| business rules | not applicable: the self-test has no business rule |
+| equivalence classes and boundary values | T002_CaseTitle_API |
+| invalid and missing input | not applicable: the self-test sends no input |
+| unauthenticated or unauthorized access | not applicable: the self-test is public |
+| exploratory | not applicable: the self-test has nothing to explore |
+
+## Steps
+
+### T001_CaseTitle_API
+
+1. Call the API.
+
+### T002_CaseTitle_API
+
+1. Call the API with other data.
+
+### T003_CaseTitle_E2E
+
+1. Open the home page.
 
 ## Files
 
@@ -257,6 +289,38 @@ test.describe("Case title self-test UI", () => {
       "missing descriptive suite title",
       "must use a descriptive test.describe suite title",
     );
+
+    fs.writeFileSync(apiFile, apiSpec);
+    const planVariants: [string, string, string, string][] = [
+      [
+        "two techniques",
+        "| happy path | Returns",
+        "| happy path, error guessing | Returns",
+        "plan-case-technique",
+      ],
+      [
+        "missing steps",
+        "### T003_CaseTitle_E2E\n\n1. Open the home page.\n",
+        "",
+        "plan-case-steps",
+      ],
+      [
+        "missing coverage category",
+        "| exploratory | not applicable: the self-test has nothing to explore |\n",
+        "",
+        "plan-coverage",
+      ],
+      [
+        "priority not from its risk",
+        "| R1 | High | Yes | requirement |",
+        "| R1 | Medium | Yes | requirement |",
+        "plan-risk-priority",
+      ],
+    ];
+    for (const [description, from, to, diagnostic] of planVariants) {
+      fs.writeFileSync(planFile, plan.replace(from, to));
+      expectLintFailure(`plan with ${description}`, diagnostic);
+    }
   } finally {
     for (const file of [planFile, apiFile, uiFile]) {
       fs.rmSync(file, { force: true });

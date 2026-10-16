@@ -1,11 +1,14 @@
+import markdown from "@eslint/markdown";
 import playwright from "eslint-plugin-playwright";
 import tseslint from "typescript-eslint";
 import architecture from "./eslint-plugin/index.ts";
 
 // Architecture rules from AGENTS.md and framework/docs/TESTING_STANDARDS.md that
 // ESLint checks on the syntax tree: standard rules configured here, and the
-// project's own rules in ./eslint-plugin/. The checks that need a written plan
-// or files other than source code are in framework/tools/architecture.ts, which
+// project's own rules in ./eslint-plugin/, which also check the format of the
+// test plans (test-plans/*.md) on their Markdown syntax tree. The checks that
+// compare a plan with its specs, or read files other than source code and
+// plans, are in framework/tools/architecture.ts, which
 // also fails when a section cited as "<file>#<heading anchor>" does not exist.
 
 // Starter and self-test files are checked as if they were already in their
@@ -359,5 +362,18 @@ export default tseslint.config(
       ...at("tests/smoke", "**/*.spec.ts"),
     ],
     rules: { "architecture/ui-tests-assert-the-page": "error" },
+  },
+
+  // Test plans: framework/docs/TESTING_STANDARDS.md#test-design-standard.
+  {
+    files: ["test-plans/**/*.md"],
+    plugins: { markdown, architecture },
+    language: "markdown/gfm",
+    rules: {
+      "architecture/plan-case-technique": "error",
+      "architecture/plan-case-steps": "error",
+      "architecture/plan-coverage": "error",
+      "architecture/plan-risk-priority": "error",
+    },
   },
 );
