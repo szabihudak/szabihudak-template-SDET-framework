@@ -48,6 +48,8 @@ const roleSchema = Type.Object(
 export const frameworkConfigSchema = Type.Object(
   {
     requirementsDoc: Type.Optional(Type.String({ minLength: 1 })),
+    // User journeys and UI acceptance criteria for UI/E2E test plans.
+    uiScenariosDoc: Type.Optional(Type.String({ minLength: 1 })),
     modules: Type.Object(
       {
         api: Type.Boolean(),

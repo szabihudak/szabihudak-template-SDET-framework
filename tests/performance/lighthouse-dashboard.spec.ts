@@ -2,7 +2,7 @@ import { LighthouseRunner } from "@framework/performance/lighthouse/LighthouseRu
 import { expectLighthousePolicy } from "@framework/performance/lighthouse/lighthousePolicy";
 import { attachLighthouseReport } from "@framework/performance/lighthouse/lighthouseReporter";
 import { test, expect } from "@app/fixtures/test-fixtures";
-import { getCurrentEnvironment } from "@framework/utils/env";
+import { requireUrl } from "@framework/utils/env";
 
 const AUTHENTICATED_LIGHTHOUSE_RUNS = 3;
 
@@ -11,7 +11,7 @@ test.describe("Authenticated dashboard performance", () => {
     tasksDashboardPage,
     createdTask,
   }, testInfo) => {
-    const { webBaseUrl } = getCurrentEnvironment();
+    const webBaseUrl = requireUrl("webBaseUrl");
     await tasksDashboardPage.goto();
     await expect(
       tasksDashboardPage.taskCardByTitle(createdTask.request.title),

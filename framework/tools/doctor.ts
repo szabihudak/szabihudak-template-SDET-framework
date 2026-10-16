@@ -49,10 +49,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // getCurrentEnvironment() already failed on a URL an enabled module needs;
+  // a URL left out because no module needs it has nothing to check.
   for (const [label, url] of [
     ["web", environment.webBaseUrl],
     ["API", environment.apiBaseUrl],
   ] as const) {
+    if (!url) continue;
     checks.push({
       name: `${label} base URL ${url} is reachable`,
       run: async () => {

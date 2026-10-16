@@ -1,6 +1,6 @@
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
-import { getCurrentEnvironment } from "@framework/utils/env";
+import { requireUrl } from "@framework/utils/env";
 import type { LoginCredentials } from "@app/api/schemas/LoginCredentialsSchema";
 import type { AuthenticatedUser, TestUser } from "@app/api/models/User";
 import { authenticationSchema } from "@app/api/schemas/AuthenticationSchema";
@@ -11,7 +11,7 @@ export class UserApiClient {
   constructor(private readonly request: APIRequestContext) {}
 
   async register(user: Partial<TestUser>): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.post(`${apiBaseUrl}/auth/register`, {
       data: {
@@ -21,7 +21,7 @@ export class UserApiClient {
   }
 
   async login(credentials: Partial<LoginCredentials>): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.post(`${apiBaseUrl}/auth/login`, {
       data: {
@@ -31,7 +31,7 @@ export class UserApiClient {
   }
 
   async getCurrentUser(accessToken?: string): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.get(`${apiBaseUrl}/auth/me`, {
       headers: accessToken

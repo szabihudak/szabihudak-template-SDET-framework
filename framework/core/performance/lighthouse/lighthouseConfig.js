@@ -14,6 +14,12 @@ if (!config.allow.performance) {
   );
 }
 
+if (!config.webBaseUrl) {
+  throw new Error(
+    `${environment} has no webBaseUrl in config/environments/environments.json.`,
+  );
+}
+
 module.exports = {
   ci: {
     collect: {

@@ -1,7 +1,7 @@
 import type { APIRequestContext, Browser, Page } from "@playwright/test";
 
 import { getFrameworkConfig } from "../config/frameworkConfig";
-import { getCurrentEnvironment } from "../utils/env";
+import { requireUrl } from "../utils/env";
 import type { Credentials } from "./credentials";
 
 function getBrowserAuth() {
@@ -22,7 +22,7 @@ export async function signInBrowserSession(
   credentials: Credentials,
 ): Promise<void> {
   const auth = getBrowserAuth();
-  const { webBaseUrl } = getCurrentEnvironment();
+  const webBaseUrl = requireUrl("webBaseUrl");
 
   const csrfResponse = await request.get(auth.csrfPath);
 
@@ -56,7 +56,7 @@ export async function openAuthenticatedPage(
   credentials: Credentials,
 ): Promise<Page> {
   const auth = getBrowserAuth();
-  const { webBaseUrl } = getCurrentEnvironment();
+  const webBaseUrl = requireUrl("webBaseUrl");
 
   const context = await browser.newContext({
     baseURL: webBaseUrl,

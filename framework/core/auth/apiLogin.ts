@@ -1,7 +1,7 @@
 import type { APIRequestContext } from "@playwright/test";
 
 import { getFrameworkConfig } from "../config/frameworkConfig";
-import { getCurrentEnvironment } from "../utils/env";
+import { requireUrl } from "../utils/env";
 import type { Credentials } from "./credentials";
 
 export async function getApiAccessToken(
@@ -16,7 +16,7 @@ export async function getApiAccessToken(
     );
   }
 
-  const { apiBaseUrl } = getCurrentEnvironment();
+  const apiBaseUrl = requireUrl("apiBaseUrl");
 
   const response = await request.post(`${apiBaseUrl}${auth.loginPath}`, {
     data: {

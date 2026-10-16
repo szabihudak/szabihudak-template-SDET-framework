@@ -1,6 +1,6 @@
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
-import { getCurrentEnvironment } from "@framework/utils/env";
+import { requireUrl } from "@framework/utils/env";
 import { logger } from "@framework/utils/logger";
 import type { TaskRequest } from "@app/api/schemas/TaskRequestSchema";
 import type { TaskUpdateRequest } from "@app/api/schemas/TaskUpdateRequestSchema";
@@ -17,7 +17,7 @@ export class TaskApiClient {
     task: Partial<TaskRequest>,
     accessToken: string,
   ): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.post(`${apiBaseUrl}/tasks`, {
       headers: {
@@ -34,7 +34,7 @@ export class TaskApiClient {
     task: TaskUpdateRequest,
     accessToken: string,
   ): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.put(`${apiBaseUrl}/tasks/${taskId}`, {
       headers: {
@@ -70,7 +70,7 @@ export class TaskApiClient {
   }
 
   async deleteTask(taskId: string, accessToken: string): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.delete(`${apiBaseUrl}/tasks/${taskId}`, {
       headers: {

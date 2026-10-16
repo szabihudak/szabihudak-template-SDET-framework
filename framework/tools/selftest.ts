@@ -554,11 +554,13 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
       scenario.interactiveDiscovery,
     `environments.json does not persist interactiveDiscovery=${scenario.interactiveDiscovery}`,
   );
-  if (scenario.requirementsDoc) {
-    assert(
-      config.includes(`requirementsDoc: "${scenario.requirementsDoc}"`),
-      `framework.config.ts does not persist requirementsDoc=${scenario.requirementsDoc}`,
-    );
+  for (const key of ["requirementsDoc", "uiScenariosDoc"] as const) {
+    if (scenario[key]) {
+      assert(
+        config.includes(`${key}: "${scenario[key]}"`),
+        `framework.config.ts does not persist ${key}=${scenario[key]}`,
+      );
+    }
   }
 
   // Folder skeleton for the enabled test types, without any spec yet.
@@ -756,6 +758,7 @@ type Scenario = {
   mcpServers: string[];
   interactiveDiscovery: boolean;
   requirementsDoc?: string;
+  uiScenariosDoc?: string;
   // Category scripts setup adds for the enabled modules and browsers, and the
   // ones that list self-test specs once the tests are in place.
   testScripts: { all: string[]; withTests: string[] };
@@ -812,6 +815,7 @@ const SCENARIOS: Scenario[] = [
     mcpServers: ["openapi", "playwright"],
     interactiveDiscovery: true,
     requirementsDoc: "docs/acceptance-criteria.md",
+    uiScenariosDoc: "docs/e2e-journeys.md",
     testScripts: {
       all: [
         "test:api",
@@ -1002,6 +1006,47 @@ async function runScenario(
   }
 }
 
+// Setup rejects an answers file without a URL an enabled module needs: the
+// API-only answers without apiBaseUrl.
+function checkRequiredUrls(): void {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "qa-selftest-"));
+  const answers = JSON.parse(
+    fs.readFileSync(
+      path.join(ROOT, SELFTEST_DIR, "answers-api-only.json"),
+      "utf8",
+    ),
+  );
+  delete answers.environments.selftest.apiBaseUrl;
+  const file = path.join(workspace, "answers.json");
+  fs.writeFileSync(file, JSON.stringify(answers));
+
+  try {
+    const result = spawnSync(
+      "npx",
+      [
+        "tsx",
+        "framework/tools/setup.ts",
+        "--answers",
+        file,
+        "--target",
+        path.join(workspace, "project"),
+      ],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+    assert(
+      result.status !== 0 &&
+        output.includes(
+          "environments.selftest.apiBaseUrl: required because the api module is enabled",
+        ),
+      `setup accepted an API project without apiBaseUrl:\n${output}`,
+    );
+    console.log("✔ setup requires the URLs the enabled modules need");
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   const options = {
     keep: process.argv.includes("--keep"),
@@ -1019,6 +1064,7 @@ async function main(): Promise<void> {
 
     await waitForApp("http://localhost:4510");
 
+    checkRequiredUrls();
     for (const scenario of SCENARIOS) {
       await runScenario(scenario, options);
     }

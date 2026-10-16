@@ -8,7 +8,11 @@ import { Type, type Static } from "@sinclair/typebox";
 import * as prettier from "prettier";
 
 import { validateSchema } from "../core/api/SchemaValidator";
-import { environmentsSchema } from "../core/config/environmentSchema";
+import {
+  environmentsSchema,
+  REQUIRED_URLS,
+  type EnvironmentUrl,
+} from "../core/config/environmentSchema";
 import {
   BROWSERS,
   frameworkConfigSchema,
@@ -58,6 +62,7 @@ const answersSchema = Type.Object(
   {
     appName: Type.String({ pattern: "^[a-z0-9][a-z0-9-]*$" }),
     requirementsDoc: Type.Optional(Type.String({ minLength: 1 })),
+    uiScenariosDoc: Type.Optional(Type.String({ minLength: 1 })),
     environments: environmentsSchema,
     modules: frameworkConfigSchema.properties.modules,
     browsers: frameworkConfigSchema.properties.browsers,
@@ -181,13 +186,20 @@ const isRequirementsSource: Validator = (value) => {
   return undefined;
 };
 
+// The modules that make an environment URL required (REQUIRED_URLS).
+const modulesNeeding = (url: EnvironmentUrl, modules: Answers["modules"]) =>
+  REQUIRED_URLS[url].filter(
+    (module) => modules[module as keyof typeof modules],
+  );
+
 // Checks the answers file mode cannot express through the schema alone.
 function semanticErrors(answers: Answers): string[] {
   const errors: string[] = [];
 
-  if (answers.requirementsDoc) {
-    const error = isRequirementsSource(answers.requirementsDoc);
-    if (error) errors.push(`requirementsDoc: ${error}`);
+  for (const key of ["requirementsDoc", "uiScenariosDoc"] as const) {
+    const value = answers[key];
+    const error = value ? isRequirementsSource(value) : undefined;
+    if (error) errors.push(`${key}: ${error}`);
   }
 
   for (const [name, environment] of Object.entries(answers.environments)) {
@@ -195,6 +207,14 @@ function semanticErrors(answers: Answers): string[] {
       if (environment[key] === undefined) continue;
       const error = isUrl(environment[key]);
       if (error) errors.push(`environments.${name}.${key}: ${error}`);
+    }
+    for (const key of ["webBaseUrl", "apiBaseUrl"] as const) {
+      const [module] = modulesNeeding(key, answers.modules);
+      if (module && !environment[key]) {
+        errors.push(
+          `environments.${name}.${key}: required because the ${module} module is enabled`,
+        );
+      }
     }
   }
 
@@ -337,22 +357,53 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
     }),
   );
 
+  // General requirements first, then the UI and the API sources: every
+  // question is asked, and a URL is required only when an enabled module
+  // needs it (REQUIRED_URLS).
+  const requirementsDoc = await askOptional(
+    "Requirements or acceptance-criteria document URL or repository-relative path, if available",
+    isRequirementsSource,
+    "docs/requirements/login.md",
+  );
+  const uiScenariosDoc = await askOptional(
+    "UI/E2E scenario document (user journeys, UI acceptance criteria) URL or repository-relative path, if available",
+    isRequirementsSource,
+    "docs/e2e/checkout-journeys.md",
+  );
+
   const environments: Answers["environments"] = {};
 
   for (const { name, hint } of ENVIRONMENTS) {
     if (!environmentNames.includes(name)) continue;
 
-    const webBaseUrl = await ask(`${name}: web URL`, isUrl, hint);
-    const apiBaseUrl = await ask(`${name}: API URL`, isUrl, {
-      suggested: `${webBaseUrl.replace(/\/$/, "")}/api`,
-    });
-    const openApiUrl = modules.api
-      ? await askOptional(
-          `${name}: public OpenAPI (Swagger) JSON or YAML URL, if there is one`,
-          isUrl,
-          `${apiBaseUrl.replace(/\/$/, "")}/openapi.json`,
-        )
-      : undefined;
+    const askUrl = (
+      url: EnvironmentUrl,
+      message: string,
+      urlHint: { suggested: string } | { example: string },
+      optionalMessage = message,
+    ) =>
+      modulesNeeding(url, modules).length
+        ? ask(message, isUrl, urlHint)
+        : askOptional(
+            optionalMessage,
+            isUrl,
+            "suggested" in urlHint ? urlHint.suggested : urlHint.example,
+          );
+
+    const webBaseUrl = await askUrl("webBaseUrl", `${name}: web URL`, hint);
+    const apiBaseUrl = await askUrl(
+      "apiBaseUrl",
+      `${name}: API URL`,
+      webBaseUrl
+        ? { suggested: `${webBaseUrl.replace(/\/$/, "")}/api` }
+        : { example: "https://staging.example.com/api" },
+      `${name}: API URL, if UI tests log in or set up data through the API`,
+    );
+    const openApiUrl = await askOptional(
+      `${name}: public OpenAPI (Swagger) JSON or YAML URL, if there is one`,
+      isUrl,
+      `${(apiBaseUrl ?? "https://staging.example.com/api").replace(/\/$/, "")}/openapi.json`,
+    );
     const database =
       modules.database &&
       (await confirm(
@@ -370,18 +421,12 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
       ));
 
     environments[name] = {
-      webBaseUrl,
-      apiBaseUrl,
+      ...(webBaseUrl ? { webBaseUrl } : {}),
+      ...(apiBaseUrl ? { apiBaseUrl } : {}),
       ...(openApiUrl ? { openApiUrl } : {}),
       allow: { database, destructive, performance, interactiveDiscovery },
     };
   }
-
-  const requirementsDoc = await askOptional(
-    "Requirements or acceptance-criteria document URL or repository-relative path, if available",
-    isRequirementsSource,
-    "docs/requirements/login.md",
-  );
 
   const secrets: Secrets = {};
 
@@ -402,6 +447,7 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
     answers: {
       appName,
       ...(requirementsDoc ? { requirementsDoc } : {}),
+      ...(uiScenariosDoc ? { uiScenariosDoc } : {}),
       environments,
       modules,
       browsers,
@@ -414,6 +460,9 @@ function buildFrameworkConfig(answers: Answers): FrameworkConfig {
   return {
     ...(answers.requirementsDoc
       ? { requirementsDoc: answers.requirementsDoc }
+      : {}),
+    ...(answers.uiScenariosDoc
+      ? { uiScenariosDoc: answers.uiScenariosDoc }
       : {}),
     modules: answers.modules,
     browsers: answers.browsers,
@@ -686,6 +735,7 @@ function mcpServers(answers: Answers): Record<string, string[]> {
   }
   if (
     answers.modules.api &&
+    environment.apiBaseUrl &&
     environment.openApiUrl &&
     environment.allow.interactiveDiscovery === true
   ) {

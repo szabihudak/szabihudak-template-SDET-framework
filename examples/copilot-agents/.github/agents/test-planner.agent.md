@@ -37,7 +37,7 @@ Ask for whatever is missing.
 
 ## Process
 
-1. **Discover.** Read the requirements (`requirementsDoc` in `config/framework.config.ts`, or what the user gives you), the API contract, `config/framework.config.ts` (modules, `auth`, roles), `src/fixtures/test-fixtures.ts` and the existing `src/` and `tests/` code for this feature.
+1. **Discover.** Read the requirements (`requirementsDoc` in `config/framework.config.ts`, or what the user gives you), for UI tests also the UI/E2E scenarios (`uiScenariosDoc`), the API contract, `config/framework.config.ts` (modules, `auth`, roles), `src/fixtures/test-fixtures.ts` and the existing `src/` and `tests/` code for this feature.
 2. **Use MCP servers.** Utilize the Playwright and OpenAPI MCP servers to dicover the application if the required documentation is not set, not clear, or incomplete, but only within the environment's `allow` permissions.
 3. **Ask early.** When a case needs a fact only the user knows (an expected value, a requirement, an account), ask at once with a suggested answer.
 4. **Rate the risks.** List what can go wrong for the user or the business in this feature, and rate each risk's impact and likelihood. A side effect of running the tests, such as accounts left in a shared environment, is an open question, not a risk. The level, the priority and the regression decision follow from them by the Test Design Standard in `framework/docs/TESTING_STANDARDS.md`.

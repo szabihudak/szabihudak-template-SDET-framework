@@ -1,6 +1,7 @@
 {
   "appName": "selftest-app-tests",
   "requirementsDoc": "docs/acceptance-criteria.md",
+  "uiScenariosDoc": "docs/e2e-journeys.md",
   "environments": {
     "selftest": {
       "webBaseUrl": "http://localhost:4510",

@@ -3,7 +3,7 @@
 // @template Replace the tokens described in framework/templates/index.json. Fields, locators and test data are illustrative.
 import { type APIRequestContext, type APIResponse } from "@playwright/test";
 
-import { getCurrentEnvironment } from "@framework/utils/env";
+import { requireUrl } from "@framework/utils/env";
 import { logger } from "@framework/utils/logger";
 import type { __Domain__Request } from "@app/api/schemas/__Domain__RequestSchema";
 import type { __Domain__UpdateRequest } from "@app/api/schemas/__Domain__UpdateRequestSchema";
@@ -20,7 +20,7 @@ export class __Domain__ApiClient {
     __domain__: Partial<__Domain__Request>,
     accessToken: string,
   ): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.post(`${apiBaseUrl}/__domains__`, {
       headers: {
@@ -37,7 +37,7 @@ export class __Domain__ApiClient {
     __domain__: __Domain__UpdateRequest,
     accessToken: string,
   ): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.put(`${apiBaseUrl}/__domains__/${__domain__Id}`, {
       headers: {
@@ -73,7 +73,7 @@ export class __Domain__ApiClient {
   }
 
   async delete__Domain__(__domain__Id: string, accessToken: string): Promise<APIResponse> {
-    const { apiBaseUrl } = getCurrentEnvironment();
+    const apiBaseUrl = requireUrl("apiBaseUrl");
 
     return this.request.delete(`${apiBaseUrl}/__domains__/${__domain__Id}`, {
       headers: {

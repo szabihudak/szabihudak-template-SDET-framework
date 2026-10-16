@@ -65,8 +65,9 @@ Once login and roles are configured in `config/framework.config.ts`, add the rol
 - `auth.browser`: `nextAuth` credentials session or `none`.
 - `roles`: role names mapped to the environment variables holding their test-account credentials. The same credentials provide API bearer tokens (`apiTokenFor(role)` fixture) and browser sessions (`authenticatedPageFor` fixture).
 - `requirementsDoc` (optional): HTTP(S) URL or repository-relative path for requirements or acceptance criteria; AI tools use it as the source of expected behavior.
+- `uiScenariosDoc` (optional): the same for UI/E2E scenarios (user journeys, UI acceptance criteria); the planner reads it for UI plans.
 
-For API-only testing, enable only the `api` module: setup then skips browser questions and CI runs only the `api` project.
+For API-only testing, enable only the `api` module: setup then skips the browser menu, the web URL is optional and CI runs only the `api` project.
 
 `config/environments/environments.json` defines each target environment:
 
@@ -77,6 +78,8 @@ For API-only testing, enable only the `api` module: setup then skips browser que
   "allow": { "database": false, "destructive": false, "performance": true, "interactiveDiscovery": false }
 }
 ```
+
+`webBaseUrl` is required when a browser module (`ui`, `smoke`, `accessibility`, `visual`, `performance`) is enabled, `apiBaseUrl` when `api` or `performance` is; otherwise each may be left out. A test run and `npm run doctor` stop at once when a required URL is missing. `openApiUrl` is always optional.
 
 `TEST_ENV` is required; there is no default target. `allow` controls direct database access, destructive database reset, performance measurement and whether AI discovery may submit non-destructive API/UI interactions. The optional `requirementsDoc` setting in `config/framework.config.ts` points to an HTTP(S) requirements URL or repository-relative document path.
 
