@@ -89,10 +89,73 @@ The framework works with any AI tool, or none: `AGENTS.md` holds the rules for h
 
 Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has four optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md):
 
-```text
-test-planner ──▶ test-plans/<feature>.md ──▶ you approve ──▶ test-builder ──▶ validation commands ──▶ test-reviewer ──▶ test-reviews/<feature>.md ──▶ your pull request ──▶ CI
+```mermaid
+flowchart TB
+    you(["👤 You<br/>environment · role · feature · test type"])
 
-failed CI run ──▶ ci-failure-analyst ──▶ ci-analysis/<run-id>/analysis.md ──▶ you decide and act
+    subgraph BUILD ["🧪 Build tests from a plan"]
+        direction TB
+        planner["🧭 <b>test-planner</b><br/>evidence · risks · cases"]
+        plan[/"📄 test-plans/&lt;feature&gt;.md"/]
+        cp1{{"✋ CP1<br/>approve the plan"}}
+        builder["🛠️ <b>test-builder</b><br/>golden templates"]
+        gates[["✅ Validation gates<br/>prettier · typecheck<br/>lint:architecture · tests"]]
+        cp2{{"✋ CP2<br/>review the changes"}}
+        reviewer["🔍 <b>test-reviewer</b><br/>cases · green-washing<br/>structure · layers · scope"]
+        review[/"📄 test-reviews/&lt;feature&gt;.md"/]
+        cp3{{"✋ CP3<br/>verdict"}}
+        pr(["🔀 Pull request"])
+
+        planner --> plan --> cp1 -->|Build the approved plan| builder --> gates --> cp2
+        cp2 -->|Review the tests| reviewer --> review --> cp3
+        cp3 -->|PASS| pr
+        cp3 -. "Fix the findings" .-> builder
+        cp3 -. "Revise the plan" .-> planner
+    end
+
+    ci[["⚙️ GitHub Actions CI"]]
+
+    subgraph ANALYZE ["🩺 Analyze CI failures"]
+        direction TB
+        analyst["🩺 <b>ci-failure-analyst</b><br/>logs · artifacts · plan"]
+        analysis[/"📄 ci-analysis/&lt;run-id&gt;/analysis.md"/]
+        verdict{"Cause"}
+        env["🌐 env<br/>infrastructure"]
+        app["🐞 app<br/>developers"]
+        test["🧪 test<br/>test code"]
+        pipe["🔧 pipeline<br/>CI owner"]
+        unk["❓ unknown<br/>more evidence"]
+
+        analyst --> analysis --> verdict
+        verdict --> env & app & test & pipe & unk
+    end
+
+    done(["🟢 Green: nothing to analyze"])
+
+    you --> planner
+    pr --> ci
+    ci -->|failed| analyst
+    ci -->|passed| done
+
+    classDef agent fill:#6d28d9,stroke:#4c1d95,color:#ffffff,stroke-width:2px
+    classDef file fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef human fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef gate fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef cause fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef endpoint fill:#0f172a,stroke:#0f172a,color:#ffffff
+
+    class planner,builder,reviewer,analyst agent
+    class plan,review,analysis file
+    class you,cp1,cp2,cp3,verdict human
+    class gates,ci gate
+    class env,app,test,pipe,unk cause
+    class pr,done endpoint
+
+    style BUILD fill:#f5f3ff,stroke:#8b5cf6,stroke-width:1px,color:#4c1d95
+    style ANALYZE fill:#fff1f2,stroke:#f43f5e,stroke-width:1px,color:#881337
+
+    linkStyle default stroke:#64748b,stroke-width:2px
+    linkStyle 9,10 stroke:#8b5cf6,stroke-width:2px,stroke-dasharray:6 4
 ```
 
 Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility:
