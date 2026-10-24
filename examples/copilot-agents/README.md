@@ -1,6 +1,6 @@
 # Example: GitHub Copilot test agents
 
-Five optional agents for VS Code with GitHub Copilot. Setup does not install them: a project works without agents, and any tool that follows `AGENTS.md` writes code the checks accept ([ADR-010](../../framework/docs/adr/ADR-010-agents-outside-the-template.md)). The reviewer is described in [ADR-012](../../framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](../../framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](../../framework/docs/adr/ADR-014-test-runner-agent.md). [agent-workflow.svg](agent-workflow.svg) shows how they work together.
+Five optional agents for VS Code with GitHub Copilot. Setup does not install them: a project works without agents, and any tool that follows `AGENTS.md` writes code the checks accept ([ADR-010](../../framework/docs/adr/ADR-010-agents-outside-the-template.md)). The reviewer is described in [ADR-012](../../framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](../../framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](../../framework/docs/adr/ADR-014-test-runner-agent.md). [agent-workflow-v2.svg](agent-workflow-v2.svg) shows how they work together.
 
 ```text
 test-planner ──▶ test-plans/<feature>.md ──▶ you approve ──▶ test-builder ──▶ validation commands ──▶ test-reviewer ──▶ test-reviews/<feature>.md ──▶ your pull request ──▶ CI
