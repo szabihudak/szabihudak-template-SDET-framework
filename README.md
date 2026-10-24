@@ -150,7 +150,7 @@ The framework works with any AI tool, or none: `AGENTS.md` holds the rules for h
 Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has five optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](framework/docs/adr/ADR-014-test-runner-agent.md):
 
 <p align="center">
-  <img src="examples/copilot-agents/agent-workflow.svg" alt="Agent workflow: test-planner, test-builder and test-reviewer with their checkpoints, the test-runner locally or in CI, then the ci-failure-analyst" width="640">
+  <img src="examples/copilot-agents/agent-workflow.svg?v=2" alt="Agent workflow: test-planner, test-builder and test-reviewer with their checkpoints, the test-runner locally or in CI, then the ci-failure-analyst" width="640">
 </p>
 
 Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility:
