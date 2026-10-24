@@ -8,6 +8,8 @@ import { getCurrentEnvironment } from "../core/utils/env";
 // Projects for the pull-request workflow, derived from config/framework.config.ts
 // so CI follows module and browser changes without editing the workflow.
 // Performance runs only in the manually triggered performance workflow.
+// CI_PROJECTS (the workflow's projects input, comma-separated) narrows the
+// plan for a manual run; an empty value keeps every planned project.
 const EXCLUDED_PROJECTS = new Set(["performance"]);
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -25,15 +27,39 @@ function specFiles(directory = "tests"): string[] {
   });
 }
 
+function requestedProjects(available: string[]): Set<string> | undefined {
+  const names = (process.env.CI_PROJECTS ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+  if (names.length === 0) return undefined;
+
+  const unknown = names.filter((name) => !available.includes(name));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown or excluded projects: ${unknown.join(", ")}. Available: ${available.join(", ")}.`,
+    );
+  }
+  return new Set(names);
+}
+
 function main(): void {
   const environment = getCurrentEnvironment();
   const projects: string[] = [];
   const specs = specFiles();
+  const configured = buildProjects(getFrameworkConfig());
+  const requested = requestedProjects(
+    configured
+      .map((project) => project.name ?? "")
+      .filter((name) => !EXCLUDED_PROJECTS.has(name)),
+  );
 
-  for (const project of buildProjects(getFrameworkConfig())) {
+  for (const project of configured) {
     const name = project.name ?? "";
 
     if (EXCLUDED_PROJECTS.has(name)) continue;
+    if (requested && !requested.has(name)) continue;
 
     // A new project has no tests until the first ones are written; running an
     // empty project would fail CI with "No tests found".

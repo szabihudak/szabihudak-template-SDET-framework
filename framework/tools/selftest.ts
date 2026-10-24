@@ -53,11 +53,37 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Self-test failed: ${message}`);
 }
 
-function ciPlan(project: string): string {
+function ciPlan(project: string, requested = ""): string {
   return execSync("npx tsx framework/tools/ci-plan.ts", {
     cwd: project,
-    env: { ...process.env, TEST_ENV: "selftest", GITHUB_OUTPUT: "" },
+    env: {
+      ...process.env,
+      TEST_ENV: "selftest",
+      GITHUB_OUTPUT: "",
+      CI_PROJECTS: requested,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
   }).toString();
+}
+
+// A manual run narrows the plan to the requested projects and refuses names
+// that are not planned for CI.
+function assertRequestedPlan(project: string, planned: string[]): void {
+  const [first] = planned;
+  const narrowed = ciPlan(project, first);
+  assert(
+    narrowed.includes(JSON.stringify([first])),
+    `CI_PROJECTS=${first} gave ${narrowed.trim()}`,
+  );
+
+  let refused = false;
+  try {
+    ciPlan(project, "performance");
+  } catch {
+    refused = true;
+  }
+  assert(refused, "CI_PROJECTS accepted a project that is not planned for CI");
+  console.log(`✔ CI plan narrows to requested projects (${first})`);
 }
 
 function assertPlan(project: string, expected: string[]): void {
@@ -997,6 +1023,7 @@ async function runScenario(
     staticChecks(project, true);
     listTestScripts(project, scenario);
     assertPlan(project, scenario.plan);
+    assertRequestedPlan(project, scenario.plan);
     run("npx tsx framework/tools/doctor.ts", project);
 
     if (scenario.needsBrowser && options.skipBrowser) {
