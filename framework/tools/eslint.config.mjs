@@ -46,6 +46,9 @@ const ASSERTION_OUTSIDE_SPECS = restricted(
   "Assertions belong in specs, not in clients, pages, factories or fixtures.",
   "CallExpression[callee.name='expect']",
   "MemberExpression[object.name='expect']",
+  "MemberExpression[object.name='test'][property.name='expect']",
+  "ImportSpecifier[imported.name='expect'][local.name!='expect']",
+  "ImportDeclaration[source.value=/^(node:)?assert(\\/strict)?$|^chai$/]",
 );
 
 // A plain `as unknown` asserts nothing; any other cast trusts unvalidated data.
@@ -62,12 +65,25 @@ const SQL_STATEMENT =
   /\b(SELECT\s.+\sFROM|INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+\w+\s+SET)\b/
     .source;
 
+const SELECTOR_ONLY =
+  "(click|dblclick|tap|check|uncheck|hover|focus|textContent|innerText|innerHTML|inputValue|isVisible|isHidden|isChecked|isEnabled|isDisabled|isEditable)";
+// A string first argument; page.mouse.click(x, y) takes numbers.
+const SELECTOR_FIRST =
+  "[arguments.0.type='TemplateLiteral'], [arguments.0.value=type(string)]";
+const SELECTOR_AND_VALUE =
+  "(fill|type|press|selectOption|setInputFiles|getAttribute|dispatchEvent|dragAndDrop)";
+
 const SPEC_SYNTAX = [
   ...restricted(
     "no-raw-locators-in-specs",
     "AGENTS.md#layer-rules",
     "Locators belong in Page Objects or Component Objects. Expose a locator query instead.",
-    "CallExpression[callee.property.name=/^(locator|getBy[A-Z]\\w*)$/]",
+    "CallExpression[callee.property.name=/^(locator|frameLocator|getBy[A-Z]\\w*|\\$|\\$\\$|\\$eval|\\$\\$eval)$/]",
+    // page.click("#save"): the Page methods that take a selector first. The
+    // Locator methods of the same name take no selector (click, isVisible) or
+    // only a value (fill, press), so the selector shows by its position.
+    `CallExpression[callee.property.name=/^${SELECTOR_ONLY}$/]:matches(${SELECTOR_FIRST})`,
+    `CallExpression[callee.property.name=/^${SELECTOR_AND_VALUE}$/]:matches(${SELECTOR_FIRST})[arguments.1][arguments.1.type!='ObjectExpression']`,
   ),
   ...restricted(
     "no-sql-in-specs",
@@ -295,6 +311,7 @@ export default tseslint.config(
     rules: {
       "playwright/no-focused-test": "error",
       "playwright/require-top-level-describe": "error",
+      "playwright/no-conditional-expect": "error",
       "no-restricted-syntax": [
         "error",
         ...CAST_ON_RESPONSE_JSON,
@@ -347,7 +364,17 @@ export default tseslint.config(
       "architecture/role-credentials-in-login-specs": "error",
       "architecture/no-inline-payload-to-api-client": "error",
       "architecture/similar-tests-as-scenarios": "error",
+      "architecture/no-trivial-assertions": "error",
+      "architecture/no-swallowed-errors": "error",
     },
+  },
+  {
+    files: [...at("src/pages"), ...at("src/components"), ...at("src/fixtures")],
+    rules: { "architecture/no-swallowed-errors": "error" },
+  },
+  {
+    files: [...at("src/pages"), ...at("src/components")],
+    rules: { "architecture/no-comparisons-in-page-objects": "error" },
   },
   {
     files: at("tests/api", "**/*.spec.ts"),

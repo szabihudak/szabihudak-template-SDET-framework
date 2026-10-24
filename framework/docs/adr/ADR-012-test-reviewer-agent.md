@@ -41,19 +41,18 @@ test-planner ──▶ CP1 ──▶ test-builder ──▶ CP2 ──▶ [Revie
 - Findings are Implementation, Plan or Question. The builder fixes Implementation findings once; after that, and for every other finding, the user decides. There is no automatic loop.
 - The reviewer does not run the tests or the gates; the builder and CI do. CI remains the final independent check, and the pull request remains the approval of the code.
 
-### Lint candidates
+### Lint rules
 
-Parts of G and L are syntax patterns and belong in `lint:architecture`, where they run on every change and in CI. Candidates, not part of this decision:
+Parts of G and L are syntax patterns and belong in `lint:architecture`, where they run on every change and in CI. They are rules now, and the reviewer no longer checks them:
 
-- extend `no-raw-locators-in-specs` to `page.$()`, `$$()`, `$eval()`, `$$eval()` and to `page` actions called with a selector;
-- extend `no-assertions-outside-specs` to `expect` under another name, `test.expect`, `node:assert` and `chai`;
-- `no-trivial-assertions`: `expect(<literal>)`, and `toBeDefined()` or `toBeTruthy()` on a response;
-- `no-swallowed-errors` in specs: empty `catch` and `.catch(() => {})`;
-- `no-conditional-assertions`: `expect` inside `if` in a spec;
-- `no-comparisons-in-page-objects`: `===`, `!==` and `throw` on application state under `src/pages/` and `src/components/`;
-- `no-page-object-construction-in-specs`: `new <Name>Page()` in a spec.
+- `no-raw-locators-in-specs` also reports `frameLocator()`, `page.$()`, `$$()`, `$eval()`, `$$eval()`, and `page` methods called with a selector, such as `page.click("#save")`;
+- `no-assertions-outside-specs` also reports `expect` imported under another name, `test.expect`, `node:assert` and `chai`;
+- `no-trivial-assertions` (specs): an assertion on a constant, and `toBeDefined()` or `toBeTruthy()` on a whole response or body;
+- `no-swallowed-errors` (specs, Page and Component Objects, fixtures): a `catch` or `.catch()` that does nothing or returns a fixed value;
+- `playwright/no-conditional-expect` (specs): `expect` inside a condition;
+- `no-comparisons-in-page-objects` (Page and Component Objects): a comparison of a value read from the page, and `throw`.
 
-When one becomes a rule, the reviewer stops checking it.
+A seventh candidate, reporting `new <Name>Page()` in a spec, was dropped: the Fixture Standard forbids a fixture that only hides trivial construction, so a spec may build a Page or Component Object on a Page a fixture gave it.
 
 ---
 

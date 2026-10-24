@@ -190,7 +190,7 @@ const scenarios = [
 test.describe("Case title self-test API", () => {
   for (const scenario of scenarios) {
     test(\`\${scenario.caseId}: \${scenario.name}\`, async () => {
-      expect(true).toBe(true);
+      expect(scenario.caseId).toMatch(/^T00\\d_CaseTitle_API$/);
     });
   }
 });

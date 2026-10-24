@@ -58,16 +58,16 @@ Import the framework as `@framework/...` and the application layer as `@app/...`
 
 The golden templates show what each layer owns. This table lists what it must never do.
 
-| Layer                   | Never                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Schema (TypeBox)        | duplicate TypeScript interfaces                                                                                                |
-| API client              | assertions                                                                                                                     |
-| Factory                 | API calls, UI, assertions, lifecycle; importing Playwright, API or database clients, Page/Component Objects, fixtures or mocks |
-| Fixture                 | assertions; hiding a single line of code                                                                                       |
-| Page / Component Object | assertions; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures)      |
-| Domain database client  | assertions; string-interpolated SQL                                                                                            |
-| Mock                    | inventing states the UI does not support                                                                                       |
-| Spec                    | raw locators, raw SQL, fixed waits, boolean-wrapped assertions, request data with several fields written inline                |
+| Layer                   | Never                                                                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema (TypeBox)        | duplicate TypeScript interfaces                                                                                                                                        |
+| API client              | assertions                                                                                                                                                             |
+| Factory                 | API calls, UI, assertions, lifecycle; importing Playwright, API or database clients, Page/Component Objects, fixtures or mocks                                         |
+| Fixture                 | assertions; hiding a single line of code                                                                                                                               |
+| Page / Component Object | assertions, comparisons of what the page shows, `throw`; reuse across `Page` instances; importing API or database clients or fixtures (data setup belongs in fixtures) |
+| Domain database client  | assertions; string-interpolated SQL                                                                                                                                    |
+| Mock                    | inventing states the UI does not support                                                                                                                               |
+| Spec                    | raw locators, raw SQL, fixed waits, boolean-wrapped, trivial or conditional assertions, swallowed errors, request data with several fields written inline              |
 
 The framework's Lighthouse policy (`framework/core/performance/`) is the one helper that asserts: its thresholds decide the result.
 

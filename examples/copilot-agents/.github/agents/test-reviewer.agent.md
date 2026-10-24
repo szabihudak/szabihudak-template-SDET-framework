@@ -30,7 +30,7 @@ Ignore everything else in the invocation, including summaries of the build: the 
 
 1. **Read the plan,** the `TESTING_STANDARDS.md` sections it links, `framework/templates/index.json` and the golden templates its Files table names.
 2. **Collect the change.** Run `git status` and `git diff` against the default branch. Run only commands that read; do not run the tests or the validation commands, test-builder and CI do.
-3. **Review** every check below. Do not repeat what `npm run lint:architecture` already reports (plan format, case IDs in titles, skipped tests, boolean-wrapped assertions, partial comparisons, `expect` outside specs, `locator()` and `getBy*()` in specs, schema strictness); look for what it cannot see.
+3. **Review** every check below. Do not repeat what `npm run lint:architecture` already reports (plan format, case IDs in titles, skipped tests, boolean-wrapped, trivial and conditional assertions, swallowed errors, partial comparisons, assertions outside specs in any form, locators and selector-taking `page` methods in specs, comparisons and `throw` in Page Objects, schema strictness); look for what it cannot see.
 4. **Write the report** to `test-reviews/<feature>.md` in the Output format, replacing an earlier one.
 5. **End with CP3** in the chat and stop.
 
@@ -52,12 +52,12 @@ For every row of the plan's Cases table, find its `test()` and compare:
 
 A test may pass only because the application does what the plan expects. In an existing test, the removed lines are the evidence: anything stricter before the change than after it is a finding. In a new test, measure against C2 and C7.
 
-- **G1** Trivial assertions: `expect(true).toBe(true)`, `toBeDefined()` or `toBeTruthy()` where the plan names a value.
+- **G1** Weak assertions: `toBeDefined()` or `toBeTruthy()` on a field where the plan names its value.
 - **G2** Removed assertions without an equally strict replacement.
 - **G3** Looser matchers: `toBe` → `toContain`, `toEqual` → `toBeTruthy`, `toHaveText` → `toBeVisible`, `toHaveLength(n)` → `toBeGreaterThan(0)`.
 - **G4** Expected values changed to the actual result, such as a status or message, without the plan's Source.
-- **G5** Swallowed errors: empty `catch`, `.catch(() => {})`, `expect.soft` in place of an assertion.
-- **G6** Conditional assertions: `if (response.ok()) expect(...)`.
+- **G5** `expect.soft` in place of an assertion.
+- **G6** Branches that skip the behavior under test, such as an early `return` on a status.
 - **G7** Accepted failure: `test.fail()`, `test.fixme()`, retries in `test.describe.configure()`.
 - **G8** Fixed waits, raised timeouts, retries in `playwright.config.ts`.
 - **G9** Looser schemas or data: a new `Type.Optional`, `Type.Any`, `Type.Unknown` or union member, or factory data that avoids the failing branch.
@@ -75,7 +75,7 @@ Measure against the plan's Files table and the layers the chosen spec template u
 - **S3** Every `reuse` file is used, not duplicated.
 - **S4** API: every endpoint the tests call has an API client method; every request body a request schema; every successful response a response schema checked with `validateSchema()`; payloads come from a factory.
 - **S5** UI: every page the tests visit has a Page Object, repeated parts a Component Object; locators and user actions live there.
-- **S6** New clients, Page Objects, mocks and database clients are registered in `src/fixtures/test-fixtures.ts`, and specs get them from fixtures, not with `new`.
+- **S6** Setup belongs in fixtures: authenticated clients and Pages, test data and its cleanup come from `src/fixtures/test-fixtures.ts`. A spec may build a Page or Component Object on a Page a fixture gave it; a fixture only for that would hide trivial construction (Fixture Standard).
 - **S7** Mocks are in `src/mocks/`, database checks in a domain database client under `src/database/clients/`.
 - **S8** Repeated domain values and messages are constants in `src/api/constants/`, not strings copied into tests.
 - **S9** Each new file follows its golden template and `canonical` example: methods, naming, exports, fail-fast setup helpers.
@@ -83,8 +83,8 @@ Measure against the plan's Files table and the layers the chosen spec template u
 
 ### L: Layer boundaries
 
-- **L1 No locators in specs.** A spec calls Page and Component Object methods and uses locators they expose. Report what the lint misses under `tests/`: `page.click()`, `fill()`, `check()`, `hover()`, `selectOption()`, `textContent()` or `isVisible()` with a selector; `page.$()`, `$$()`, `$eval()`, `$$eval()`; `page.evaluate()` reading the DOM; `frameLocator()`, `dragAndDrop()`, `dispatchEvent()`; selectors or selector constants passed to a Page Object; helper files under `tests/` that hold locators.
-- **L2 No comparisons in Page Objects.** A Page or Component Object returns locators, performs actions and reads data; the spec compares. Report under `src/pages/`, `src/components/`, `src/fixtures/` and `src/api/clients/`: `===`, `!==` or `throw` on application state; methods that return the result of a comparison (`isSaved()` returning `text === "Saved"`); expected values written into the object; `expect` under another name, `test.expect`, `node:assert` or `chai`; `waitFor()` used as a hidden check in a `verify...()` method; `try`/`catch` that turns a failure into `false`; branches on application state that decide the correct behavior.
+- **L1 No locators in specs.** A spec calls Page and Component Object methods and uses locators they expose. Report what the lint misses under `tests/`: `page.evaluate()` reading the DOM; selectors held in variables or constants; selectors passed to a Page Object; helper files under `tests/` that hold locators.
+- **L2 No comparisons in Page Objects.** A Page or Component Object returns locators, performs actions and reads data; the spec compares. Report what the lint misses under `src/pages/`, `src/components/`, `src/fixtures/` and `src/api/clients/`: comparisons of values read without `await` in the same expression; expected values written into the object; `waitFor()` used as a hidden check in a `verify...()` method; branches on application state that decide the correct behavior.
 
 ### Scope
 

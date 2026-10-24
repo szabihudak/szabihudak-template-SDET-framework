@@ -2,10 +2,13 @@ import apiFieldCoverage from "./rules/api-field-coverage.ts";
 import apiTestsAssertBusinessFields from "./rules/api-tests-assert-business-fields.ts";
 import negativeResponseFields from "./rules/negative-response-fields.ts";
 import noBooleanWrappedAssertions from "./rules/no-boolean-wrapped-assertions.ts";
+import noComparisonsInPageObjects from "./rules/no-comparisons-in-page-objects.ts";
 import noInlinePayloadToApiClient from "./rules/no-inline-payload-to-api-client.ts";
 import noPartialSuccessComparison from "./rules/no-partial-success-comparison.ts";
 import noSkippedTests from "./rules/no-skipped-tests.ts";
 import noSuccessSchemaOnNegativeResponse from "./rules/no-success-schema-on-negative-response.ts";
+import noSwallowedErrors from "./rules/no-swallowed-errors.ts";
+import noTrivialAssertions from "./rules/no-trivial-assertions.ts";
 import planCaseSteps from "./rules/plan-case-steps.ts";
 import planCaseTechnique from "./rules/plan-case-technique.ts";
 import planCoverage from "./rules/plan-coverage.ts";
@@ -29,10 +32,13 @@ export default {
     "api-tests-assert-business-fields": apiTestsAssertBusinessFields,
     "negative-response-fields": negativeResponseFields,
     "no-boolean-wrapped-assertions": noBooleanWrappedAssertions,
+    "no-comparisons-in-page-objects": noComparisonsInPageObjects,
     "no-inline-payload-to-api-client": noInlinePayloadToApiClient,
     "no-partial-success-comparison": noPartialSuccessComparison,
     "no-skipped-tests": noSkippedTests,
     "no-success-schema-on-negative-response": noSuccessSchemaOnNegativeResponse,
+    "no-swallowed-errors": noSwallowedErrors,
+    "no-trivial-assertions": noTrivialAssertions,
     "parameterized-sql": parameterizedSql,
     "plan-case-steps": planCaseSteps,
     "plan-case-technique": planCaseTechnique,
