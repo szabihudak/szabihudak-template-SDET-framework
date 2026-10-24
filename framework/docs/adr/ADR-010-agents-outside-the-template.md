@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes ADR-009. Amends ADR-007 and ADR-008.
+Supersedes ADR-009. Amends ADR-007 and ADR-008. Amended by ADR-012 (an optional reviewer agent in the examples).
 
 ---
 
@@ -58,4 +58,5 @@ The ADR-009 pipeline remains in the history at commit `e9edbfc`. A structured pl
 ADR-007 → reusable template architecture
 ADR-008 → AI-assisted engineering
 ADR-009 → Copilot agent pipeline (superseded)
+ADR-012 → test reviewer agent
 ```

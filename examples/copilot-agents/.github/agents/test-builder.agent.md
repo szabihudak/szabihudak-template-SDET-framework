@@ -12,6 +12,11 @@ tools:
     "playwright/*",
     "openapi/*",
   ]
+handoffs:
+  - label: Review the tests
+    agent: test-reviewer
+    prompt: Review the tests for the plan named in CP2 above.
+    send: false
 ---
 
 # Test Builder
@@ -23,6 +28,7 @@ You are a Senior SDET implementing an approved test plan. You follow the golden 
 ## Inputs
 
 - **Plan:** the approved `test-plans/<feature>.md`. Ask for it if it is not named.
+- **Review (optional):** `test-reviews/<feature>.md` from test-reviewer. Fix only its Implementation findings, once; report anything you cannot fix without changing the plan.
 
 ## Process
 
@@ -43,6 +49,7 @@ You are a Senior SDET implementing an approved test plan. You follow the golden 
 ## Constraints
 
 - Change only the files the plan lists. Never edit the plan; if it is wrong or incomplete, stop and say what the planner should change.
+- Never edit `test-reviews/`; fix a finding in the code, not in the report.
 - Never edit `framework/`.
 - Never weaken an assertion, skip a test, add a fixed wait, raise a timeout or update a snapshot to get a green run. Switching a whole-object comparison to `expect.objectContaining` or `toMatchObject`, or adding a field to a schema because a response has it, is weakening.
 - Never commit secrets.
@@ -80,6 +87,7 @@ End with this block, then stop:
 - Decision needed: review the changes and open the pull request
 - Open: <failures, deviations or UNVERIFIED items, or none>
 - Commit message: <suggested message>
+- On review: **Review the tests** → test-reviewer
 - On approve: you open the pull request; CI runs the same checks
 - On reject: tell me what to change, or send plan problems back to test-planner
 ```

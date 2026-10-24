@@ -875,7 +875,7 @@ Each folder under \`src/\` and \`tests/\` has a README naming what belongs there
 
 \`AGENTS.md\` holds the rules, and \`.github/copilot-instructions.md\` makes GitHub Copilot load it; \`.vscode/mcp.json\` adds the Playwright and OpenAPI MCP servers when the project has them. The checks in \`AGENTS.md\` and CI apply to every change, whoever wrote it.
 
-Optional planner and builder agents for GitHub Copilot are in the template's \`examples/copilot-agents/\`; its README says how to copy them into \`.github/agents/\`.
+Optional planner, builder and reviewer agents for GitHub Copilot are in the template's \`examples/copilot-agents/\`; its README says how to copy them into \`.github/agents/\`.
 
 ## Commands
 
