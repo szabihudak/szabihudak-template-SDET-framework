@@ -7,6 +7,9 @@ node_modules
 /playwright/.auth/
 .playwright-mcp/
 
+# CI failure analyses: downloaded artifacts can contain session data
+/ci-analysis/
+
 # Performance test artifacts
 /performance-results/
 .lighthouseci/

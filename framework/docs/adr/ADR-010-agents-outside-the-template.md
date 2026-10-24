@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes ADR-009. Amends ADR-007 and ADR-008. Amended by ADR-012 (an optional reviewer agent in the examples).
+Supersedes ADR-009. Amends ADR-007 and ADR-008. Amended by ADR-012 (an optional reviewer agent in the examples) and ADR-013 (an optional CI failure analyst).
 
 ---
 
@@ -59,4 +59,5 @@ ADR-007 → reusable template architecture
 ADR-008 → AI-assisted engineering
 ADR-009 → Copilot agent pipeline (superseded)
 ADR-012 → test reviewer agent
+ADR-013 → CI failure analyst agent
 ```

@@ -87,10 +87,12 @@ For API-only testing, enable only the `api` module: setup then skips the browser
 
 The framework works with any AI tool, or none: `AGENTS.md` holds the rules for humans and AI tools, and the checks under [Writing Tests](#writing-tests) and in CI apply to every change, whoever wrote it. Credentials never go into a prompt or the chat; `npm run onboard` puts the test account into `.env` (masked).
 
-Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has three optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md):
+Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has four optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md):
 
 ```text
 test-planner ──▶ test-plans/<feature>.md ──▶ you approve ──▶ test-builder ──▶ validation commands ──▶ test-reviewer ──▶ test-reviews/<feature>.md ──▶ your pull request ──▶ CI
+
+failed CI run ──▶ ci-failure-analyst ──▶ ci-analysis/<run-id>/analysis.md ──▶ you decide and act
 ```
 
 Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility:
@@ -147,6 +149,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/adr/ADR-008-ai-assisted-engineering.md](framework/docs/adr/ADR-008-ai-assisted-engineering.md): how AI agents are used: review first, evidence by source
 - [framework/docs/adr/ADR-010-agents-outside-the-template.md](framework/docs/adr/ADR-010-agents-outside-the-template.md): why setup installs no agents, and the optional examples
 - [framework/docs/adr/ADR-012-test-reviewer-agent.md](framework/docs/adr/ADR-012-test-reviewer-agent.md): the optional reviewer agent and the lint candidates it found
+- [framework/docs/adr/ADR-013-ci-failure-analyst-agent.md](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md): the optional CI failure analyst and why there is no healer agent
 - [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 
