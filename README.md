@@ -6,22 +6,53 @@ The template was built and validated against [UPEX DOJO](https://dojo.upexgalaxy
 
 ## Quick Start
 
-Requirements: Node.js 22.19 or newer (`node -v`; with nvm: `nvm install 22 && nvm use 22`, the repository ships an `.nvmrc`), npm 11.19.1 (`npx npm@11.19.1 ci` if your npm differs), Git.
+### Requirements
 
-Setup asks only about your application, with menus for every choice (arrow keys, space to select, Enter to confirm): project name, test types, browsers, environments (staging, local) with their URLs and permissions, and a public OpenAPI (Swagger) URL when API tests are enabled (optional). An interactive run needs a terminal; scripts use `--answers`. It asks nothing about login: the test account is the optional stage 2 below, and the login method is configured afterwards in `config/framework.config.ts` (the project README explains how). The only secret it asks for is the test database URL, when an environment allows database access: the input is masked and written only to the git-ignored `.env`. Test-account credentials belong in `.env` and in GitHub secrets, never in prompts.
+- **Node.js 22.19 or newer**: check with `node -v`. With nvm: `nvm install 22 && nvm use 22` (the repository ships an `.nvmrc`).
+- **npm 11.19.1**: if your npm differs, use `npx npm@11.19.1 ci`.
+- **Git**
 
-On macOS or Linux, one script creates a new project next to the template, in two stages. Stage 1, framework setup, asks the setup questions, installs the project and runs `npm run doctor`. Stage 2, first tests, is optional: it asks whether to set up the test account now and, if so, for its username and password (masked). Use a dedicated test account registered in the application, never a personal or production login. The account becomes the `user` role (`USER_USERNAME` and `USER_PASSWORD`), its values go only into the git-ignored `.env`, and doctor runs again with it. Skip it, or leave a field empty, and the installer says how to add it later: `npm run onboard` runs stage 2 on its own at any time. Stage 2 never asks anything without a terminal, in CI or with `--answers`; CI takes the credentials from its secrets. On a terminal the installer shows the two stages and their steps as a small flow, with the line where the installer stops and your IDE takes over, and ends with a finish box. Every run ends with the next steps, for example `cd ../<project name>`, `code .`, starting the MCP servers and configuring login, with `npm run onboard` first if you skipped stage 2. On a terminal the output uses text colors (none with `NO_COLOR`) and a few emoji marks, shown as ASCII (`[x]`, `[-]`, `[!]`, `>>`, `->`, `\m/`) when the locale is not UTF-8.
+### Create a project
+
+On macOS or Linux, one script creates a new project next to the template:
 
 ```bash
 git clone https://github.com/szabihudak/szabihudak-template-SDET-framework.git
 cd szabihudak-template-SDET-framework
-./install.sh   # stage 1: questions → ../<project name> with its own git → npm ci → browsers → .env → doctor
-               # stage 2 (optional): test account → .env
+./install.sh
 cd ../<project name>
-# then: open it in VS Code, configure login (project README) and write the first tests
+code .
 ```
 
-The template folder stays unchanged, so the next project starts from the same clone. The project contains:
+The installer runs in two stages:
+
+| Stage                         | What it does                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. Framework setup**        | Asks the setup questions, creates `../<project name>` with its own git, runs `npm ci`, installs the browsers, creates `.env` and runs `npm run doctor` |
+| **2. First tests** (optional) | Asks for a test account (username and password, masked), writes it to `.env` as the `user` role and runs `npm run doctor` again                        |
+
+On a terminal it shows both stages as a small flow, marks where the installer stops and your IDE takes over, and ends with the next steps: `cd ../<project name>`, `code .`, starting the MCP servers and configuring login.
+
+### What setup asks
+
+Setup asks only about your application, with menus for every choice (arrow keys, space to select, Enter to confirm):
+
+- project name
+- test types and browsers
+- environments (staging, local) with their URLs and permissions
+- a public OpenAPI (Swagger) URL, when API tests are enabled (optional)
+- the test database URL, only when an environment allows database access (masked, written only to `.env`)
+
+It asks nothing about login. You configure the login method afterwards in `config/framework.config.ts`; the project README explains how.
+
+> [!IMPORTANT]
+> Use a dedicated test account registered in the application, never a personal or production login. Credentials go only into the git-ignored `.env` and into GitHub secrets, never into prompts or the chat.
+
+Skipped stage 2, or left a field empty? Run `npm run onboard` at any time. Stage 2 never asks anything without a terminal, in CI or with `--answers`; CI takes the credentials from its secrets.
+
+### What the project contains
+
+The template folder stays unchanged, so the next project starts from the same clone.
 
 ```text
 <project name>/
@@ -34,13 +65,42 @@ The template folder stays unchanged, so the next project starts from the same cl
 └── package.json, playwright.config.ts, tsconfig.json
 ```
 
-It leaves out the UPEX reference implementation, the setup tooling and the workflows of modules you did not enable. Without performance tests it also leaves out the Lighthouse runner and its packages (`@lhci/cli`, `lighthouse`, `chrome-launcher`), which make up most of the install size and of the `npm audit` warnings. A teammate who clones the project runs `./install.sh` there: it skips the questions, creates `.env` from `.env.example`, installs the configured browsers and offers stage 2 for their own copy of the test accounts.
+- Setup adds an empty application layer and generic GitHub Actions workflows; it installs no tests.
+- It leaves out the UPEX reference implementation, the setup tooling and the workflows of modules you did not enable.
+- Without performance tests it also leaves out the Lighthouse runner and its packages (`@lhci/cli`, `lighthouse`, `chrome-launcher`), which make up most of the install size and of the `npm audit` warnings.
+- Every project gets `AGENTS.md`, `.github/copilot-instructions.md` (which makes Copilot load it) and `.vscode/mcp.json` with Playwright MCP. The OpenAPI MCP server is added only when the default environment has an OpenAPI URL and `allow.interactiveDiscovery` is enabled.
+- Setup installs no AI agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)); see [AI Tools and Agents](#ai-tools-and-agents).
 
-Without the script, for example on Windows: `npm ci`, `npm run setup`, then `npm ci`, `npx playwright install --with-deps` and `npm run doctor` in the new project folder. `npm run setup -- --target <folder>` chooses another location; `--in-place` turns the current folder into the project, for a repository created with GitHub's **Use this template** (it refuses to run on uncommitted changes unless you pass `--force`). For non-interactive use: `--answers answers.json` (see `framework/setup/selftest/answers-minimal.json`); the database URL then comes from the `DATABASE_URL` environment variable.
+A teammate who clones the project runs `./install.sh` there: it skips the questions, creates `.env` from `.env.example`, installs the configured browsers and offers stage 2 for their own copy of the test accounts.
 
-Setup adds an empty application layer and generic GitHub Actions workflows; it installs no tests. With the database module enabled, it warns when no environment allows database access or `DATABASE_URL` is empty. It finishes by listing the repository variable (`TEST_ENV`) and secrets (`DATABASE_URL` when the database module is enabled) to add under **Settings → Secrets and variables → Actions**. Every project gets `AGENTS.md`, `.github/copilot-instructions.md` (which makes Copilot load it) and an MCP configuration (`.vscode/mcp.json`) with Playwright MCP for browser tests. The OpenAPI MCP server is installed only when the default environment has an OpenAPI URL and `allow.interactiveDiscovery` is enabled. Setup installs no AI agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)); see [AI Tools and Agents](#ai-tools-and-agents).
+### Without the script (Windows)
 
-Once login and roles are configured in `config/framework.config.ts`, add the role accounts to `.env` (`npm run onboard` asks for them), run `npm run doctor` (it checks that each role logs in) and `npm run qa:sync-ci-secrets` (it adds the role secrets to the local workflow files and lists the secrets to create in GitHub; it uploads nothing). CI skips Playwright projects that have no tests yet.
+```bash
+npm ci
+npm run setup
+cd ../<project name>
+npm ci
+npx playwright install --with-deps
+npm run doctor
+```
+
+| Option                   | Use                                                                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `--target <folder>`      | Create the project in another location                                                                                |
+| `--in-place`             | Turn the current folder into the project, for a repository created with GitHub's **Use this template**                |
+| `--force`                | With `--in-place`: run although there are uncommitted changes                                                         |
+| `--answers answers.json` | Non-interactive run (see `framework/setup/selftest/answers-minimal.json`); the database URL comes from `DATABASE_URL` |
+
+### After setup
+
+1. Add the repository variable `TEST_ENV` and the secrets setup lists (`DATABASE_URL` with the database module) under **Settings → Secrets and variables → Actions**. With the database module, setup warns when no environment allows database access or `DATABASE_URL` is empty.
+2. Configure login and roles in `config/framework.config.ts`.
+3. Add the role accounts to `.env`: `npm run onboard` asks for them.
+4. Run `npm run doctor`: it checks that each role logs in.
+5. Run `npm run qa:sync-ci-secrets`: it adds the role secrets to the local workflow files and lists the secrets to create in GitHub. It uploads nothing.
+6. Write the first tests. CI skips Playwright projects that have no tests yet.
+
+On a terminal the output uses text colors (none with `NO_COLOR`) and a few emoji marks, shown as ASCII (`[x]`, `[-]`, `[!]`, `>>`, `->`, `\m/`) when the locale is not UTF-8.
 
 ## What You Get
 
@@ -89,74 +149,9 @@ The framework works with any AI tool, or none: `AGENTS.md` holds the rules for h
 
 Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has four optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md):
 
-```mermaid
-flowchart TB
-    you(["👤 You<br/>environment · role · feature · test type"])
-
-    subgraph BUILD ["🧪 Build tests from a plan"]
-        direction TB
-        planner["🧭 <b>test-planner</b><br/>evidence · risks · cases"]
-        plan[/"📄 test-plans/&lt;feature&gt;.md"/]
-        cp1{{"✋ CP1<br/>approve the plan"}}
-        builder["🛠️ <b>test-builder</b><br/>golden templates"]
-        gates[["✅ Validation gates<br/>prettier · typecheck<br/>lint:architecture · tests"]]
-        cp2{{"✋ CP2<br/>review the changes"}}
-        reviewer["🔍 <b>test-reviewer</b><br/>cases · green-washing<br/>structure · layers · scope"]
-        review[/"📄 test-reviews/&lt;feature&gt;.md"/]
-        cp3{{"✋ CP3<br/>verdict"}}
-        pr(["🔀 Pull request"])
-
-        planner --> plan --> cp1 -->|Build the approved plan| builder --> gates --> cp2
-        cp2 -->|Review the tests| reviewer --> review --> cp3
-        cp3 -->|PASS| pr
-        cp3 -. "Fix the findings" .-> builder
-        cp3 -. "Revise the plan" .-> planner
-    end
-
-    ci[["⚙️ GitHub Actions CI"]]
-
-    subgraph ANALYZE ["🩺 Analyze CI failures"]
-        direction TB
-        analyst["🩺 <b>ci-failure-analyst</b><br/>logs · artifacts · plan"]
-        analysis[/"📄 ci-analysis/&lt;run-id&gt;/analysis.md"/]
-        verdict{"Cause"}
-        env["🌐 env<br/>infrastructure"]
-        app["🐞 app<br/>developers"]
-        test["🧪 test<br/>test code"]
-        pipe["🔧 pipeline<br/>CI owner"]
-        unk["❓ unknown<br/>more evidence"]
-
-        analyst --> analysis --> verdict
-        verdict --> env & app & test & pipe & unk
-    end
-
-    done(["🟢 Green: nothing to analyze"])
-
-    you --> planner
-    pr --> ci
-    ci -->|failed| analyst
-    ci -->|passed| done
-
-    classDef agent fill:#6d28d9,stroke:#4c1d95,color:#ffffff,stroke-width:2px
-    classDef file fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
-    classDef human fill:#fef3c7,stroke:#d97706,color:#78350f
-    classDef gate fill:#dcfce7,stroke:#16a34a,color:#14532d
-    classDef cause fill:#f1f5f9,stroke:#64748b,color:#0f172a
-    classDef endpoint fill:#0f172a,stroke:#0f172a,color:#ffffff
-
-    class planner,builder,reviewer,analyst agent
-    class plan,review,analysis file
-    class you,cp1,cp2,cp3,verdict human
-    class gates,ci gate
-    class env,app,test,pipe,unk cause
-    class pr,done endpoint
-
-    style BUILD fill:#f5f3ff,stroke:#8b5cf6,stroke-width:1px,color:#4c1d95
-    style ANALYZE fill:#fff1f2,stroke:#f43f5e,stroke-width:1px,color:#881337
-
-    linkStyle default stroke:#64748b,stroke-width:2px
-    linkStyle 9,10 stroke:#8b5cf6,stroke-width:2px,stroke-dasharray:6 4
-```
+<p align="center">
+  <img src="examples/copilot-agents/agent-workflow.svg" alt="Agent workflow: test-planner, test-builder and test-reviewer with their checkpoints, then CI and the ci-failure-analyst" width="640">
+</p>
 
 Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility:
 
