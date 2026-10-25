@@ -13,6 +13,9 @@ node_modules
 # Test runner summaries
 /test-runs/
 
+# Configurator build (npm run qa:configurator)
+/dist/
+
 # Performance test artifacts
 /performance-results/
 .lighthouseci/

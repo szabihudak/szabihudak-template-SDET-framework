@@ -25,6 +25,20 @@ export function ciSecretNames(
 
 // Workflow env blocks cannot read secrets dynamically, so each one is listed
 // between markers that stay in place for later synchronisation.
+export function syncSecretsBlock(
+  workflow: string,
+  secretNames: string[],
+): string {
+  return workflow.replace(SECRETS_BLOCK, (_block, indent: string) =>
+    [
+      `${indent}# @qa:secrets:start (managed by npm run qa:sync-ci-secrets)`,
+      ...secretNames.map((name) => `${indent}${name}: \${{ secrets.${name} }}`),
+      `${indent}# @qa:secrets:end`,
+      "",
+    ].join("\n"),
+  );
+}
+
 export function syncWorkflowSecrets(
   root: string,
   secretNames: string[],
@@ -37,16 +51,7 @@ export function syncWorkflowSecrets(
     if (!fs.existsSync(file)) continue;
 
     const content = fs.readFileSync(file, "utf8");
-    const synced = content.replace(SECRETS_BLOCK, (_block, indent: string) =>
-      [
-        `${indent}# @qa:secrets:start (managed by npm run qa:sync-ci-secrets)`,
-        ...secretNames.map(
-          (name) => `${indent}${name}: \${{ secrets.${name} }}`,
-        ),
-        `${indent}# @qa:secrets:end`,
-        "",
-      ].join("\n"),
-    );
+    const synced = syncSecretsBlock(content, secretNames);
 
     if (synced !== content) {
       fs.writeFileSync(file, synced);

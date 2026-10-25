@@ -69,7 +69,7 @@ The template folder stays unchanged, so the next project starts from the same cl
 - It leaves out the UPEX reference implementation, the setup tooling and the workflows of modules you did not enable.
 - Without performance tests it also leaves out the Lighthouse runner and its packages (`@lhci/cli`, `lighthouse`, `chrome-launcher`), which make up most of the install size and of the `npm audit` warnings.
 - Every project gets `AGENTS.md`, `.github/copilot-instructions.md` (which makes Copilot load it) and `.vscode/mcp.json` with Playwright MCP. The OpenAPI MCP server is added only when the default environment has an OpenAPI URL and `allow.interactiveDiscovery` is enabled.
-- Setup installs no AI agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)); see [AI Tools and Agents](#ai-tools-and-agents).
+- Setup asks which example Copilot agents to include, none by default ([ADR-015](framework/docs/adr/ADR-015-project-generator-and-configurator.md)); see [AI Tools and Agents](#ai-tools-and-agents).
 
 A teammate who clones the project runs `./install.sh` there: it skips the questions, creates `.env` from `.env.example`, installs the configured browsers and offers stage 2 for their own copy of the test accounts.
 
@@ -147,7 +147,7 @@ For API-only testing, enable only the `api` module: setup then skips the browser
 
 The framework works with any AI tool, or none: `AGENTS.md` holds the rules for humans and AI tools, and the checks under [Writing Tests](#writing-tests) and in CI apply to every change, whoever wrote it. Credentials never go into a prompt or the chat; `npm run onboard` puts the test account into `.env` (masked).
 
-Setup installs no agents ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)). [examples/copilot-agents](examples/copilot-agents/README.md) has five optional GitHub Copilot agents to copy into a project; the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](framework/docs/adr/ADR-014-test-runner-agent.md):
+[examples/copilot-agents](examples/copilot-agents/README.md) has five optional GitHub Copilot agents. Setup includes the ones you choose: the build pipeline (planner, builder and reviewer together), the test runner and the CI failure analyst; none by default ([ADR-015](framework/docs/adr/ADR-015-project-generator-and-configurator.md)). Agents were left to each project before ([ADR-010](framework/docs/adr/ADR-010-agents-outside-the-template.md)); the reviewer is described in [ADR-012](framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](framework/docs/adr/ADR-014-test-runner-agent.md):
 
 <p align="center">
   <img src="examples/copilot-agents/agent-workflow-v2.svg" alt="Agent workflow: test-planner, test-builder and test-reviewer with their checkpoints, the test-runner locally or in CI, then the ci-failure-analyst" width="640">
@@ -209,6 +209,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/adr/ADR-012-test-reviewer-agent.md](framework/docs/adr/ADR-012-test-reviewer-agent.md): the optional reviewer agent and the lint candidates it found
 - [framework/docs/adr/ADR-013-ci-failure-analyst-agent.md](framework/docs/adr/ADR-013-ci-failure-analyst-agent.md): the optional CI failure analyst and why there is no healer agent
 - [framework/docs/adr/ADR-014-test-runner-agent.md](framework/docs/adr/ADR-014-test-runner-agent.md): the optional test runner and the manual inputs of the Playwright workflow
+- [framework/docs/adr/ADR-015-project-generator-and-configurator.md](framework/docs/adr/ADR-015-project-generator-and-configurator.md): one project generator for setup and the configurator download, and the agent choice
 - [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 

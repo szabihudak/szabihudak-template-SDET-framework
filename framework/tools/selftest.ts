@@ -7,8 +7,11 @@ import {
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
 
 import { parse } from "yaml";
+
+import { buildConfigurator } from "./configurator/build";
 
 import { readProjectState } from "./next-steps";
 import {
@@ -553,6 +556,8 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "tests/api/create-task.spec.ts",
     "framework/setup",
     "framework/tools/setup.ts",
+    "framework/tools/project-generator.ts",
+    "framework/tools/configurator",
     "framework/tools/selftest.ts",
     "framework/templates/roundtrip",
     "framework/docs/portfolio",
@@ -934,7 +939,7 @@ function staticChecks(project: string, hasTests: boolean): void {
 
 async function runScenario(
   scenario: Scenario,
-  options: { keep: boolean; skipBrowser: boolean },
+  options: { keep: boolean; skipBrowser: boolean; configurator: string },
 ): Promise<void> {
   console.log(`\n=== Scenario: ${scenario.name} ===`);
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "qa-selftest-"));
@@ -983,6 +988,7 @@ async function runScenario(
         path.join(ROOT, "node_modules"),
         path.join(project, "node_modules"),
       );
+      await checkConfigurator(options.configurator, answers, project);
     }
 
     checkProjectFiles(project, scenario);
@@ -1042,6 +1048,150 @@ async function runScenario(
 
 // Setup rejects an answers file without a URL an enabled module needs: the
 // API-only answers without apiBaseUrl.
+// The configurator page's generator (generator.js with template.json) must
+// create the project setup.ts created from the same answers, byte for byte,
+// with the same executable files (ADR-015).
+type BrowserGenerator = {
+  generate: (
+    answers: unknown,
+    bundle: unknown,
+  ) => Promise<{ files: Record<string, string>; executable: string[] }>;
+};
+
+function loadBrowserGenerator(configurator: string): BrowserGenerator {
+  const context: Record<string, unknown> = { TextEncoder, URL, console };
+  context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(
+    fs.readFileSync(path.join(configurator, "generator.js"), "utf8"),
+    context,
+  );
+  return context.SdetGenerator as BrowserGenerator;
+}
+
+function projectTree(project: string): string[] {
+  const files: string[] = [];
+  const walk = (folder: string) => {
+    for (const entry of fs.readdirSync(path.join(project, folder), {
+      withFileTypes: true,
+    })) {
+      const file = path.posix.join(folder, entry.name);
+      if ([".git", ".env", "node_modules"].includes(file)) continue;
+      if (entry.isDirectory()) walk(file);
+      else files.push(file);
+    }
+  };
+  walk("");
+  return files.sort();
+}
+
+async function checkConfigurator(
+  configurator: string,
+  answersFile: string,
+  project: string,
+): Promise<void> {
+  const generator = loadBrowserGenerator(configurator);
+  const bundle = JSON.parse(
+    fs.readFileSync(path.join(configurator, "template.json"), "utf8"),
+  );
+  const generated = await generator.generate(
+    JSON.parse(fs.readFileSync(answersFile, "utf8")),
+    bundle,
+  );
+  const onDisk = projectTree(project);
+  const names = Object.keys(generated.files).sort();
+
+  assert(
+    JSON.stringify(names) === JSON.stringify(onDisk),
+    `the configurator creates other files than setup: ${[
+      ...names.filter((file) => !onDisk.includes(file)),
+      ...onDisk.filter((file) => !names.includes(file)),
+    ].join(", ")}`,
+  );
+  const differing = names.filter(
+    (file) =>
+      fs.readFileSync(path.join(project, file), "utf8") !==
+      generated.files[file],
+  );
+  assert(
+    differing.length === 0,
+    `the configurator writes other content than setup: ${differing.join(", ")}`,
+  );
+  const executable = onDisk.filter(
+    (file) => fs.statSync(path.join(project, file)).mode & 0o111,
+  );
+  assert(
+    JSON.stringify(executable) === JSON.stringify(generated.executable),
+    `the configurator marks other files executable: ${generated.executable.join(", ")}`,
+  );
+  console.log(
+    `✔ the configurator creates the same ${names.length} files as setup`,
+  );
+}
+
+// Every agent choice: the build pipeline comes as one, the others alone, and
+// the configurator includes the same agents setup does.
+async function checkAgentChoices(configurator: string): Promise<void> {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "qa-agents-"));
+  const answers = JSON.parse(
+    fs.readFileSync(
+      path.join(ROOT, SELFTEST_DIR, "answers-api-only.json"),
+      "utf8",
+    ),
+  );
+  const setup = (agents: string[], target: string) => {
+    const file = path.join(workspace, `${target}.json`);
+    fs.writeFileSync(file, JSON.stringify({ ...answers, agents }));
+    return {
+      file,
+      result: spawnSync(
+        "npx",
+        [
+          "tsx",
+          "framework/tools/setup.ts",
+          "--answers",
+          file,
+          "--target",
+          path.join(workspace, target),
+        ],
+        { cwd: ROOT, encoding: "utf8" },
+      ),
+    };
+  };
+
+  try {
+    const all = [
+      "test-planner",
+      "test-builder",
+      "test-reviewer",
+      "test-runner",
+      "ci-failure-analyst",
+    ];
+    const { file, result } = setup(all, "all-agents");
+    assert(result.status === 0, `setup refused all agents:\n${result.stderr}`);
+    const project = path.join(workspace, "all-agents");
+    assert(
+      JSON.stringify(
+        fs.readdirSync(path.join(project, ".github/agents")).sort(),
+      ) === JSON.stringify(all.map((agent) => `${agent}.agent.md`).sort()),
+      "setup did not copy every chosen agent into .github/agents",
+    );
+    await checkConfigurator(configurator, file, project);
+
+    const partial = setup(["test-planner", "test-runner"], "partial");
+    assert(
+      partial.result.status !== 0 &&
+        partial.result.stderr.includes("choose all three or none"),
+      `setup accepted part of the build pipeline:\n${partial.result.stderr}`,
+    );
+    console.log(
+      "✔ agents: the build pipeline comes as one choice; chosen agents are copied",
+    );
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
 function checkRequiredUrls(): void {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "qa-selftest-"));
   const answers = JSON.parse(
@@ -1099,8 +1249,14 @@ async function main(): Promise<void> {
     await waitForApp("http://localhost:4510");
 
     checkRequiredUrls();
+
+    const configurator = fs.mkdtempSync(
+      path.join(os.tmpdir(), "qa-configurator-"),
+    );
+    await buildConfigurator(configurator);
+    await checkAgentChoices(configurator);
     for (const scenario of SCENARIOS) {
-      await runScenario(scenario, options);
+      await runScenario(scenario, { ...options, configurator });
     }
 
     console.log("\n✔ Template self-test passed");

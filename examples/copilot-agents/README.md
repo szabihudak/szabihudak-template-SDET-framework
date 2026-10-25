@@ -20,7 +20,7 @@ failed CI run ──▶ ci-failure-analyst ──▶ ci-analysis/<run-id>/analys
 
 ## Use in a project
 
-From the project folder, with the template next to it:
+Setup asks which agents to include and copies them to `.github/agents/`: the build pipeline (test-planner, test-builder and test-reviewer, which hand work to each other), test-runner and ci-failure-analyst. In an answers file, list them under `agents`. To add them to an existing project, from its folder, with the template next to it:
 
 ```bash
 mkdir -p .github/agents
@@ -33,4 +33,4 @@ To run tests, select **test-runner** and name the scope (`changed`, `pr 42`, `ca
 
 When a CI run fails, select **ci-failure-analyst** and give it the run URL, or nothing for the latest run. It needs the GitHub CLI signed in with read access to the repository's Actions (`gh auth login`). It fixes nothing; the analysis names the owner of each fix.
 
-These files are an example, not part of the framework: the self-test does not run them, and you can change them freely in your project.
+These files are an example, not part of the framework: the self-test checks that setup copies the chosen ones but does not run them, and you can change them freely in your project.

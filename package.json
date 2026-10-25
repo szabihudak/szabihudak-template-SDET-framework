@@ -25,6 +25,7 @@
     "qa:templates:build": "tsx framework/tools/templates.ts build",
     "qa:templates:extract": "tsx framework/tools/templates.ts extract",
     "qa:selftest": "tsx framework/tools/selftest.ts",
+    "qa:configurator": "tsx framework/tools/configurator/build.ts",
     "prepare": "husky"
   },
   "author": "Szabolcs Hudak",

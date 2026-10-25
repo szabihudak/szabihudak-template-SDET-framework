@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes ADR-009. Amends ADR-007 and ADR-008. Amended by ADR-012 (an optional reviewer agent in the examples), ADR-013 (an optional CI failure analyst) and ADR-014 (an optional test runner and manual inputs of the Playwright workflow).
+Supersedes ADR-009. Amends ADR-007 and ADR-008. Amended by ADR-012 (an optional reviewer agent in the examples), ADR-013 (an optional CI failure analyst), ADR-014 (an optional test runner and manual inputs of the Playwright workflow) and ADR-015 (setup includes the example agents a user chooses).
 
 ---
 
@@ -61,4 +61,5 @@ ADR-009 → Copilot agent pipeline (superseded)
 ADR-012 → test reviewer agent
 ADR-013 → CI failure analyst agent
 ADR-014 → test runner agent
+ADR-015 → project generator, agent choice and configurator download
 ```

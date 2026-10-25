@@ -19,11 +19,13 @@
     "examples",
     "framework/setup",
     "framework/tools/setup.ts",
+    "framework/tools/project-generator.ts",
+    "framework/tools/configurator",
     "framework/tools/selftest.ts",
     "framework/tools/selftest-onboarding.ts",
     "framework/tools/eslint-plugin/tests"
   ],
-  "scripts": ["setup", "db:test:reset", "qa:selftest"],
+  "scripts": ["setup", "db:test:reset", "qa:selftest", "qa:configurator"],
   "performance": {
     "files": ["framework/core/performance/lighthouse"],
     "devDependencies": ["@lhci/cli", "chrome-launcher", "lighthouse"]

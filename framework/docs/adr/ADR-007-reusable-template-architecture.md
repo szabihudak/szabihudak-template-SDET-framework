@@ -4,7 +4,7 @@
 
 Accepted
 
-Amended by ADR-009 (setup no longer asks for an AI tool) and ADR-010 (setup installs no AI agents; optional examples in `examples/copilot-agents/`).
+Amended by ADR-009 (setup no longer asks for an AI tool) ADR-010 (setup installs no AI agents; optional examples in `examples/copilot-agents/`) and ADR-015 (setup is one project generator with a terminal and a browser front end, and includes the agents a user chooses).
 
 ---
 

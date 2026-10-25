@@ -166,6 +166,18 @@ install_project() {
     echo "Created .env from .env.example."
   fi
 
+  # A project downloaded from the configurator has no history yet. Setup gives
+  # every project its own repository, and the architecture lint reads it.
+  if command -v git >/dev/null && ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git init -q -b main
+    git add -A
+    if git commit -q -m "Initial setup from the SDET framework template" 2>/dev/null; then
+      echo "Created a git repository with an initial commit."
+    else
+      echo "Created a git repository; commit the files yourself (git config user.name/user.email were not available)."
+    fi
+  fi
+
   flow 1 2
   step "Installing browsers"
   BROWSERS="$(npx tsx framework/tools/browsers.ts)"
