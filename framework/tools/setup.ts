@@ -26,6 +26,7 @@ import {
   MODULE_LABELS,
   MODULES,
   modulesNeeding,
+  SKILLS_DIR,
   STARTER_DIR,
   within,
   type Answers,
@@ -299,7 +300,9 @@ export function readTemplateSource(): TemplateSource {
     (file) =>
       !within(file, [...exclusions.reference, ...exclusions.templateOnly]),
   );
-  const extra = all.filter((file) => within(file, [STARTER_DIR, AGENTS_DIR]));
+  const extra = all.filter((file) =>
+    within(file, [STARTER_DIR, AGENTS_DIR, SKILLS_DIR]),
+  );
   const executable = execSync("git ls-files -s", { cwd: ROOT })
     .toString()
     .split("\n")

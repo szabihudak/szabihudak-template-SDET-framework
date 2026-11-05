@@ -1,6 +1,6 @@
 # Example: GitHub Copilot test agents
 
-Six optional agents for VS Code with GitHub Copilot. Setup includes only the ones you choose, none by default: a project works without agents, and any tool that follows `AGENTS.md` writes code the checks accept ([ADR-010](../../framework/docs/adr/ADR-010-agents-outside-the-template.md), [ADR-015](../../framework/docs/adr/ADR-015-project-generator-and-configurator.md)). The reviewer is described in [ADR-012](../../framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](../../framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](../../framework/docs/adr/ADR-014-test-runner-agent.md), the pull request opener and the analyst's attempts and local runs in [ADR-016](../../framework/docs/adr/ADR-016-pr-opener-agent.md). [agent-workflow-v2.svg](agent-workflow-v2.svg) shows how they work together.
+Six optional agents for VS Code with GitHub Copilot. Setup includes only the ones you choose, none by default: a project works without agents, and any tool that follows `AGENTS.md` writes code the checks accept ([ADR-010](../../framework/docs/adr/ADR-010-agents-outside-the-template.md), [ADR-015](../../framework/docs/adr/ADR-015-project-generator-and-configurator.md)). The reviewer is described in [ADR-012](../../framework/docs/adr/ADR-012-test-reviewer-agent.md), the CI failure analyst in [ADR-013](../../framework/docs/adr/ADR-013-ci-failure-analyst-agent.md), the test runner in [ADR-014](../../framework/docs/adr/ADR-014-test-runner-agent.md), the pull request opener and the analyst's attempts and local runs in [ADR-016](../../framework/docs/adr/ADR-016-pr-opener-agent.md). [agent-workflow-v2.svg](agent-workflow-v2.svg) shows how they work together. Each agent holds its role, permissions and checkpoint; the procedures it follows and the templates of what it writes are skills in [framework/skills](../../framework/skills), which setup installs in `.github/skills/` with the agent ([ADR-017](../../framework/docs/adr/ADR-017-agent-skills.md)).
 
 ```text
 test-planner ──▶ test-plans/<feature>.md ──▶ you approve ──▶ test-builder ──▶ validation commands ──▶ test-reviewer ──▶ test-reviews/<feature>.md ──▶ pr-opener ──▶ you confirm ──▶ draft pull request ──▶ CI
@@ -24,8 +24,9 @@ failed CI run attempt or local run ──▶ ci-failure-analyst ──▶ ci-ana
 Setup asks which agents to include and copies them to `.github/agents/`: the build pipeline (test-planner, test-builder and test-reviewer, which hand work to each other), test-runner, ci-failure-analyst and pr-opener. In an answers file, list them under `agents`. To add them to an existing project, from its folder, with the template next to it:
 
 ```bash
-mkdir -p .github/agents
+mkdir -p .github/agents .github/skills
 cp ../<template-folder>/examples/copilot-agents/.github/agents/*.agent.md .github/agents/
+cp -R ../<template-folder>/framework/skills/* .github/skills/
 ```
 
 Open the project in VS Code, select **test-planner** in Copilot Chat and name the environment, role, feature and test type. Approve the plan with **Build the approved plan**. After the build, start the review with **Review the tests**; send Implementation findings back with **Fix the findings** and Plan findings with **Revise the plan**. Commit the review report with the tests so the pull request reviewer sees it. With a PASS review, select **pr-opener** with the plan: it shows the branch, files, commit and pull request it would create, and after you confirm commits on a new branch, pushes and opens a draft pull request. It needs the GitHub CLI signed in with permission to push and to create pull requests; it never merges.

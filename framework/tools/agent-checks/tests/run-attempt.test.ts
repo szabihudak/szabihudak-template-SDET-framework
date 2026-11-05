@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
@@ -145,4 +147,19 @@ test("an earlier attempt does not list later reports as earlier", () => {
     "quality-log",
     "test-results-api",
   ]);
+});
+
+test("the analysis template names the run and the attempt the analyst verifies", () => {
+  const template = fs.readFileSync(
+    path.resolve(
+      __dirname,
+      "../../../skills/playwright-failure-triage/failure-analysis.template.md",
+    ),
+    "utf8",
+  );
+  assert.match(
+    template,
+    /^# CI failure analysis: <workflow> run #<number>, attempt <n>$/m,
+  );
+  assert.match(template, /^Run: <run URL> · Attempt: <n> of <attempts>/m);
 });

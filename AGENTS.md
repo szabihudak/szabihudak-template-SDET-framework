@@ -112,13 +112,15 @@ npm run qa:templates:check
 npx playwright test --project=<affected project>
 ```
 
-`npm run lint:architecture` runs ESLint (the rules in `framework/tools/eslint.config.mjs` and `framework/tools/eslint-plugin/`, including the test plan format), then the plan-to-spec checks; the VS Code ESLint extension shows the same problems while you edit. Run the affected tests against the target environment. Do not claim a command passed unless it ran and passed. If it could not run, say so.
+`npm run lint:architecture` runs ESLint (the rules in `framework/tools/eslint.config.mjs` and `framework/tools/eslint-plugin/`, including the test plan format), then the plan-to-spec checks; the VS Code ESLint extension shows the same problems while you edit. Run the affected tests against the target environment. Do not claim a command passed unless it ran and passed. If it could not run, say so. How to run them and act on their failures: the `validation-gates` skill.
 
 ## Golden Template Changes
 
-Generic templates in `framework/templates/` are derived from canonical files in the reference application and must reproduce them exactly (`npm run qa:templates:check`). Change a pattern in the canonical file first, then run `npm run qa:templates:extract -- <id>` and `npm run qa:templates:build`.
+Generic templates in `framework/templates/` reproduce canonical files in the reference application exactly (`npm run qa:templates:check`); never edit a template alone. In a project, register reviewed examples in `config/approved-examples.json` instead of editing `framework/templates/`. How to do either is in the `golden-template-implementation` skill.
 
-In a project, register reviewed examples in `config/approved-examples.json` instead of editing `framework/templates/`.
+## Skills
+
+The procedures behind these rules are skills in `.github/skills/` (`framework/skills/` in the template): `validation-gates`, `golden-template-implementation` and `playwright-failure-triage` in every project, and the skills of the example agents a project includes. A skill explains how to apply the rules in this file; it never changes them, and this file wins where the two differ.
 
 ## Documentation
 

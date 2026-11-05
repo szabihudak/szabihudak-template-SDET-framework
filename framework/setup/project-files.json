@@ -17,6 +17,7 @@
   ],
   "templateOnly": [
     "examples",
+    "framework/skills",
     "framework/setup",
     "framework/tools/setup.ts",
     "framework/tools/project-generator.ts",

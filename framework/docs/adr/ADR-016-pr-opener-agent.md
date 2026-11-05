@@ -4,7 +4,7 @@
 
 Accepted
 
-Amends ADR-010 (the optional examples gain a pull request opener), ADR-013 (the CI failure analyst reports per run attempt and analyzes local runs) and ADR-015 (setup offers the pull request opener). Setup still includes no agents by default.
+Amends ADR-010 (the optional examples gain a pull request opener), ADR-013 (the CI failure analyst reports per run attempt and analyzes local runs) and ADR-015 (setup offers the pull request opener). Setup still includes no agents by default. Amended by ADR-017 (the agents' procedures and output formats are skills).
 
 ---
 

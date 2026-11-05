@@ -206,3 +206,35 @@ test("checks a real repository against its default branch", () => {
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+// The skills' templates are what planners and reviewers write from; the
+// hand-off reads them, so their formats are checked here.
+const SKILLS = path.resolve(__dirname, "../../../skills");
+
+test("reads the Files table and the verdict in the formats the skills' templates write", () => {
+  const plan = fs.readFileSync(
+    path.join(SKILLS, "test-plan-writing/test-plan.template.md"),
+    "utf8",
+  );
+  const filesHeader = plan
+    .split("## Files")[1]
+    ?.split("\n")
+    .find((line) => line.startsWith("|"));
+  assert.ok(filesHeader, "the plan template has no Files table");
+  const columns = filesHeader
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((cell) => cell.trim());
+  assert.equal(columns[1], "Path");
+  assert.equal(columns[2], "Decision");
+
+  const review = fs.readFileSync(
+    path.join(SKILLS, "test-review-checklist/test-review.template.md"),
+    "utf8",
+  );
+  assert.match(review, /^Verdict: PASS \/ CHANGES NEEDED$/m);
+  assert.equal(
+    parseVerdict(review.replace("PASS / CHANGES NEEDED", "PASS")),
+    "PASS",
+  );
+});

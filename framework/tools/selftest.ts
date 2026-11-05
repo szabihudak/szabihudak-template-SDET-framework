@@ -12,6 +12,7 @@ import vm from "node:vm";
 import { parse } from "yaml";
 
 import { buildConfigurator } from "./configurator/build";
+import { AGENT_SKILLS, FRAMEWORK_SKILLS } from "./project-generator";
 
 import { readProjectState } from "./next-steps";
 import {
@@ -559,6 +560,7 @@ function checkProjectFiles(project: string, scenario: Scenario): void {
     "framework/tools/project-generator.ts",
     "framework/tools/configurator",
     "framework/tools/selftest.ts",
+    "framework/skills",
     "framework/templates/roundtrip",
     "framework/docs/portfolio",
     ".github/workflows/ghcr-cleanup.yml",
@@ -1129,6 +1131,75 @@ async function checkConfigurator(
   );
 }
 
+// The skills and agents of a project: each skill folder has a SKILL.md whose
+// name is the folder's and whose description Copilot can match (at most 1024
+// characters), and every relative link in an agent or a skill (not in an
+// output template) resolves inside the project (ADR-017).
+function checkSkills(project: string, expected: string[]): void {
+  const skillsDir = path.join(project, ".github/skills");
+  const skills = fs.existsSync(skillsDir)
+    ? fs.readdirSync(skillsDir).sort()
+    : [];
+  assert(
+    JSON.stringify(skills) === JSON.stringify([...expected].sort()),
+    `setup installed the skills ${skills.join(", ")} instead of ${[...expected].sort().join(", ")}`,
+  );
+
+  const markdown: string[] = [];
+  for (const skill of skills) {
+    const file = path.join(skillsDir, skill, "SKILL.md");
+    assert(fs.existsSync(file), `${skill} has no SKILL.md`);
+    const front = /^---\n([\s\S]*?)\n---\n/.exec(fs.readFileSync(file, "utf8"));
+    assert(front, `${skill}/SKILL.md has no frontmatter`);
+    // Copilot skips a skill whose frontmatter is not valid YAML, silently.
+    const fields: unknown = parse(front[1]);
+    assert(
+      typeof fields === "object" && fields !== null,
+      `${skill}/SKILL.md frontmatter is not a YAML mapping`,
+    );
+    const { name, description } = fields as Record<string, unknown>;
+    assert(
+      name === skill,
+      `${skill}/SKILL.md is named "${String(name)}", not after its folder`,
+    );
+    assert(
+      typeof description === "string",
+      `${skill}/SKILL.md has no description`,
+    );
+    assert(
+      description.length > 0 && description.length <= 1024,
+      `${skill}/SKILL.md needs a description of 1 to 1024 characters`,
+    );
+    for (const entry of fs.readdirSync(path.join(skillsDir, skill))) {
+      // Output templates link to the files of the report they become.
+      if (entry.endsWith(".md") && !entry.endsWith(".template.md"))
+        markdown.push(path.join(skillsDir, skill, entry));
+    }
+  }
+  const agentsDir = path.join(project, ".github/agents");
+  if (fs.existsSync(agentsDir)) {
+    for (const entry of fs.readdirSync(agentsDir)) {
+      markdown.push(path.join(agentsDir, entry));
+    }
+  }
+
+  const broken: string[] = [];
+  for (const file of markdown) {
+    const text = fs.readFileSync(file, "utf8").replace(/```[\s\S]*?```/g, "");
+    for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+      if (/^(https?:|mailto:|#)/.test(target)) continue;
+      const resolved = path.resolve(path.dirname(file), target.split("#")[0]);
+      if (
+        !resolved.startsWith(project + path.sep) ||
+        !fs.existsSync(resolved)
+      ) {
+        broken.push(`${path.relative(project, file)} → ${target}`);
+      }
+    }
+  }
+  assert(broken.length === 0, `broken links: ${broken.join(", ")}`);
+}
+
 // Every agent choice: the build pipeline comes as one, the others alone, and
 // the configurator includes the same agents setup does.
 async function checkAgentChoices(configurator: string): Promise<void> {
@@ -1177,7 +1248,18 @@ async function checkAgentChoices(configurator: string): Promise<void> {
       ) === JSON.stringify(all.map((agent) => `${agent}.agent.md`).sort()),
       "setup did not copy every chosen agent into .github/agents",
     );
+    checkSkills(project, [
+      ...FRAMEWORK_SKILLS,
+      ...Object.values(AGENT_SKILLS).flat(),
+    ]);
     await checkConfigurator(configurator, file, project);
+
+    const none = setup([], "no-agents");
+    assert(
+      none.result.status === 0,
+      `setup refused no agents:\n${none.result.stderr}`,
+    );
+    checkSkills(path.join(workspace, "no-agents"), FRAMEWORK_SKILLS);
 
     const partial = setup(["test-planner", "test-runner"], "partial");
     assert(
@@ -1186,7 +1268,7 @@ async function checkAgentChoices(configurator: string): Promise<void> {
       `setup accepted part of the build pipeline:\n${partial.result.stderr}`,
     );
     console.log(
-      "✔ agents: the build pipeline comes as one choice; chosen agents are copied",
+      "✔ agents: the build pipeline comes as one choice; chosen agents and their skills are copied, links resolve",
     );
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });

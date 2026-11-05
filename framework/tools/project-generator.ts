@@ -21,6 +21,7 @@ import { testScripts, withTestScripts } from "./test-scripts";
 
 export const STARTER_DIR = "framework/setup/starter";
 export const AGENTS_DIR = "examples/copilot-agents/.github/agents";
+export const SKILLS_DIR = "framework/skills";
 
 // Local apps usually run on a known address; a staging URL has no sensible
 // default.
@@ -68,6 +69,32 @@ export const AGENTS = [
   "pr-opener",
 ] as const;
 export const BUILD_PIPELINE = ["test-planner", "test-builder", "test-reviewer"];
+
+// The skills in framework/skills (ADR-017): the framework's own procedures go
+// into every project, an agent's skills only with that agent. A project gets
+// them in .github/skills/, where GitHub Copilot finds them.
+export const FRAMEWORK_SKILLS = [
+  "validation-gates",
+  "golden-template-implementation",
+  "playwright-failure-triage",
+];
+export const AGENT_SKILLS: Record<(typeof AGENTS)[number], string[]> = {
+  "test-planner": ["test-plan-writing"],
+  "test-builder": [],
+  "test-reviewer": ["test-review-checklist"],
+  "test-runner": ["test-selection"],
+  "ci-failure-analyst": [],
+  "pr-opener": ["pr-handoff"],
+};
+
+export function projectSkills(
+  agents: readonly (typeof AGENTS)[number][],
+): string[] {
+  return [
+    ...FRAMEWORK_SKILLS,
+    ...agents.flatMap((agent) => AGENT_SKILLS[agent]),
+  ];
+}
 
 export const answersSchema = Type.Object(
   {
@@ -430,7 +457,7 @@ function aiToolsSection(agents: string[]): string {
       ? `This project includes GitHub Copilot agents in \`.github/agents/\`: ${agents.map((agent) => `\`${agent}\``).join(", ")}. Select one in Copilot Chat; each file says what it does and what it changes.`
       : "No GitHub Copilot agents were chosen when this project was created. The planner, builder and reviewer (one choice), the test runner, the CI failure analyst and the pull request opener can be included by creating the project again with them, with setup or the configurator; their files go into `.github/agents/`.";
 
-  return `\`AGENTS.md\` holds the rules, and \`.github/copilot-instructions.md\` makes GitHub Copilot load it; \`.vscode/mcp.json\` adds the Playwright and OpenAPI MCP servers when the project has them. The checks in \`AGENTS.md\` and CI apply to every change, whoever wrote it.
+  return `\`AGENTS.md\` holds the rules, and \`.github/copilot-instructions.md\` makes GitHub Copilot load it; \`.vscode/mcp.json\` adds the Playwright and OpenAPI MCP servers when the project has them. The skills in \`.github/skills/\` (validation, golden templates and failure triage, and the skills of the included agents) are the procedures behind those rules; Copilot loads one when a task needs it, and you can start one from the \`/\` menu. The checks in \`AGENTS.md\` and CI apply to every change, whoever wrote it.
 
 ${included}`;
 }
@@ -534,7 +561,7 @@ function approvedExamples(): string {
 // the configurator reads a bundle of the same files.
 export type TemplateSource = {
   // Every template file a project may contain, by its template path: the
-  // project files, the starter files and the example agents.
+  // project files, the starter files, the example agents and the skills.
   files: Record<string, string>;
   // The template paths of the project files (project-files.json applied).
   projectFiles: string[];
@@ -601,6 +628,15 @@ export async function generateProject(
 
   for (const agent of answers.agents ?? []) {
     copy(`${AGENTS_DIR}/${agent}.agent.md`, `.github/agents/${agent}.agent.md`);
+  }
+
+  for (const skill of projectSkills(answers.agents ?? [])) {
+    const prefix = `${SKILLS_DIR}/${skill}/`;
+    for (const file of Object.keys(source.files).filter((file) =>
+      file.startsWith(prefix),
+    )) {
+      copy(file, `.github/skills/${skill}/${file.slice(prefix.length)}`);
+    }
   }
 
   const secretNames = ciSecretNames(config);

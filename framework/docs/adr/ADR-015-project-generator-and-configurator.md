@@ -4,7 +4,7 @@
 
 Accepted
 
-Amends ADR-007 (setup is a generator with two front ends) and ADR-010 (setup includes the example agents a user chooses; it still includes none by default). Amended by ADR-016 (pr-opener is chosen alone).
+Amends ADR-007 (setup is a generator with two front ends) and ADR-010 (setup includes the example agents a user chooses; it still includes none by default). Amended by ADR-016 (pr-opener is chosen alone) and ADR-017 (setup installs skills).
 
 ---
 
