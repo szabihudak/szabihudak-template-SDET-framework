@@ -1166,6 +1166,7 @@ async function checkAgentChoices(configurator: string): Promise<void> {
       "test-reviewer",
       "test-runner",
       "ci-failure-analyst",
+      "pr-opener",
     ];
     const { file, result } = setup(all, "all-agents");
     assert(result.status === 0, `setup refused all agents:\n${result.stderr}`);

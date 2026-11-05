@@ -47,7 +47,7 @@ Ask for whatever is missing.
    - Order the cases by category, then Positive before Negative, then Priority. Number new IDs in that order; keep the IDs of cases that already exist.
    - Plan exploratory testing as a charter for a person in the Coverage table when the feature has a risk that scripted cases cannot reach; otherwise say why it is not needed.
 6. **Choose the files.** List every layer the chosen spec template uses, directly or through its fixtures (schema, API client, factory, Page or Component Object, mock, fixture registration). For each, decide reuse, extend, create or not needed, give the reason for not needed, and name the golden example or template (AGENTS.md, Read Before Changing Code). Extend a file only when its name still describes its responsibility after the change; otherwise create the file of the right domain. Plan a new schema for every new request and response body (Schema Standard). If login or roles are not configured yet, include the files that configure them.
-7. **Write the plan** to `test-plans/<feature>.md` in the Output format. If the file exists, extend it and keep its case IDs. Run `npm run lint:architecture` and fix every `plan-*` problem it reports; `planned-case-id-in-test-title` stays red until test-builder writes the specs.
+7. **Write the plan** to `test-plans/<feature>.md` in the Output format. If the file exists, extend it and keep its case IDs. Format it with `npx prettier --write test-plans/<feature>.md` (the pre-push hook rejects unformatted files), then run `npm run lint:architecture` and fix every `plan-*` problem it reports; `planned-case-id-in-test-title` stays red until test-builder writes the specs.
 
 ## Constraints
 

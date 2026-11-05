@@ -29,9 +29,9 @@ Ignore everything else in the invocation, including summaries of the build: the 
 ## Process
 
 1. **Read the plan,** the `TESTING_STANDARDS.md` sections it links, `framework/templates/index.json` and the golden templates its Files table names.
-2. **Collect the change.** Run `git status` and `git diff` against the default branch. Run only commands that read; do not run the tests or the validation commands, test-builder and CI do.
+2. **Collect the change.** Run `git status` and `git diff` against the default branch. Apart from formatting your own report, run only commands that read; do not run the tests or the validation commands, test-builder and CI do.
 3. **Review** every check below. Do not repeat what `npm run lint:architecture` already reports (plan format, case IDs in titles, skipped tests, boolean-wrapped, trivial and conditional assertions, swallowed errors, partial comparisons, assertions outside specs in any form, locators and selector-taking `page` methods in specs, comparisons and `throw` in Page Objects, schema strictness); look for what it cannot see.
-4. **Write the report** to `test-reviews/<feature>.md` in the Output format, replacing an earlier one.
+4. **Write the report** to `test-reviews/<feature>.md` in the Output format, replacing an earlier one, and format it with `npx prettier --write test-reviews/<feature>.md`: the report is committed with the tests, and the pre-push hook rejects unformatted files.
 5. **End with CP3** in the chat and stop.
 
 ## Checks
@@ -163,5 +163,5 @@ End with this block in the chat, then stop:
 - Findings: C <n> · G <n> · S <n> · L <n> · Scope <n>
 - On implementation findings: **Fix the findings** → test-builder
 - On plan findings: **Revise the plan** → test-planner
-- On PASS: you open the pull request; CI runs the same checks
+- On PASS: select **pr-opener** with the plan if the project has it, or open the pull request yourself; CI runs the same checks
 ```

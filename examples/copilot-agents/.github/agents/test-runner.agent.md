@@ -105,7 +105,7 @@ Left out: <tests or projects and why, or none>
 
 ## Next step
 
-- <for a failed CI run: ci-failure-analyst with the run URL; for a local failure: the report and trace of the failed case; or none>
+- <for a failed CI run: ci-failure-analyst with the run URL; for a local failure: ci-failure-analyst with `local` when the project has it, otherwise the report and trace of the failed case; or none>
 ```
 
 ## Summary

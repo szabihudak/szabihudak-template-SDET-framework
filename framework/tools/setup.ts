@@ -236,6 +236,11 @@ async function askAnswers(): Promise<{ answers: Answers; secrets: Secrets }> {
         },
         { value: "test-runner", label: "test-runner" },
         { value: "ci-failure-analyst", label: "ci-failure-analyst" },
+        {
+          value: "pr-opener",
+          label: "pr-opener",
+          hint: "commits reviewed tests and opens a draft pull request",
+        },
       ],
       initialValues: [] as string[],
       required: false,

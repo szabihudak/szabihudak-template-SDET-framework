@@ -65,6 +65,7 @@ export const AGENTS = [
   "test-reviewer",
   "test-runner",
   "ci-failure-analyst",
+  "pr-opener",
 ] as const;
 export const BUILD_PIPELINE = ["test-planner", "test-builder", "test-reviewer"];
 
@@ -427,7 +428,7 @@ function aiToolsSection(agents: string[]): string {
   const included =
     agents.length > 0
       ? `This project includes GitHub Copilot agents in \`.github/agents/\`: ${agents.map((agent) => `\`${agent}\``).join(", ")}. Select one in Copilot Chat; each file says what it does and what it changes.`
-      : "No GitHub Copilot agents were chosen when this project was created. The planner, builder and reviewer (one choice), the test runner and the CI failure analyst can be included by creating the project again with them, with setup or the configurator; their files go into `.github/agents/`.";
+      : "No GitHub Copilot agents were chosen when this project was created. The planner, builder and reviewer (one choice), the test runner, the CI failure analyst and the pull request opener can be included by creating the project again with them, with setup or the configurator; their files go into `.github/agents/`.";
 
   return `\`AGENTS.md\` holds the rules, and \`.github/copilot-instructions.md\` makes GitHub Copilot load it; \`.vscode/mcp.json\` adds the Playwright and OpenAPI MCP servers when the project has them. The checks in \`AGENTS.md\` and CI apply to every change, whoever wrote it.
 

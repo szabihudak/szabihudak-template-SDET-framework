@@ -4,7 +4,7 @@
 
 Accepted
 
-Amends ADR-010 (the optional examples gain a CI failure analyst). Setup still installs no agents.
+Amends ADR-010 (the optional examples gain a CI failure analyst). Setup still installs no agents. Amended by ADR-016 (one report per run attempt, and local runs).
 
 ---
 
