@@ -7,6 +7,7 @@ import { test } from "node:test";
 
 import {
   checkHandoff,
+  EXAMPLES_FILE,
   evaluateHandoff,
   parsePlannedFiles,
   parseVerdict,
@@ -227,6 +228,7 @@ test("reads the Files table and the verdict in the formats the skills' templates
     .map((cell) => cell.trim());
   assert.equal(columns[1], "Path");
   assert.equal(columns[2], "Decision");
+  assert.equal(columns[3], "Golden example or template");
 
   const review = fs.readFileSync(
     path.join(SKILLS, "test-review-checklist/test-review.template.md"),
@@ -237,4 +239,57 @@ test("reads the Files table and the verdict in the formats the skills' templates
     parseVerdict(review.replace("PASS / CHANGES NEEDED", "PASS")),
     "PASS",
   );
+});
+
+const EXAMPLE = {
+  id: "api-spec",
+  need: "Spec for Login (test-plans/login.md)",
+  file: "tests/api/login.spec.ts",
+};
+
+test("hands off new approved examples for the plan's own files", () => {
+  const base = input();
+  const result = evaluateHandoff({
+    ...base,
+    changed: [...base.changed, EXAMPLES_FILE],
+    modified: { ...base.modified, [EXAMPLES_FILE]: 5000 },
+    examples: { base: [], current: [EXAMPLE] },
+  });
+  assert.deepEqual(result.errors, []);
+  assert.ok(result.files.includes(EXAMPLES_FILE));
+});
+
+test("refuses approved examples for other files, and changed existing ones", () => {
+  const base = input();
+  const foreign = evaluateHandoff({
+    ...base,
+    changed: [...base.changed, EXAMPLES_FILE],
+    examples: {
+      base: [],
+      current: [{ ...EXAMPLE, file: "tests/api/orders.spec.ts" }],
+    },
+  });
+  assert.match(
+    foreign.errors.join("\n"),
+    /outside this plan.*orders\.spec\.ts/,
+  );
+
+  const changed = evaluateHandoff({
+    ...base,
+    changed: [...base.changed, EXAMPLES_FILE],
+    examples: { base: [EXAMPLE], current: [{ ...EXAMPLE, need: "renamed" }] },
+  });
+  assert.match(changed.errors.join("\n"), /existing example was changed/);
+});
+
+test("reads the layer and template id of every planned file", () => {
+  const spec = parsePlannedFiles(PLAN).find(
+    (row) => row.path === "tests/api/login.spec.ts",
+  );
+  assert.deepEqual(spec, {
+    layer: "Spec",
+    path: "tests/api/login.spec.ts",
+    decision: "create",
+    template: "api-spec",
+  });
 });

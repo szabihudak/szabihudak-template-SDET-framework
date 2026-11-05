@@ -10,6 +10,10 @@ Plan: `test-plans/<feature>.md` · Review: `test-reviews/<feature>.md` (PASS, <r
 
 - <path>: <create or extend>
 
+## Golden examples
+
+- <id>: <file>, added to `config/approved-examples.json`; or none
+
 ## Checks run before opening
 
 - `npx prettier --check .`: passed

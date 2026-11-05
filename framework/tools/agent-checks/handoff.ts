@@ -26,8 +26,22 @@ const NEVER_DIRS = [
 export type Verdict = "PASS" | "CHANGES NEEDED" | "missing";
 
 export interface PlannedFile {
+  layer: string;
   path: string;
   decision: string;
+  // The plan's "Golden example or template" id, or "" when the row has none.
+  template: string;
+}
+
+// pr-opener may add the plan's files to config/approved-examples.json in the
+// same pull request (ADR-018); any other change to it is not part of a
+// hand-off.
+export const EXAMPLES_FILE = "config/approved-examples.json";
+
+interface Example {
+  id: string;
+  need: string;
+  file: string;
 }
 
 export interface HandoffInput {
@@ -40,6 +54,8 @@ export interface HandoffInput {
   // Modification time in milliseconds of every changed file that exists, and
   // of the review report.
   modified: Record<string, number>;
+  // The approved examples at the base and now, when EXAMPLES_FILE changed.
+  examples?: { base: Example[]; current: Example[] };
 }
 
 export interface HandoffResult {
@@ -82,7 +98,12 @@ export function parsePlannedFiles(plan: string): PlannedFile[] {
     if (/^-+$/.test(file) || file.toLowerCase() === "path") continue;
     if (!file || file.toLowerCase().startsWith("none")) continue;
 
-    rows.push({ path: posix(file), decision });
+    rows.push({
+      layer: cells[0],
+      path: posix(file),
+      decision,
+      template: (cells[3] ?? "").replace(/`/g, "").trim(),
+    });
   }
   return rows;
 }
@@ -112,8 +133,17 @@ export function evaluateHandoff(input: HandoffInput): HandoffResult {
     );
   }
 
+  const examplesProblem = input.changed.includes(EXAMPLES_FILE)
+    ? examplesChange(input.examples, handedOff)
+    : undefined;
+  if (examplesProblem === "") allowed.add(EXAMPLES_FILE);
+
   for (const file of input.changed) {
-    if ([...NEVER, ...NEVER_DIRS].some((pattern) => pattern.test(file))) {
+    if (file === EXAMPLES_FILE && examplesProblem) {
+      errors.push(`${EXAMPLES_FILE}: ${examplesProblem}`);
+    } else if (
+      [...NEVER, ...NEVER_DIRS].some((pattern) => pattern.test(file))
+    ) {
       errors.push(`never handed off: ${file}`);
     } else if (!allowed.has(file)) {
       errors.push(
@@ -132,7 +162,9 @@ export function evaluateHandoff(input: HandoffInput): HandoffResult {
   if (input.reviewExists && reviewTime !== undefined) {
     for (const file of input.changed) {
       const time = input.modified[file];
-      if (file === input.review || time === undefined) continue;
+      // The hand-off itself writes the approved examples after the review.
+      if (file === input.review || file === EXAMPLES_FILE) continue;
+      if (time === undefined) continue;
       if (time > reviewTime) {
         errors.push(
           `${file} changed after the review (${new Date(time).toISOString()} > ${new Date(reviewTime).toISOString()}): run test-reviewer again`,
@@ -150,6 +182,28 @@ export function evaluateHandoff(input: HandoffInput): HandoffResult {
     errors,
     warnings,
   };
+}
+
+// "" when the change to the approved examples only adds entries for files
+// this hand-off commits, otherwise the reason it does not.
+export function examplesChange(
+  examples: HandoffInput["examples"],
+  handedOff: string[],
+): string {
+  if (!examples) return "could not be read";
+  const key = (example: Example) =>
+    `${example.id}\u0000${example.file}\u0000${example.need}`;
+  const current = new Set(examples.current.map(key));
+  if (examples.base.some((example) => !current.has(key(example)))) {
+    return "an existing example was changed or removed; only new entries for this plan's files are handed off";
+  }
+  const before = new Set(examples.base.map(key));
+  const added = examples.current.filter((example) => !before.has(key(example)));
+  const foreign = added.filter((example) => !handedOff.includes(example.file));
+  if (foreign.length > 0) {
+    return `new examples for files outside this plan: ${foreign.map((example) => example.file).join(", ")}`;
+  }
+  return "";
 }
 
 function git(args: string[], cwd: string): string {
@@ -222,6 +276,26 @@ export function checkHandoff(
   const reviewText = readIfExists(path.join(cwd, review));
   const changed = changedFiles(base, cwd);
 
+  const readExamples = (text: string | undefined): Example[] =>
+    text ? ((JSON.parse(text) as { examples?: Example[] }).examples ?? []) : [];
+  let examples: HandoffInput["examples"];
+  if (changed.includes(EXAMPLES_FILE)) {
+    try {
+      let baseText: string | undefined;
+      try {
+        baseText = git(["show", `${base}:${EXAMPLES_FILE}`], cwd);
+      } catch {
+        baseText = undefined;
+      }
+      examples = {
+        base: readExamples(baseText),
+        current: readExamples(readIfExists(path.join(cwd, EXAMPLES_FILE))),
+      };
+    } catch {
+      examples = undefined;
+    }
+  }
+
   const modified: Record<string, number> = {};
   for (const file of [...changed, review]) {
     const absolute = path.join(cwd, file);
@@ -237,6 +311,7 @@ export function checkHandoff(
       planned: parsePlannedFiles(planText),
       changed,
       modified,
+      examples,
     }),
     base,
   };

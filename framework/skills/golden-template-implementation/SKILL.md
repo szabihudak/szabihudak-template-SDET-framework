@@ -57,6 +57,8 @@ A file that passed review and CI can become this project's golden example for it
 - `file`: the file; `npm run qa:templates:check` fails when it does not exist.
 - Register one reviewed example per responsibility, not every file.
 
+You do not write these entries by hand: `npm run qa:approve-examples -- test-plans/<feature>.md` proposes, from a PASS review, the plan's `create` files whose template id has no example in the project yet, and `--write` adds them (`--only <id,...>` to choose). Commit them with the files they name, so the pull request's CI run checks both; pr-opener asks you and does this in its hand-off. It never replaces an existing example: to replace one, edit the entry yourself in a reviewed pull request.
+
 ## Change a golden template (template repository only)
 
 Generic templates in `framework/templates/` are derived from canonical files in the reference application and must reproduce them exactly (`npm run qa:templates:check`). Change a pattern in the canonical file first, then run `npm run qa:templates:extract -- <id>` and `npm run qa:templates:build`. A project never edits `framework/templates/`; it registers an approved example instead.

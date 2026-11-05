@@ -49,5 +49,5 @@ End with this block in the chat, then stop:
 - Findings: C <n> · G <n> · S <n> · L <n> · Scope <n>
 - On implementation findings: **Fix the findings** → test-builder
 - On plan findings: **Revise the plan** → test-planner
-- On PASS: select **pr-opener** with the plan if the project has it, or open the pull request yourself; CI runs the same checks
+- On PASS: select **pr-opener** with the plan if the project has it; without it, run `npm run qa:approve-examples -- test-plans/<feature>.md` for golden example proposals and open the pull request yourself; CI runs the same checks
 ```

@@ -116,7 +116,7 @@ npx playwright test --project=<affected project>
 
 ## Golden Template Changes
 
-Generic templates in `framework/templates/` reproduce canonical files in the reference application exactly (`npm run qa:templates:check`); never edit a template alone. In a project, register reviewed examples in `config/approved-examples.json` instead of editing `framework/templates/`. How to do either is in the `golden-template-implementation` skill.
+Generic templates in `framework/templates/` reproduce canonical files in the reference application exactly (`npm run qa:templates:check`); never edit a template alone. In a project, register reviewed examples in `config/approved-examples.json` (proposed from a PASS review by `npm run qa:approve-examples`) instead of editing `framework/templates/`. How to do either is in the `golden-template-implementation` skill.
 
 ## Skills
 

@@ -153,7 +153,7 @@ The framework works with any AI tool, or none: `AGENTS.md` holds the rules for h
   <img src="examples/copilot-agents/agent-workflow-v2.svg" alt="Agent workflow: test-planner, test-builder and test-reviewer with their checkpoints, the test-runner locally or in CI, then the ci-failure-analyst" width="640">
 </p>
 
-Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility:
+Register reviewed tests in `config/approved-examples.json`. From then on they are the first reference for the same responsibility. `npm run qa:approve-examples -- test-plans/<feature>.md` proposes the entries from a PASS review and `--write` adds them; pr-opener asks you and commits them with the tests ([ADR-018](framework/docs/adr/ADR-018-approved-examples-from-reviews.md)):
 
 ```json
 {
@@ -185,22 +185,23 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 
 ## Commands
 
-| Command                        | Purpose                                                                     |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| `./install.sh`                 | Create a project (template) or install it (project)                         |
-| `npm run setup`                | Create a project folder for an application                                  |
-| `npm run doctor`               | Check configuration, reachability, credentials and login                    |
-| `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)            |
-| `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows               |
-| `npm run qa:handoff-check`     | Check that a reviewed plan's change is ready for a pull request (pr-opener) |
-| `npm run qa:run-attempt`       | Facts about one attempt of a CI run: jobs, artifacts, report folder         |
-| `npm run qa:failures`          | Failed and flaky tests of a Playwright run, with their evidence             |
-| `npm run lint:architecture`    | ESLint architecture rules and test plan format, then plan ↔ spec checks     |
-| `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                             |
-| `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json` |
-| `npm run qa:templates:extract` | Re-extract templates after an intended canonical change                     |
-| `npm run qa:selftest`          | Create projects in temporary folders and verify them                        |
-| `npm run db:test:reset`        | Reset the dedicated test database (reference implementation)                |
+| Command                        | Purpose                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `./install.sh`                 | Create a project (template) or install it (project)                           |
+| `npm run setup`                | Create a project folder for an application                                    |
+| `npm run doctor`               | Check configuration, reachability, credentials and login                      |
+| `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)              |
+| `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows                 |
+| `npm run qa:handoff-check`     | Check that a reviewed plan's change is ready for a pull request (pr-opener)   |
+| `npm run qa:run-attempt`       | Facts about one attempt of a CI run: jobs, artifacts, report folder           |
+| `npm run qa:approve-examples`  | Propose a reviewed plan's new files as golden examples, `--write` to add them |
+| `npm run qa:failures`          | Failed and flaky tests of a Playwright run, with their evidence               |
+| `npm run lint:architecture`    | ESLint architecture rules and test plan format, then plan ↔ spec checks       |
+| `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                               |
+| `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json`   |
+| `npm run qa:templates:extract` | Re-extract templates after an intended canonical change                       |
+| `npm run qa:selftest`          | Create projects in temporary folders and verify them                          |
+| `npm run db:test:reset`        | Reset the dedicated test database (reference implementation)                  |
 
 ## Documentation
 
@@ -215,6 +216,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/adr/ADR-015-project-generator-and-configurator.md](framework/docs/adr/ADR-015-project-generator-and-configurator.md): one project generator for setup and the configurator download, and the agent choice
 - [framework/docs/adr/ADR-016-pr-opener-agent.md](framework/docs/adr/ADR-016-pr-opener-agent.md): the optional pull request opener, and the CI failure analyst's attempts and local runs
 - [framework/docs/adr/ADR-017-agent-skills.md](framework/docs/adr/ADR-017-agent-skills.md): rules in AGENTS.md, roles in agents, procedures and output templates in skills
+- [framework/docs/adr/ADR-018-approved-examples-from-reviews.md](framework/docs/adr/ADR-018-approved-examples-from-reviews.md): golden examples proposed from reviewed plans and handed off with the tests
 - [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 

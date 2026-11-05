@@ -4,7 +4,7 @@
 
 Accepted
 
-Amends ADR-010 and ADR-015 (setup installs the framework's skills in every project, and the skills of the example agents a user chooses) and ADR-016 (the agents' procedures move into skills).
+Amends ADR-010 and ADR-015 (setup installs the framework's skills in every project, and the skills of the example agents a user chooses) and ADR-016 (the agents' procedures move into skills). Amended by ADR-018 (pr-handoff and golden-template-implementation propose and add approved examples).
 
 ---
 
