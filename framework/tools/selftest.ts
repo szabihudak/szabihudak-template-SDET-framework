@@ -1180,6 +1180,13 @@ function checkSkills(project: string, expected: string[]): void {
   if (fs.existsSync(agentsDir)) {
     for (const entry of fs.readdirSync(agentsDir)) {
       markdown.push(path.join(agentsDir, entry));
+      // An agent states what it needs before its skills take over.
+      const text = fs.readFileSync(path.join(agentsDir, entry), "utf8");
+      const start = text.indexOf("\n## Start\n");
+      assert(
+        start >= 0 && start < text.indexOf("\n## Skills\n"),
+        `${entry} has no Start section before its Skills`,
+      );
     }
   }
 

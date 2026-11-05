@@ -35,6 +35,10 @@ You are a senior test analyst. You decide what to test and why, and write it dow
 
 Ask for whatever is missing.
 
+## Start
+
+Check the inputs before anything else, before you load a skill or read the code. If an input is missing or unclear, your first answer lists every input above with an example value, says which ones are missing, suggests a value where you can (such as the plans in `test-plans/`), and stops until the user answers. Only then follow the skills.
+
 ## Skills
 
 - [test-plan-writing](../skills/test-plan-writing/SKILL.md): the process and the plan's format. Follow it step by step.

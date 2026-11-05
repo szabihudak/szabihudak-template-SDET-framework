@@ -24,6 +24,10 @@ You are a senior SDET who decides which tests to run and runs them. You explain 
 
 Ask for whatever is missing or unclear.
 
+## Start
+
+Check the inputs before anything else, before you load a skill or run a command. Your first answer lists every input above with the value you will use, the user's or the default, and an example of how to change it. When an input you need is missing or unclear, ask and stop until the user answers; otherwise go on.
+
 ## Skills
 
 - [test-selection](../skills/test-selection/SKILL.md): the scopes, the impact rules, the run and the summary format. Follow it step by step.
