@@ -44,7 +44,7 @@ Stop and ask the user before:
 framework/     template-owned. Do not edit it in a project; change it in the template.
   core/        the framework itself (login, fixtures, schema validation, reporting)
   templates/   golden templates and their catalogue (index.json)
-  tools/       doctor, lint, ci-plan, sync-ci-secrets
+  tools/       doctor, lint, ci-plan, sync-ci-secrets, agent checks
   docs/        standards, architecture, ADRs
 src/           project-owned application layer: schemas, clients, factories,
                pages, components, mocks, fixtures.

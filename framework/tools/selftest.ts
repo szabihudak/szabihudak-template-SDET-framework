@@ -1247,6 +1247,11 @@ async function main(): Promise<void> {
     run("npx tsx --test framework/tools/eslint-plugin/tests/*.test.ts", ROOT);
     console.log("✔ ESLint rules report each broken file");
 
+    run("npx tsx --test framework/tools/agent-checks/tests/*.test.ts", ROOT);
+    console.log(
+      "✔ agent checks: hand-off, run attempts and failures report what they find",
+    );
+
     await waitForApp("http://localhost:4510");
 
     checkRequiredUrls();

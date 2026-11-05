@@ -46,6 +46,18 @@ test-planner and test-reviewer run `npx prettier --write` on the plan and the re
 
 The agent keeps its name, so answers files that list `ci-failure-analyst` stay valid.
 
+### Checks as code
+
+What can be decided without judgement is a script in `framework/tools/agent-checks/`, not a paragraph of an agent's prompt. The agents run the script and act on its result; they decide only what needs judgement, such as a failure's cause.
+
+| Command                    | Used by                         | Decides                                                                                                                                                        |
+| -------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run qa:handoff-check` | pr-opener                       | whether a reviewed change may be handed off: PASS review, newer than every changed file, only the plan's files, the plan and the review; the files to commit   |
+| `npm run qa:run-attempt`   | ci-failure-analyst              | one attempt of a run: its status, failed and skipped jobs, the artifacts of this attempt and of earlier ones, its report folder and the earlier reports        |
+| `npm run qa:failures`      | ci-failure-analyst, test-runner | the failed and flaky tests of a `results.json`, with case IDs, errors, attempts and which attachments exist, also for a CI artifact downloaded to this machine |
+
+They only read, print a summary or `--json`, and exit with 1 when the hand-off must stop or there is nothing to read. Their tests (`framework/tools/agent-checks/tests/`) run in the self-test; `qa:run-attempt` is tested on recorded GitHub API responses, not on a live run. A person can run them too, without an agent.
+
 ---
 
 ## Consequences
@@ -53,6 +65,7 @@ The agent keeps its name, so answers files that list `ci-failure-analyst` stay v
 ### Positive
 
 - Reviewed tests reach a draft pull request without hand-made commits that miss a file or include `.env`.
+- The checks the agents depend on are tested in CI; a prompt change cannot break them.
 - Every attempt of a run has its own analysis, and a summary never points to a stale report.
 - A local failure gets the same analysis as a CI failure.
 

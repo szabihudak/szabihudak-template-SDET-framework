@@ -192,6 +192,9 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 | `npm run doctor`               | Check configuration, reachability, credentials and login                    |
 | `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)            |
 | `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows               |
+| `npm run qa:handoff-check`     | Check that a reviewed plan's change is ready for a pull request (pr-opener) |
+| `npm run qa:run-attempt`       | Facts about one attempt of a CI run: jobs, artifacts, report folder         |
+| `npm run qa:failures`          | Failed and flaky tests of a Playwright run, with their evidence             |
 | `npm run lint:architecture`    | ESLint architecture rules and test plan format, then plan ↔ spec checks     |
 | `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                             |
 | `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json` |

@@ -500,6 +500,8 @@ npm run onboard               # test account into .env (optional; rerunnable)
 npm run doctor                # configuration, reachability and login checks
 npm run lint:architecture     # layer and import rules
 npm run qa:sync-ci-secrets    # role and database secrets for GitHub Actions
+npm run qa:failures           # failed and flaky tests of the last run, with their evidence
+npm run qa:handoff-check -- test-plans/<feature>.md  # is the reviewed change ready for a pull request
 \`\`\`
 
 ## Running tests

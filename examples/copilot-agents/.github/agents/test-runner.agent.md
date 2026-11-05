@@ -62,7 +62,7 @@ When in doubt, select more, never less.
 5. **Run.**
    - **local:** `TEST_ENV=<environment> npx playwright test <filters>`, with the selection passed as files, `--grep`, `--only-changed`, `--last-failed` or `--test-list <file>` under `test-runs/<timestamp>/`.
    - **ci:** the branch must be on the remote with the changes to test; if it is not, say so and offer a local run. Start `gh workflow run playwright.yml --ref <branch> -f environment=<environment> -f projects=<comma-separated> -f grep="<case IDs joined by |>"`, then follow it with `gh run watch` and give its URL.
-6. **Report.** Write `test-runs/<timestamp>/summary.md` in the Output format and end with the Summary in the chat.
+6. **Report.** For a local run, take each failed and flaky case, its error and its attachments from `npm run qa:failures -- --json`. Write `test-runs/<timestamp>/summary.md` in the Output format and end with the Summary in the chat.
 
 ## Constraints
 

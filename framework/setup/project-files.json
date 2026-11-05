@@ -23,7 +23,8 @@
     "framework/tools/configurator",
     "framework/tools/selftest.ts",
     "framework/tools/selftest-onboarding.ts",
-    "framework/tools/eslint-plugin/tests"
+    "framework/tools/eslint-plugin/tests",
+    "framework/tools/agent-checks/tests"
   ],
   "scripts": ["setup", "db:test:reset", "qa:selftest", "qa:configurator"],
   "performance": {
