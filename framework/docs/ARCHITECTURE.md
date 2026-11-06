@@ -19,7 +19,7 @@ Agents and contributors writing tests follow `AGENTS.md`, the golden templates a
 ## Ownership
 
 ```text
-framework/     template-owned; replaced as a whole on a template update
+framework/     template-owned; brought up to date by npm run setup -- --update (ADR-019)
   core/        the framework, imported as @framework/...
   templates/   golden templates and their catalogue (index.json)
   tools/       setup, doctor, onboard, ci-plan, sync-ci-secrets, lint, template checks

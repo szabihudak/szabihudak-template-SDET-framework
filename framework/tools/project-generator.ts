@@ -12,6 +12,7 @@ import {
 } from "../core/config/frameworkConfigSchema";
 
 import { ciSecretNames, syncSecretsBlock } from "./ci-secrets";
+import { STAMP_FILE, stampFor } from "./template-stamp";
 import { testScripts, withTestScripts } from "./test-scripts";
 
 // The project setup creates from the template, as files: no file system,
@@ -543,6 +544,10 @@ ${testCommands}
 
 If you enable a module or browser later in \`config/framework.config.ts\`, add its script the same way.
 
+## Updating the framework
+
+\`framework/\`, \`AGENTS.md\` and the Copilot agents and skills come from the SDET framework template; \`.sdet-template.json\` records the version. To update them, run \`npm run setup -- --update <this folder>\` in an up-to-date clone of the template: a dry run first, then \`--write\` in a clean working tree. Files you changed are kept and reported.
+
 Rules for people and AI tools: [AGENTS.md](AGENTS.md).
 `;
 }
@@ -570,6 +575,9 @@ export type TemplateSource = {
   // Template files that are executable (git mode 100755).
   executable: string[];
   exclusions: ProjectFiles;
+  // The template version written into the project's stamp: the short commit,
+  // with -dirty for uncommitted changes.
+  version?: string;
   // package-lock.json for a package.json without the given devDependencies.
   packageLock: (
     packageJson: string,
@@ -711,6 +719,13 @@ export async function generateProject(
   files["package-lock.json"] = `${JSON.stringify(lock, null, 2)}\n`;
 
   files[".env.example"] = buildEnvExample(answers, config);
+
+  await write(
+    STAMP_FILE,
+    JSON.stringify(
+      await stampFor(files, source.version ?? "unknown", answers.agents ?? []),
+    ),
+  );
 
   return {
     answers,

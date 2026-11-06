@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -43,14 +42,9 @@ export async function buildConfigurator(outDir: string): Promise<void> {
     delete packageJson.devDependencies[name];
   }
 
-  // The short commit names the version; a tag in front of it would only
-  // repeat history the page does not need.
-  const git = (command: string) =>
-    execSync(command, { cwd: ROOT }).toString().trim();
-  const dirty = git("git status --porcelain") ? "-dirty" : "";
-
   const bundle: TemplateBundle = {
-    templateVersion: `${git("git rev-parse --short HEAD")}${dirty}`,
+    // The short commit names the version, as in setup's project stamp.
+    templateVersion: source.version ?? "unknown",
     // The generator writes the project's own README, so the template's README
     // (with its clone instructions) stays out of the published bundle.
     files: { ...source.files, "README.md": "" },

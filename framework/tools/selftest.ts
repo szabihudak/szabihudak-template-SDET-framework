@@ -13,6 +13,7 @@ import { parse } from "yaml";
 
 import { buildConfigurator } from "./configurator/build";
 import { AGENT_SKILLS, FRAMEWORK_SKILLS } from "./project-generator";
+import { isTemplateOwned, sha256, STAMP_FILE } from "./template-stamp";
 
 import { readProjectState } from "./next-steps";
 import {
@@ -991,6 +992,7 @@ async function runScenario(
         path.join(project, "node_modules"),
       );
       await checkConfigurator(options.configurator, answers, project);
+      await checkUpdate(project, workspace);
     }
 
     checkProjectFiles(project, scenario);
@@ -1061,7 +1063,12 @@ type BrowserGenerator = {
 };
 
 function loadBrowserGenerator(configurator: string): BrowserGenerator {
-  const context: Record<string, unknown> = { TextEncoder, URL, console };
+  const context: Record<string, unknown> = {
+    TextEncoder,
+    URL,
+    console,
+    crypto: globalThis.crypto,
+  };
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(
@@ -1128,6 +1135,93 @@ async function checkConfigurator(
   );
   console.log(
     `✔ the configurator creates the same ${names.length} files as setup`,
+  );
+}
+
+// The project stamp names every template-owned file with its hash, and
+// npm run setup -- --update (ADR-019), on a copy of the project: a fresh
+// project needs nothing; an older template file is updated, a file the
+// project changed is kept, and src/ is never touched.
+async function checkUpdate(project: string, workspace: string): Promise<void> {
+  const stamp = JSON.parse(
+    fs.readFileSync(path.join(project, STAMP_FILE), "utf8"),
+  );
+  const owned = projectTree(project).filter(isTemplateOwned);
+  assert(
+    JSON.stringify(Object.keys(stamp.files).sort()) === JSON.stringify(owned),
+    `${STAMP_FILE} does not list exactly the template-owned files`,
+  );
+  for (const file of owned) {
+    assert(
+      stamp.files[file] ===
+        (await sha256(fs.readFileSync(path.join(project, file), "utf8"))),
+      `${STAMP_FILE} has another hash for ${file}`,
+    );
+  }
+
+  const copy = path.join(workspace, "update-check");
+  fs.cpSync(project, copy, { recursive: true, verbatimSymlinks: true });
+  const update = (flags = "") =>
+    execSync(
+      `npx tsx framework/tools/setup.ts --update ${copy} ${flags}`.trim(),
+      { cwd: ROOT, encoding: "utf8" },
+    );
+  const git = (command: string) =>
+    execSync(`git ${command}`, { cwd: copy, encoding: "utf8" });
+  const fresh = update();
+  assert(
+    !/^[+~-] (add|update|remove)/m.test(fresh),
+    `a fresh project should need no update:\n${fresh}`,
+  );
+
+  // An older template version of one file, and a local change to another.
+  const older = "framework/tools/doctor.ts";
+  const edited = "framework/templates/README.md";
+  const template = fs.readFileSync(path.join(ROOT, older), "utf8");
+  fs.writeFileSync(path.join(copy, older), "// an older version\n");
+  stamp.files[older] = await sha256("// an older version\n");
+  fs.writeFileSync(path.join(copy, STAMP_FILE), JSON.stringify(stamp));
+  fs.appendFileSync(path.join(copy, edited), "\nA local note.\n");
+  fs.writeFileSync(
+    path.join(copy, "src/fixtures/test-fixtures.ts"),
+    "// own\n",
+  );
+  git("add -A");
+  git(
+    '-c user.name=Self-test -c user.email=selftest@example.com commit -q -m "older template and local changes"',
+  );
+
+  const dry = update();
+  assert(
+    new RegExp(`^~ update +${older}:`, "m").test(dry) &&
+      new RegExp(`^! skip +${edited}:`, "m").test(dry),
+    `the dry run should update ${older} and keep ${edited}:\n${dry}`,
+  );
+  assert(!git("status --porcelain").trim(), "the dry run changed files");
+
+  update("--write");
+  assert(
+    fs.readFileSync(path.join(copy, older), "utf8") === template,
+    `--write did not update ${older}`,
+  );
+  assert(
+    fs
+      .readFileSync(path.join(copy, edited), "utf8")
+      .endsWith("A local note.\n"),
+    `--write replaced the locally changed ${edited}`,
+  );
+  const changed = git("status --porcelain")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.slice(3))
+    .sort();
+  assert(
+    JSON.stringify(changed) === JSON.stringify([STAMP_FILE, older].sort()),
+    `--write changed other files: ${changed.join(", ")}`,
+  );
+  fs.rmSync(copy, { recursive: true, force: true });
+  console.log(
+    "✔ npm run setup -- --update updates older template files and keeps local changes",
   );
 }
 
@@ -1337,6 +1431,7 @@ async function main(): Promise<void> {
     console.log("✔ ESLint rules report each broken file");
 
     run("npx tsx --test framework/tools/agent-checks/tests/*.test.ts", ROOT);
+    run("npx tsx --test framework/tools/tests/*.test.ts", ROOT);
     console.log(
       "✔ agent checks: hand-off, run attempts and failures report what they find",
     );

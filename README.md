@@ -84,12 +84,13 @@ npx playwright install --with-deps
 npm run doctor
 ```
 
-| Option                   | Use                                                                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `--target <folder>`      | Create the project in another location                                                                                |
-| `--in-place`             | Turn the current folder into the project, for a repository created with GitHub's **Use this template**                |
-| `--force`                | With `--in-place`: run although there are uncommitted changes                                                         |
-| `--answers answers.json` | Non-interactive run (see `framework/setup/selftest/answers-minimal.json`); the database URL comes from `DATABASE_URL` |
+| Option                   | Use                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--target <folder>`      | Create the project in another location                                                                                        |
+| `--in-place`             | Turn the current folder into the project, for a repository created with GitHub's **Use this template**                        |
+| `--force`                | With `--in-place`: run although there are uncommitted changes                                                                 |
+| `--answers answers.json` | Non-interactive run (see `framework/setup/selftest/answers-minimal.json`); the database URL comes from `DATABASE_URL`         |
+| `--update <folder>`      | Update an existing project to this template version: a dry run; see [Update an existing project](#update-an-existing-project) |
 
 ### After setup
 
@@ -99,6 +100,18 @@ npm run doctor
 4. Run `npm run doctor`: it checks that each role logs in.
 5. Run `npm run qa:sync-ci-secrets`: it adds the role secrets to the local workflow files and lists the secrets to create in GitHub. It uploads nothing.
 6. Write the first tests. CI skips Playwright projects that have no tests yet.
+
+### Update an existing project
+
+Every project records the template version, its agents and the hash of every template-owned file (`framework/`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/agents/`, `.github/skills/`) in `.sdet-template.json`. To bring a project to a newer template version, pull the template and run from its folder:
+
+```bash
+git pull
+npm run setup -- --update ../<project name>          # dry run: lists every change
+npm run setup -- --update ../<project name> --write  # apply, in a clean git working tree
+```
+
+It replaces the template-owned files the project left unchanged, adds new ones (the skills of its agents included) and removes ones the template dropped. A file the project changed is kept and reported (`--force` replaces it). It adds missing `package.json` scripts and packages and says when to run `npm install`, and never touches `src/`, `tests/`, `config/`, test plans, reviews, `README.md`, workflows or `.env`. Review the result with `git diff` in the project, run its validation commands and commit it. A project created before the stamp is updated too; its first update replaces every differing template-owned file, so check `git diff` closely ([ADR-019](framework/docs/adr/ADR-019-project-update.md)).
 
 On a terminal the output uses text colors (none with `NO_COLOR`) and a few emoji marks, shown as ASCII (`[x]`, `[-]`, `[!]`, `>>`, `->`, `\m/`) when the locale is not UTF-8.
 
@@ -218,6 +231,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/adr/ADR-016-pr-opener-agent.md](framework/docs/adr/ADR-016-pr-opener-agent.md): the optional pull request opener, and the CI failure analyst's attempts and local runs
 - [framework/docs/adr/ADR-017-agent-skills.md](framework/docs/adr/ADR-017-agent-skills.md): rules in AGENTS.md, roles in agents, procedures and output templates in skills
 - [framework/docs/adr/ADR-018-approved-examples-from-reviews.md](framework/docs/adr/ADR-018-approved-examples-from-reviews.md): golden examples proposed from reviewed plans and handed off with the tests
+- [framework/docs/adr/ADR-019-project-update.md](framework/docs/adr/ADR-019-project-update.md): updating an existing project from the template, and the project stamp
 - [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 

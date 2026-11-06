@@ -46,6 +46,7 @@ async function generate(answers: Answers, bundle: TemplateBundle) {
       projectFiles: bundle.projectFiles,
       executable: bundle.executable,
       exclusions: bundle.exclusions,
+      version: bundle.templateVersion,
       packageLock: async () => bundle.lockWithoutPerformance,
     },
     format,

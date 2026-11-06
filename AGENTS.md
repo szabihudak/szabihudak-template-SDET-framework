@@ -41,7 +41,8 @@ Stop and ask the user before:
 ## Ownership
 
 ```text
-framework/     template-owned. Do not edit it in a project; change it in the template.
+framework/     template-owned. Do not edit it in a project; change it in the template,
+               then update the project (npm run setup -- --update, ADR-019).
   core/        the framework itself (login, fixtures, schema validation, reporting)
   templates/   golden templates and their catalogue (index.json)
   tools/       doctor, lint, ci-plan, sync-ci-secrets, agent checks

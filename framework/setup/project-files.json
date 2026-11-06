@@ -21,11 +21,14 @@
     "framework/setup",
     "framework/tools/setup.ts",
     "framework/tools/project-generator.ts",
+    "framework/tools/project-update.ts",
+    "framework/tools/template-stamp.ts",
     "framework/tools/configurator",
     "framework/tools/selftest.ts",
     "framework/tools/selftest-onboarding.ts",
     "framework/tools/eslint-plugin/tests",
-    "framework/tools/agent-checks/tests"
+    "framework/tools/agent-checks/tests",
+    "framework/tools/tests"
   ],
   "scripts": ["setup", "db:test:reset", "qa:selftest", "qa:configurator"],
   "performance": {

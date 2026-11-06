@@ -34,7 +34,15 @@ import {
   type TemplateSource,
   type Validator,
 } from "./project-generator";
+import { packageChanges, planUpdate, projectAnswers } from "./project-update";
 import { assertSupportedNode } from "./runtime";
+import {
+  isTemplateOwned,
+  sha256,
+  STAMP_COMMENT,
+  STAMP_FILE,
+  type TemplateStamp,
+} from "./template-stamp";
 
 const ROOT = path.resolve(__dirname, "../..");
 const PROJECT_FILES = "framework/setup/project-files.json";
@@ -309,7 +317,21 @@ export function readTemplateSource(): TemplateSource {
     .filter((line) => line.startsWith("100755 "))
     .map((line) => line.split("\t")[1]);
 
+  // The short commit, as the configurator names its bundle; a folder without
+  // a commit (an in-place setup's fresh repository) has no version.
+  const git = (command: string) =>
+    execSync(command, { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  let version = "unknown";
+  try {
+    version = `${git("git rev-parse --short HEAD")}${git("git status --porcelain") ? "-dirty" : ""}`;
+  } catch {
+    // No commit yet.
+  }
+
   return {
+    version,
     files: Object.fromEntries(
       [...new Set([...projectFiles, ...extra])].map((file) => [
         file,
@@ -530,8 +552,194 @@ function option(args: string[], name: string): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
+// Every file under a folder, as project paths, without .git and node_modules.
+function filesUnder(project: string, folder: string): string[] {
+  const absolute = path.join(project, folder);
+  if (!fs.existsSync(absolute)) return [];
+  return fs
+    .readdirSync(absolute, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) =>
+      path
+        .relative(project, path.join(entry.parentPath, entry.name))
+        .split(path.sep)
+        .join("/"),
+    )
+    .filter((file) => !/(^|\/)(node_modules|\.git)\//.test(file));
+}
+
+// npm run setup -- --update <project> [--write] [--force] (ADR-019): a dry
+// run by default; --write needs a git repository with a clean working tree,
+// so git diff shows the update and git checkout undoes it.
+async function updateProject(
+  project: string,
+  write: boolean,
+  force: boolean,
+): Promise<void> {
+  const read = (file: string) =>
+    fs.readFileSync(path.join(project, file), "utf8");
+  const exists = (file: string) => fs.existsSync(path.join(project, file));
+  for (const file of [
+    "package.json",
+    "config/framework.config.ts",
+    "config/environments/environments.json",
+  ]) {
+    if (!exists(file)) {
+      throw new Error(
+        `${project} is not a project created by npm run setup: ${file} is missing.`,
+      );
+    }
+  }
+  if (path.resolve(project) === ROOT) {
+    throw new Error("--update takes a project folder, not the template.");
+  }
+  if (write) {
+    let status: string;
+    try {
+      status = execSync("git status --porcelain", { cwd: project }).toString();
+    } catch {
+      throw new Error(
+        `${project} is not a git repository; --write needs one so the update can be reviewed and undone.`,
+      );
+    }
+    if (status.trim()) {
+      throw new Error(
+        "The project has uncommitted changes. Commit or stash them first, then run the update again.",
+      );
+    }
+  }
+
+  const stamp: TemplateStamp | undefined = exists(STAMP_FILE)
+    ? JSON.parse(read(STAMP_FILE))
+    : undefined;
+  const packageJson = JSON.parse(read("package.json"));
+  const { answers, inferredAgents } = projectAnswers({
+    packageJson,
+    environments: JSON.parse(read("config/environments/environments.json")),
+    frameworkConfig: read("config/framework.config.ts"),
+    agentFiles: fs.existsSync(path.join(project, ".github/agents"))
+      ? fs.readdirSync(path.join(project, ".github/agents"))
+      : [],
+    stamp,
+    knownAgents: AGENTS,
+  });
+
+  const source = readTemplateSource();
+  const generated = await generateProject(
+    answers,
+    // The update never changes package-lock.json; npm install does.
+    { ...source, packageLock: async () => source.files["package-lock.json"] },
+    formatWithPrettier,
+  );
+
+  const owned = Object.keys(generated.files).filter(isTemplateOwned);
+  const hashes = async (files: string[], content: (file: string) => string) =>
+    Object.fromEntries(
+      await Promise.all(
+        files.map(async (file) => [file, await sha256(content(file))] as const),
+      ),
+    );
+  const onDisk = [
+    "AGENTS.md",
+    ".github/copilot-instructions.md",
+    ...filesUnder(project, "framework"),
+    ...filesUnder(project, ".github/agents"),
+    ...filesUnder(project, ".github/skills"),
+  ].filter(exists);
+  const plan = planUpdate({
+    generated: await hashes(owned, (file) => generated.files[file]),
+    current: await hashes(onDisk, read),
+    stamped: stamp?.files,
+    force,
+  });
+  const pkg = packageChanges(
+    packageJson,
+    JSON.parse(generated.files["package.json"]),
+  );
+
+  const enabled = (record: Record<string, boolean>) =>
+    Object.entries(record)
+      .filter(([, on]) => on)
+      .map(([name]) => name)
+      .join(", ") || "none";
+  console.log(`Project: ${project}
+Template: ${stamp?.template ?? "no stamp (created before .sdet-template.json)"} → ${source.version}
+Agents: ${(answers.agents ?? []).join(", ") || "none"}${inferredAgents ? " (from .github/agents; the stamp records them from now on)" : ""}
+Modules: ${enabled(answers.modules)} · Browsers: ${answers.browsers.join(", ")} (from config/framework.config.ts)
+`);
+  const labels = { add: "+", update: "~", remove: "-", skip: "!" } as const;
+  for (const { file, action, reason } of plan.actions) {
+    console.log(`${labels[action]} ${action.padEnd(6)} ${file}: ${reason}`);
+  }
+  console.log(`  ${plan.unchanged} template-owned files already current.`);
+  for (const script of pkg.scripts) console.log(`+ script ${script}`);
+  for (const dependency of pkg.dependencies) {
+    console.log(`+ package ${dependency}`);
+  }
+  for (const difference of pkg.differing) {
+    console.log(`! package ${difference} (kept)`);
+  }
+
+  if (!write) {
+    console.log(
+      "\nDry run: nothing changed. Run again with --write to apply it.",
+    );
+    return;
+  }
+
+  for (const { file, action } of plan.actions) {
+    const target = path.join(project, file);
+    if (action === "remove") {
+      fs.rmSync(target, { force: true });
+    } else if (action === "add" || action === "update") {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, generated.files[file]);
+      if (generated.executable.includes(file)) fs.chmodSync(target, 0o755);
+    }
+  }
+  if (pkg.scripts.length > 0 || pkg.dependencies.length > 0) {
+    fs.writeFileSync(
+      path.join(project, "package.json"),
+      `${JSON.stringify(pkg.packageJson, null, 2)}\n`,
+    );
+  }
+  fs.writeFileSync(
+    path.join(project, STAMP_FILE),
+    await formatWithPrettier(
+      JSON.stringify({
+        $comment: STAMP_COMMENT,
+        template: source.version ?? "unknown",
+        agents: answers.agents ?? [],
+        files: plan.stampFiles,
+      }),
+      STAMP_FILE,
+    ),
+  );
+  console.log(`
+Updated. Next:
+  1. git diff                      (review the update)
+  ${pkg.dependencies.length > 0 ? "2. npm install                   (new packages)" : "2. npm ci                        (only if package-lock.json changed)"}
+  3. npx prettier --check . && npm run typecheck && npm run lint:architecture
+  4. git commit -am "Update the SDET framework to ${source.version}"`);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const updateTarget = option(args, "--update");
+  if (args.includes("--update")) {
+    assertSupportedNode();
+    if (!updateTarget || updateTarget.startsWith("--")) {
+      throw new Error(
+        "Usage: npm run setup -- --update <project folder> [--write] [--force]",
+      );
+    }
+    await updateProject(
+      path.resolve(updateTarget),
+      args.includes("--write"),
+      args.includes("--force"),
+    );
+    return;
+  }
   const answersFile = option(args, "--answers");
   const inPlace = args.includes("--in-place");
 
