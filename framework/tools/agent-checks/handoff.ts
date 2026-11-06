@@ -1,12 +1,13 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 // npm run qa:handoff-check -- test-plans/<feature>.md [--base <ref>] [--json]
 //
 // Decides whether the change of a reviewed plan may be committed and handed
-// off as a pull request (pr-opener, ADR-016): the review is PASS and newer
-// than every changed file, and only the plan's create and extend files, the
+// off as a pull request (pr-opener, ADR-016): the review is PASS, every
+// changed file still has the content the review stamped (qa:review-stamp), and only the plan's create and extend files, the
 // plan and the review report changed. It reads only; exit code 1 means the
 // hand-off must stop, and every reason is printed.
 
@@ -52,8 +53,12 @@ export interface HandoffInput {
   planned: PlannedFile[];
   changed: string[];
   // Modification time in milliseconds of every changed file that exists, and
-  // of the review report.
+  // of the review report. Used only for a review without a stamp.
   modified: Record<string, number>;
+  // The review's "Reviewed files" stamp, when it has one: path → SHA-256.
+  reviewed?: Record<string, string>;
+  // The SHA-256 of every changed file now, or DELETED for a deleted one.
+  hashes?: Record<string, string>;
   // The approved examples at the base and now, when EXAMPLES_FILE changed.
   examples?: { base: Example[]; current: Example[] };
 }
@@ -69,6 +74,106 @@ export interface HandoffResult {
 }
 
 const posix = (file: string) => file.split(path.sep).join("/");
+
+// The review stamp (ADR-016): the content hash of every file the reviewer saw.
+export const REVIEWED_HEADING = "## Reviewed files";
+export const DELETED = "deleted";
+
+export function hashFile(absolute: string): string {
+  return fs.existsSync(absolute)
+    ? createHash("sha256").update(fs.readFileSync(absolute)).digest("hex")
+    : DELETED;
+}
+
+// The files a review stamp covers: every changed file except the review
+// itself, which the stamp writes, and the approved examples, which the
+// hand-off writes after the review.
+export function stampedFiles(changed: string[], review: string): string[] {
+  return changed.filter((file) => file !== review && file !== EXAMPLES_FILE);
+}
+
+// The section's line range in the review: [start, end), or undefined.
+function reviewedSection(
+  lines: string[],
+): { start: number; end: number } | undefined {
+  const start = lines.findIndex((line) => line.trim() === REVIEWED_HEADING);
+  if (start < 0) return undefined;
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index++) {
+    if (/^##?\s/.test(lines[index])) {
+      end = index;
+      break;
+    }
+  }
+  return { start, end };
+}
+
+// The "Reviewed files" table of a review: path → SHA-256, or undefined when
+// the review has no stamp.
+export function parseReviewedFiles(
+  review: string,
+): Record<string, string> | undefined {
+  const lines = review.split(/\r?\n/);
+  const section = reviewedSection(lines);
+  if (!section) return undefined;
+  const files: Record<string, string> = {};
+  for (const line of lines.slice(section.start + 1, section.end)) {
+    if (!line.trim().startsWith("|")) continue;
+    const cells = line
+      .trim()
+      .replace(/^\||\|$/g, "")
+      .split("|")
+      .map((cell) => cell.replace(/`/g, "").trim());
+    if (cells.length < 2) continue;
+    const [file, hash] = cells;
+    if (/^-+$/.test(file) || file.toLowerCase() === "path") continue;
+    if (file) files[posix(file)] = hash.toLowerCase();
+  }
+  return files;
+}
+
+// A markdown table as Prettier writes it, so a formatted review stays formatted.
+function table(header: string[], rows: string[][]): string[] {
+  const widths = header.map((cell, column) =>
+    Math.max(3, cell.length, ...rows.map((row) => row[column].length)),
+  );
+  const line = (cells: string[]) =>
+    `| ${cells.map((cell, column) => cell.padEnd(widths[column])).join(" | ")} |`;
+  return [
+    line(header),
+    line(widths.map((width) => "-".repeat(width))),
+    ...rows.map(line),
+  ];
+}
+
+// The review with its "Reviewed files" section written or replaced.
+export function stampReview(
+  review: string,
+  hashes: Record<string, string>,
+): string {
+  const files = Object.keys(hashes).sort();
+  const section = [
+    REVIEWED_HEADING,
+    "",
+    "Written by `npm run qa:review-stamp`. `npm run qa:handoff-check` stops when a file changed after the review: run test-reviewer again instead of editing this table.",
+    "",
+    ...(files.length > 0
+      ? table(
+          ["Path", "SHA-256"],
+          files.map((file) => [`\`${file}\``, hashes[file]]),
+        )
+      : ["No changed files."]),
+  ];
+
+  const lines = review.replace(/\s+$/, "").split(/\r?\n/);
+  const existing = reviewedSection(lines);
+  const before = existing ? lines.slice(0, existing.start) : lines;
+  const after = existing ? lines.slice(existing.end) : [];
+  while (before.length > 0 && before[before.length - 1].trim() === "") {
+    before.pop();
+  }
+  return `${[...before, "", ...section, ...(after.length > 0 ? ["", ...after] : [])].join("\n")}\n`;
+}
 
 export function parseVerdict(review: string): Verdict {
   const match = /^Verdict:\s*(PASS|CHANGES NEEDED)\b/m.exec(review);
@@ -158,17 +263,47 @@ export function evaluateHandoff(input: HandoffInput): HandoffResult {
     }
   }
 
-  const reviewTime = input.modified[input.review];
-  if (input.reviewExists && reviewTime !== undefined) {
-    for (const file of input.changed) {
-      const time = input.modified[file];
-      // The hand-off itself writes the approved examples after the review.
-      if (file === input.review || file === EXAMPLES_FILE) continue;
-      if (time === undefined) continue;
-      if (time > reviewTime) {
+  const stamped = stampedFiles(input.changed, input.review);
+  if (
+    input.reviewExists &&
+    input.reviewed &&
+    Object.keys(input.reviewed).length === 0 &&
+    stamped.length > 0
+  ) {
+    errors.push(
+      `${input.review} has an empty Reviewed files section: the review was not stamped; run npm run qa:review-stamp -- ${input.plan} as its last step`,
+    );
+  } else if (input.reviewExists && input.reviewed) {
+    const current = input.hashes ?? {};
+    for (const file of stamped) {
+      const stamped = input.reviewed[file];
+      const now = current[file];
+      if (stamped === undefined) {
         errors.push(
-          `${file} changed after the review (${new Date(time).toISOString()} > ${new Date(reviewTime).toISOString()}): run test-reviewer again`,
+          `${file} is not in the review's Reviewed files: run test-reviewer again`,
         );
+      } else if (now !== undefined && now !== stamped) {
+        errors.push(
+          now === DELETED
+            ? `${file} was deleted after the review: run test-reviewer again`
+            : `${file} changed after the review (its content differs from the stamped hash): run test-reviewer again`,
+        );
+      }
+    }
+  } else if (input.reviewExists) {
+    warnings.push(
+      `${input.review} has no Reviewed files stamp; falling back to modification times. Run npm run qa:review-stamp after the review`,
+    );
+    const reviewTime = input.modified[input.review];
+    if (reviewTime !== undefined) {
+      for (const file of stamped) {
+        const time = input.modified[file];
+        if (time === undefined) continue;
+        if (time > reviewTime) {
+          errors.push(
+            `${file} changed after the review (${new Date(time).toISOString()} > ${new Date(reviewTime).toISOString()}): run test-reviewer again`,
+          );
+        }
       }
     }
   }
@@ -301,6 +436,10 @@ export function checkHandoff(
     const absolute = path.join(cwd, file);
     if (fs.existsSync(absolute)) modified[file] = fs.statSync(absolute).mtimeMs;
   }
+  const hashes: Record<string, string> = {};
+  for (const file of stampedFiles(changed, review)) {
+    hashes[file] = hashFile(path.join(cwd, file));
+  }
 
   return {
     ...evaluateHandoff({
@@ -311,6 +450,9 @@ export function checkHandoff(
       planned: parsePlannedFiles(planText),
       changed,
       modified,
+      reviewed:
+        reviewText === undefined ? undefined : parseReviewedFiles(reviewText),
+      hashes,
       examples,
     }),
     base,

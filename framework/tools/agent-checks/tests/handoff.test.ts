@@ -10,7 +10,9 @@ import {
   EXAMPLES_FILE,
   evaluateHandoff,
   parsePlannedFiles,
+  parseReviewedFiles,
   parseVerdict,
+  stampReview,
   type HandoffInput,
 } from "../handoff.ts";
 
@@ -235,6 +237,13 @@ test("reads the Files table and the verdict in the formats the skills' templates
     "utf8",
   );
   assert.match(review, /^Verdict: PASS \/ CHANGES NEEDED$/m);
+  // The template's placeholder section is replaced by qa:review-stamp; left
+  // unstamped, it reads as an empty stamp, which stops the hand-off.
+  assert.deepEqual(parseReviewedFiles(review), {});
+  assert.deepEqual(
+    parseReviewedFiles(stampReview(review, { "a.ts": "deleted" })),
+    { "a.ts": "deleted" },
+  );
   assert.equal(
     parseVerdict(review.replace("PASS / CHANGES NEEDED", "PASS")),
     "PASS",

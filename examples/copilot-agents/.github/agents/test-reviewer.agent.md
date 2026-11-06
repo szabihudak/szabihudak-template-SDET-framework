@@ -36,7 +36,7 @@ Check the inputs before anything else, before you load a skill or read the code.
 
 ## Constraints
 
-- Create or change only `test-reviews/<feature>.md`.
+- Create or change only `test-reviews/<feature>.md`, and write its Reviewed files section only through `npm run qa:review-stamp`.
 - Never change code, tests, schemas, the plan or `framework/`.
 - Never read, ask for or print passwords or tokens.
 - Verdict is PASS only with no Implementation or Plan finding.

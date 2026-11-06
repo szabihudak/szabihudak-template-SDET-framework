@@ -15,6 +15,7 @@ Follow [AGENTS.md](../../../AGENTS.md). The question is whether the tests check 
 2. **Collect the change.** Run `git status` and `git diff` against the default branch. Apart from formatting your own report, run only commands that read; do not run the tests or the validation commands, test-builder and CI do.
 3. **Review** every check in [checklist.md](checklist.md). Do not repeat what `npm run lint:architecture` already reports (plan format, case IDs in titles, skipped tests, boolean-wrapped, trivial and conditional assertions, swallowed errors, partial comparisons, assertions outside specs in any form, locators and selector-taking `page` methods in specs, comparisons and `throw` in Page Objects, schema strictness); look for what it cannot see.
 4. **Write the report** to `test-reviews/<feature>.md` from [the review template](test-review.template.md), replacing an earlier one, and format it with `npx prettier --write test-reviews/<feature>.md`: the report is committed with the tests, and the pre-push hook rejects unformatted files.
+5. **Stamp the report** with `npm run qa:review-stamp -- test-plans/<feature>.md`. It writes the Reviewed files section: the SHA-256 of every file of the change you reviewed, the plan included. The hand-off stops when any of them changes afterwards, so run it last, after the verdict, and never edit the section yourself. A report written again is stamped again.
 
 ## Findings
 

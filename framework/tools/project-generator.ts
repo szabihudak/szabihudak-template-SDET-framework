@@ -528,6 +528,7 @@ npm run doctor                # configuration, reachability and login checks
 npm run lint:architecture     # layer and import rules
 npm run qa:sync-ci-secrets    # role and database secrets for GitHub Actions
 npm run qa:failures           # failed and flaky tests of the last run, with their evidence
+npm run qa:review-stamp -- test-plans/<feature>.md  # record the content of the reviewed files in the review
 npm run qa:handoff-check -- test-plans/<feature>.md  # is the reviewed change ready for a pull request
 npm run qa:approve-examples -- test-plans/<feature>.md  # golden example proposals from a PASS review
 \`\`\`

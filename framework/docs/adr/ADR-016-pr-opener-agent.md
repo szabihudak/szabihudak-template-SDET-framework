@@ -4,7 +4,7 @@
 
 Accepted
 
-Amends ADR-010 (the optional examples gain a pull request opener), ADR-013 (the CI failure analyst reports per run attempt and analyzes local runs) and ADR-015 (setup offers the pull request opener). Setup still includes no agents by default. Amended by ADR-017 (the agents' procedures and output formats are skills). Amended by ADR-018 (the hand-off proposes golden examples).
+Amends ADR-010 (the optional examples gain a pull request opener), ADR-013 (the CI failure analyst reports per run attempt and analyzes local runs) and ADR-015 (setup offers the pull request opener). Setup still includes no agents by default. Amended by ADR-017 (the agents' procedures and output formats are skills). Amended by ADR-018 (the hand-off proposes golden examples). The review freshness check was changed from modification times to content hashes (see Review stamp below).
 
 ---
 
@@ -28,7 +28,7 @@ Trying the example agents in a generated project showed three gaps:
 test-reviewer (PASS) ──▶ pr-opener ──▶ hand-off plan ──▶ you confirm ──▶ branch · commit · push ──▶ draft pull request ──▶ CI
 ```
 
-- It starts only from a PASS review that is newer than every file of the change, and only with the plan's `create` and `extend` files, the plan and the review report in the change. Any other changed file stops it.
+- It starts only from a PASS review whose stamp matches the content of every file of the change, and only with the plan's `create` and `extend` files, the plan and the review report in the change. Any other changed file stops it.
 - It runs the validation commands that need no environment (format, typecheck, architecture lint, template check); the tests run in CI on the pull request.
 - It shows the branch, the files, the commit message and the pull request before it writes anything, then commits each file by name on a new branch, pushes and opens a **draft** pull request with the plan, the review and the case IDs.
 - It never commits to the default branch, never uses `--no-verify` or a force push, and never merges, approves, marks ready or changes settings. The pull request and its CI run stay the approval (ADR-010).
@@ -52,11 +52,20 @@ What can be decided without judgement is a script in `framework/tools/agent-chec
 
 | Command                    | Used by                         | Decides                                                                                                                                                        |
 | -------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run qa:handoff-check` | pr-opener                       | whether a reviewed change may be handed off: PASS review, newer than every changed file, only the plan's files, the plan and the review; the files to commit   |
+| `npm run qa:review-stamp`  | test-reviewer                   | the content hash of every file of the change the reviewer saw, written into the review report                                                                  |
+| `npm run qa:handoff-check` | pr-opener                       | whether a reviewed change may be handed off: PASS review, stamped content unchanged, only the plan's files, the plan and the review; the files to commit       |
 | `npm run qa:run-attempt`   | ci-failure-analyst              | one attempt of a run: its status, failed and skipped jobs, the artifacts of this attempt and of earlier ones, its report folder and the earlier reports        |
 | `npm run qa:failures`      | ci-failure-analyst, test-runner | the failed and flaky tests of a `results.json`, with case IDs, errors, attempts and which attachments exist, also for a CI artifact downloaded to this machine |
 
-They only read, print a summary or `--json`, and exit with 1 when the hand-off must stop or there is nothing to read. Their tests (`framework/tools/agent-checks/tests/`) run in the self-test; `qa:run-attempt` is tested on recorded GitHub API responses, not on a live run. A person can run them too, without an agent.
+Apart from `qa:review-stamp`, which writes only the Reviewed files section of the review report, they only read, print a summary or `--json`, and exit with 1 when the hand-off must stop or there is nothing to read. Their tests (`framework/tools/agent-checks/tests/`) run in the self-test; `qa:run-attempt` is tested on recorded GitHub API responses, not on a live run. A person can run them too, without an agent.
+
+### Review stamp
+
+The first version decided freshness by modification time: a file newer than the review report had changed after the review. A checkout, a stash, a copy or an editor that keeps times defeats it, and a reformatted review hides any change before it.
+
+- test-reviewer ends a review with `npm run qa:review-stamp -- test-plans/<feature>.md`. It writes a `## Reviewed files` section at the end of the report, a table of every changed file against the base (the plan included, the report and `config/approved-examples.json` excluded) with its SHA-256, or `deleted`. Running it again replaces the section; the table is aligned as Prettier writes it.
+- `qa:handoff-check` compares the files' current hashes with the table. A changed file missing from the table, or with other content, stops the hand-off: the review is run again.
+- A report without the section, such as one written before the stamp, falls back to modification times with a warning.
 
 ---
 
@@ -72,7 +81,7 @@ They only read, print a summary or `--json`, and exit with 1 when the hand-off m
 ### Trade-offs
 
 - pr-opener needs the GitHub CLI signed in with permission to push and to create pull requests.
-- The review freshness check compares file modification times; a change that keeps a file's time, such as a checkout, is not detected.
+- The review must be stamped as its last step; a reviewer that skips it gets the weaker modification-time check and a warning. Any byte change, a reformat included, needs a new review.
 - Earlier reports in `ci-analysis/<run-id>/analysis.md` stay where they are; the analyst neither moves nor reads them.
 - One more example agent to keep current with the Copilot agent format; the self-test checks that setup copies it, not what it does.
 

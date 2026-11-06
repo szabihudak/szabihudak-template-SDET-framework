@@ -192,6 +192,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 | `npm run doctor`               | Check configuration, reachability, credentials and login                      |
 | `npm run onboard`              | Stage 2: put the test account into `.env` (optional, rerunnable)              |
 | `npm run qa:sync-ci-secrets`   | Add the configured role and database secrets to the workflows                 |
+| `npm run qa:review-stamp`      | Record the content hash of every reviewed file in the review (test-reviewer)  |
 | `npm run qa:handoff-check`     | Check that a reviewed plan's change is ready for a pull request (pr-opener)   |
 | `npm run qa:run-attempt`       | Facts about one attempt of a CI run: jobs, artifacts, report folder           |
 | `npm run qa:approve-examples`  | Propose a reviewed plan's new files as golden examples, `--write` to add them |

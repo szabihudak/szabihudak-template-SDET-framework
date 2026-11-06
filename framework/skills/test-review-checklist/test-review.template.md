@@ -37,3 +37,7 @@ Extra tests (C5): <tests, or none>
 - Plan: <the plan row and its source>
 - Code: <what the code does, file:line>
 - Suggested fix: <one sentence>
+
+## Reviewed files
+
+<written by npm run qa:review-stamp as the last step; do not edit>

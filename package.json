@@ -25,6 +25,7 @@
     "qa:run-attempt": "tsx framework/tools/agent-checks/run-attempt.ts",
     "qa:failures": "tsx framework/tools/agent-checks/failures.ts",
     "qa:approve-examples": "tsx framework/tools/agent-checks/approve-examples.ts",
+    "qa:review-stamp": "tsx framework/tools/agent-checks/review-stamp.ts",
     "qa:templates:check": "tsx framework/tools/templates.ts check",
     "qa:templates:build": "tsx framework/tools/templates.ts build",
     "qa:templates:extract": "tsx framework/tools/templates.ts extract",
