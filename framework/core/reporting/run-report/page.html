@@ -872,6 +872,29 @@
         margin: 0;
         overflow-wrap: anywhere;
       }
+      .evidence {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .evidence figure {
+        margin: 0;
+      }
+      .evidence figcaption {
+        font: 600 10.5px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .evidence img,
+      .evidence video {
+        display: block;
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--line-strong);
+        background: var(--inset);
+      }
       .toast {
         position: fixed;
         bottom: 22px;
@@ -1216,28 +1239,41 @@
         if (event.target.closest("[data-i]")) tip.hidden = true;
       });
 
+      // The attachments are copies next to this page (attachments/...).
       const evidence = (t) => {
-        if (!t.attachments.length) return "";
-        if (VIEW.meta.runUrl) {
-          return `<a href="${esc(VIEW.meta.runUrl)}#artifacts" target="_blank" rel="noopener">${t.attachments.map((a) => esc(a.name)).join(" · ")} ↗</a>`;
-        }
-        return t.attachments
-          .map((a) => `<a href="../${esc(a.path)}">${esc(a.name)}</a>`)
+        const of = (name) => t.attachments.filter((a) => a.name === name);
+        const shots = of("screenshot")
+          .map(
+            (a) =>
+              `<figure><figcaption>Screenshot</figcaption><a href="${esc(a.path)}" target="_blank" rel="noopener"><img src="${esc(a.path)}" alt="Screenshot of the failure" loading="lazy" /></a></figure>`,
+          )
           .join("");
+        const videos = of("video")
+          .map(
+            (a) =>
+              `<figure><figcaption>Video</figcaption><video src="${esc(a.path)}" controls preload="metadata"></video></figure>`,
+          )
+          .join("");
+        const traces = of("trace")
+          .map(
+            (a) =>
+              `<p class="note"><a href="${esc(a.path)}" download>⤓ Download the trace</a> · open it with <code>npx playwright show-trace trace.zip</code>, or drop it on <a href="https://trace.playwright.dev" target="_blank" rel="noopener">trace.playwright.dev</a>, which reads it in your browser</p>`,
+          )
+          .join("");
+        return shots || videos || traces
+          ? `<div class="evidence">${shots}${videos}</div>${traces}`
+          : "";
       };
       const details = $("details");
       const open = (index) => {
         const t = tests[index];
-        const trace = t.attachments.find((a) => a.name === "trace");
         details.innerHTML = `<button type="button" class="close" aria-label="Close">✕</button>
           <span class="badge" style="color:${COLOR[t.outcome]};border-color:${COLOR[t.outcome]};background:none">${t.outcome.toUpperCase()}</span>
           <h3 id="details-title">${esc(label(t))}</h3>
           <dl class="kv"><dt>Project</dt><dd>${esc(t.project)}</dd><dt>File</dt><dd class="mono">${esc(t.file)}:${t.line}</dd>
-          <dt>Duration</dt><dd>${duration(t.durationMs)}</dd><dt>Attempts</dt><dd>${t.attempts}</dd>
-          ${t.attachments.length ? `<dt>Evidence</dt><dd class="links">${evidence(t)}</dd>` : ""}</dl>
+          <dt>Duration</dt><dd>${duration(t.durationMs)}</dd><dt>Attempts</dt><dd>${t.attempts}</dd></dl>
           ${t.error ? `<pre>${esc(t.error)}</pre>` : ""}
-          ${trace && !VIEW.meta.runUrl ? `<p class="note">Open the trace: <code>npx playwright show-trace ${esc(trace.path)}</code></p>` : ""}
-          ${t.attachments.length && VIEW.meta.runUrl ? `<p class="note">Traces, screenshots and videos are in the CI run's test-results artifacts.</p>` : ""}`;
+          ${evidence(t)}`;
         tip.hidden = true;
         details.showModal();
       };

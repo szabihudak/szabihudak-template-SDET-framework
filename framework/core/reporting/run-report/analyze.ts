@@ -130,16 +130,18 @@ function rootCauses(tests: TestRecord[]): RootCause[] {
     );
 }
 
-// One lane per worker slot of each run, in the order the runs started.
+// One lane per worker slot of each run, in the order the runs started. A
+// test's index is its place in all runs' tests, which keep the runs' order.
 function lanes(runs: RunData[]): Lane[] {
-  let offset = 0;
+  const firsts = runs.map((_, index) =>
+    runs.slice(0, index).reduce((sum, run) => sum + run.tests.length, 0),
+  );
 
-  return [...runs]
-    .sort((left, right) => left.startedAt - right.startedAt)
-    .flatMap((run) => {
-      const first = offset;
-      offset += run.tests.length;
-      return groupIndexes(run.tests, (test) => String(test.lane))
+  return runs
+    .map((run, index) => ({ run, first: firsts[index] }))
+    .sort((left, right) => left.run.startedAt - right.run.startedAt)
+    .flatMap(({ run, first }) =>
+      groupIndexes(run.tests, (test) => String(test.lane))
         .sort(([left], [right]) => Number(left) - Number(right))
         .map(([lane, indexes]) => ({
           name:
@@ -147,8 +149,8 @@ function lanes(runs: RunData[]): Lane[] {
               ? `${run.name} / ${Number(lane) + 1}`
               : `worker ${Number(lane) + 1}`,
           tests: indexes.map((index) => first + index),
-        }));
-    });
+        })),
+    );
 }
 
 function groupIndexes<T>(

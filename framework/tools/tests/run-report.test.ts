@@ -15,7 +15,7 @@ import type {
   TestRecord,
 } from "../../core/reporting/run-report/model.ts";
 import { renderPage } from "../../core/reporting/run-report/render.ts";
-import { readRuns } from "../run-report.ts";
+import { copyAttachments, readRuns } from "../run-report.ts";
 
 const meta: ReportMeta = {
   title: "Acme Web",
@@ -202,6 +202,75 @@ test("reads the data files of several jobs and skips other JSON", () => {
     );
   } finally {
     console.warn = warn;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("keeps each test on its own run's lane when a later run started first", () => {
+  const view = buildView(
+    [
+      run(
+        "database",
+        [
+          record({ project: "database" }),
+          record({ project: "database", lane: 1 }),
+        ],
+        5_000,
+      ),
+      run(
+        "webkit",
+        [record({ project: "webkit", outcome: "failed", error: "boom" })],
+        1_000,
+      ),
+    ],
+    meta,
+  );
+
+  const webkit = view.lanes.find((lane) => lane.name === "webkit / 1");
+  assert.deepEqual(
+    webkit?.tests.map((index) => view.tests[index].project),
+    ["webkit"],
+  );
+  for (const lane of view.lanes.filter((lane) =>
+    lane.name.startsWith("database"),
+  )) {
+    assert.ok(
+      lane.tests.every((index) => view.tests[index].project === "database"),
+    );
+  }
+});
+
+test("copies the jobs' attachments next to the merged report", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "run-report-"));
+  const shot = path.join(
+    dir,
+    "data",
+    "attachments",
+    "webkit",
+    "0",
+    "test-failed-1.png",
+  );
+  fs.mkdirSync(path.dirname(shot), { recursive: true });
+  fs.writeFileSync(shot, "png");
+
+  try {
+    copyAttachments(path.join(dir, "data"), path.join(dir, "out"));
+    assert.equal(
+      fs.readFileSync(
+        path.join(
+          dir,
+          "out",
+          "attachments",
+          "webkit",
+          "0",
+          "test-failed-1.png",
+        ),
+        "utf8",
+      ),
+      "png",
+    );
+    copyAttachments(path.join(dir, "missing"), path.join(dir, "out"));
+  } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

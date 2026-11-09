@@ -8,7 +8,7 @@ export type FailureCategory = "app" | "test" | "env" | "unknown";
 
 export interface TestAttachment {
   name: string;
-  // Relative to the project root, as Playwright wrote it.
+  // A copy in the report folder, relative to it, so the report carries it.
   path: string;
 }
 

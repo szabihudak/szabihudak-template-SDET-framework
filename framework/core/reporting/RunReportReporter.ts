@@ -14,12 +14,15 @@ import { getFrameworkConfig } from "../config/frameworkConfig";
 import type { RunData, TestOutcome, TestRecord } from "./run-report/model";
 import { reportMeta, writeReport } from "./run-report/render";
 
-// The run report (ADR-020). Writes this run's tests to run-report/data and
-// the report of this run to run-report/index.html. In CI every test job
+// The run report (ADR-020). Writes this run's tests to run-report/data, the
+// screenshots, videos and traces of its failed and flaky tests to
+// run-report/attachments, and the report of this run to
+// run-report/index.html. In CI every test job
 // uploads its data file, and the run-report job draws one report of all of
 // them with npm run qa:run-report.
 
 const OUT_DIR = "run-report";
+const ATTACHMENTS_DIR = "attachments";
 const CASE_ID = /^([A-Z]\d{3,}_[A-Za-z0-9]+_[A-Za-z0-9]+):\s/;
 const ANSI = /\u001b\[[0-9;]*m/g;
 const ERROR_LINES = 12;
@@ -51,6 +54,9 @@ export default class RunReportReporter implements Reporter {
 
   onEnd(result: FullResult): void {
     try {
+      for (const dir of ["data", ATTACHMENTS_DIR]) {
+        fs.rmSync(path.join(OUT_DIR, dir), { recursive: true, force: true });
+      }
       const run: RunData = {
         version: 1,
         name: this.name,
@@ -58,17 +64,12 @@ export default class RunReportReporter implements Reporter {
         startedAt: this.startedAt,
         durationMs: Math.round(result.duration),
         workers: this.workers,
-        tests: [...this.tests.values()].map((test) =>
-          this.toRecord(test, this.results.get(test.id) ?? []),
+        tests: [...this.tests.values()].map((test, index) =>
+          this.toRecord(test, this.results.get(test.id) ?? [], index),
         ),
       };
 
-      const dataFile = path.join(
-        OUT_DIR,
-        "data",
-        `${this.name.replace(/[^\w.+-]/g, "_")}.json`,
-      );
-      fs.rmSync(path.join(OUT_DIR, "data"), { recursive: true, force: true });
+      const dataFile = path.join(OUT_DIR, "data", `${this.fileName()}.json`);
       fs.mkdirSync(path.dirname(dataFile), { recursive: true });
       fs.writeFileSync(dataFile, JSON.stringify(run));
 
@@ -81,7 +82,11 @@ export default class RunReportReporter implements Reporter {
     }
   }
 
-  private toRecord(test: TestCase, results: TestResult[]): TestRecord {
+  private toRecord(
+    test: TestCase,
+    results: TestResult[],
+    index: number,
+  ): TestRecord {
     const last = results.at(-1);
     const failedAttempt = [...results]
       .reverse()
@@ -106,13 +111,7 @@ export default class RunReportReporter implements Reporter {
       startedAt: (last?.startTime ?? new Date(this.startedAt)).getTime(),
       lane: last?.parallelIndex ?? 0,
       error: failedAttempt ? message || "No error message was recorded." : null,
-      attachments: (failedAttempt?.attachments ?? [])
-        .filter((attachment) => ATTACHMENTS.has(attachment.name))
-        .flatMap((attachment) =>
-          attachment.path
-            ? [{ name: attachment.name, path: this.relative(attachment.path) }]
-            : [],
-        ),
+      attachments: this.copyAttachments(failedAttempt, index),
     };
   }
 
@@ -125,6 +124,36 @@ export default class RunReportReporter implements Reporter {
       return "skipped";
     }
     return outcome === "unexpected" ? "failed" : "passed";
+  }
+
+  // Copies the evidence into the report folder, so the report links work
+  // wherever it is opened, a downloaded CI artifact included.
+  private copyAttachments(
+    attempt: TestResult | undefined,
+    index: number,
+  ): TestRecord["attachments"] {
+    return (attempt?.attachments ?? []).flatMap((attachment) => {
+      if (
+        !ATTACHMENTS.has(attachment.name) ||
+        !attachment.path ||
+        !fs.existsSync(attachment.path)
+      ) {
+        return [];
+      }
+      const copy = [
+        ATTACHMENTS_DIR,
+        this.fileName(),
+        String(index),
+        path.basename(attachment.path),
+      ].join("/");
+      fs.mkdirSync(path.dirname(path.join(OUT_DIR, copy)), { recursive: true });
+      fs.copyFileSync(attachment.path, path.join(OUT_DIR, copy));
+      return [{ name: attachment.name, path: copy }];
+    });
+  }
+
+  private fileName(): string {
+    return this.name.replace(/[^\w.+-]/g, "_");
   }
 
   private relative(file: string): string {

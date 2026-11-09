@@ -9,7 +9,8 @@ import { reportMeta, writeReport } from "../core/reporting/run-report/render";
 //
 // Draws one run report (ADR-020) from the data files of several Playwright
 // runs: in CI, the run-report-data-* artifacts of every test job. Writes
-// index.html and summary.md to the output folder, by default run-report.
+// index.html and summary.md to the output folder, by default run-report, and
+// copies the runs' attachments next to them.
 
 export function readRuns(dataDir: string): RunData[] {
   const files = fs
@@ -27,6 +28,16 @@ export function readRuns(dataDir: string): RunData[] {
     }
     return [run as RunData];
   });
+}
+
+// The data artifacts keep run-report/attachments as attachments/.
+export function copyAttachments(dataDir: string, outDir: string): void {
+  const attachments = path.join(dataDir, "attachments");
+  if (fs.existsSync(attachments)) {
+    fs.cpSync(attachments, path.join(outDir, "attachments"), {
+      recursive: true,
+    });
+  }
 }
 
 function main(): void {
@@ -49,6 +60,7 @@ function main(): void {
   }
 
   const view = writeReport(outDir, runs, reportMeta(getFrameworkConfig()));
+  copyAttachments(dataDir, outDir);
   console.log(
     `✔ Run report of ${runs.length} run(s), ${view.tests.length} tests: ${path.join(outDir, "index.html")}`,
   );

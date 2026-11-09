@@ -223,7 +223,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report-data-api
-          path: run-report/data/
+          path: |
+            run-report/data/
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -310,7 +312,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report-data-database
-          path: run-report/data/
+          path: |
+            run-report/data/
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -397,7 +401,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report-data-accessibility
-          path: run-report/data/
+          path: |
+            run-report/data/
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -484,7 +490,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report-data-visual
-          path: run-report/data/
+          path: |
+            run-report/data/
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -579,7 +587,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report-data-${{ matrix.browser }}
-          path: run-report/data/
+          path: |
+            run-report/data/
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -637,6 +647,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-report
-          path: run-report/index.html
+          path: |
+            run-report/index.html
+            run-report/summary.md
+            run-report/attachments/
           if-no-files-found: ignore
           retention-days: 7
