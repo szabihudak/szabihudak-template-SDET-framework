@@ -117,15 +117,16 @@ On a terminal the output uses text colors (none with `NO_COLOR`) and a few emoji
 
 ## What You Get
 
-| Capability             | Where                                                                                                                                                                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Framework core         | `framework/core/` (imported as `@framework/...`): environment, config, authentication, fixtures, reporters, schema validation, accessibility, visual, database, performance                                                          |
-| Your application layer | `src/` (imported as `@app/...`): schemas, API clients, factories, Page Objects, components, mocks, fixtures                                                                                                                          |
-| Golden templates       | `framework/templates/` catalogued in `framework/templates/index.json` and [README](framework/templates/README.md); VS Code snippets `qa-<id>`                                                                                        |
-| Configuration          | `config/framework.config.ts`, `config/environments/environments.json`                                                                                                                                                                |
-| Performance            | k6 under `tests/performance/k6/`, Lighthouse under `framework/core/performance/lighthouse/`                                                                                                                                          |
-| AI tools               | `AGENTS.md`, `.github/copilot-instructions.md`, `.vscode/mcp.json`; optional agents in [examples/copilot-agents](examples/copilot-agents/README.md)                                                                                  |
-| CI                     | `.github/workflows/`: quality gate, one test job per enabled project (planned from the config, run in the official Playwright image), manual performance workflow; a manual run can choose the environment, projects and test titles |
+| Capability             | Where                                                                                                                                                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework core         | `framework/core/` (imported as `@framework/...`): environment, config, authentication, fixtures, reporters, schema validation, accessibility, visual, database, performance                                                                                               |
+| Your application layer | `src/` (imported as `@app/...`): schemas, API clients, factories, Page Objects, components, mocks, fixtures                                                                                                                                                               |
+| Golden templates       | `framework/templates/` catalogued in `framework/templates/index.json` and [README](framework/templates/README.md); VS Code snippets `qa-<id>`                                                                                                                             |
+| Configuration          | `config/framework.config.ts`, `config/environments/environments.json`                                                                                                                                                                                                     |
+| Performance            | k6 under `tests/performance/k6/`, Lighthouse under `framework/core/performance/lighthouse/`                                                                                                                                                                               |
+| AI tools               | `AGENTS.md`, `.github/copilot-instructions.md`, `.vscode/mcp.json`; optional agents in [examples/copilot-agents](examples/copilot-agents/README.md)                                                                                                                       |
+| CI                     | `.github/workflows/`: quality gate, one test job per enabled project (planned from the config, run in the official Playwright image), manual performance workflow; a manual run can choose the environment, projects and test titles                                      |
+| Run report             | `run-report/index.html` after every run, and in CI one `run-report` artifact of every test job: pass rate, a map of every test, failures grouped into root causes, timeline, a summary to paste into a pull request ([ADR-020](framework/docs/adr/ADR-020-run-report.md)) |
 
 ## Configuration
 
@@ -139,6 +140,7 @@ On a terminal the output uses text colors (none with `NO_COLOR`) and a few emoji
 - `roles`: role names mapped to the environment variables holding their test-account credentials. The same credentials provide API bearer tokens (`apiTokenFor(role)` fixture) and browser sessions (`authenticatedPageFor` fixture).
 - `requirementsDoc` (optional): HTTP(S) URL or repository-relative path for requirements or acceptance criteria; AI tools use it as the source of expected behavior.
 - `uiScenariosDoc` (optional): the same for UI/E2E scenarios (user journeys, UI acceptance criteria); the planner reads it for UI plans.
+- `report` (optional): `title` and `subtitle` of the run report; without them, the project's name.
 
 For API-only testing, enable only the `api` module: setup then skips the browser menu, the web URL is optional and CI runs only the `api` project.
 
@@ -210,6 +212,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 | `npm run qa:run-attempt`       | Facts about one attempt of a CI run: jobs, artifacts, report folder           |
 | `npm run qa:approve-examples`  | Propose a reviewed plan's new files as golden examples, `--write` to add them |
 | `npm run qa:failures`          | Failed and flaky tests of a Playwright run, with their evidence               |
+| `npm run qa:run-report`        | One run report from the data of several runs (the CI's run-report job)        |
 | `npm run lint:architecture`    | ESLint architecture rules and test plan format, then plan ↔ spec checks       |
 | `npm run qa:templates:check`   | Verify golden templates, catalogue and snippets                               |
 | `npm run qa:templates:build`   | Regenerate the catalogue and snippets from `framework/templates/index.json`   |
@@ -232,6 +235,7 @@ Any AI tool follows [AGENTS.md](AGENTS.md) ([AI Tools and Agents](#ai-tools-and-
 - [framework/docs/adr/ADR-017-agent-skills.md](framework/docs/adr/ADR-017-agent-skills.md): rules in AGENTS.md, roles in agents, procedures and output templates in skills
 - [framework/docs/adr/ADR-018-approved-examples-from-reviews.md](framework/docs/adr/ADR-018-approved-examples-from-reviews.md): golden examples proposed from reviewed plans and handed off with the tests
 - [framework/docs/adr/ADR-019-project-update.md](framework/docs/adr/ADR-019-project-update.md): updating an existing project from the template, and the project stamp
+- [framework/docs/adr/ADR-020-run-report.md](framework/docs/adr/ADR-020-run-report.md): the run report, one page of every test job in CI
 - [framework/docs/adr/ADR-011-eslint-architecture-lint.md](framework/docs/adr/ADR-011-eslint-architecture-lint.md): why the architecture lint runs on ESLint and TypeScript stays on 6.0
 - [framework/docs/adr/](framework/docs/adr): architecture decisions
 

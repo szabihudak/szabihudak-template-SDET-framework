@@ -17,6 +17,7 @@ The report folder is `ci-analysis/<run-id>/attempt-<n>/`, one per attempt, so th
 2. **Collect.** For each failed job, its log (`gh run view --job <job-id> --log-failed`, with the job IDs from step 1) and the artifacts (`gh run download <run-id> --dir <reportDir>/artifacts`). Only the artifacts listed under this attempt are evidence; an artifact of an earlier attempt goes under Not available. Artifacts of this repository's CI:
    - `test-results-<job>`, on failure only: `results.json` with every test, error, retry and attachment; screenshots (`only-on-failure`), videos (`retain-on-failure`) and traces, which exist only for retried attempts (`on-first-retry`);
    - `playwright-report-<job>`: the HTML report;
+   - `run-report`, from the run-report job: one page of every test job, with the failures grouped into root causes (ADR-020). Link it in the report; its categories are a first guess from the error text, not evidence, and never replace your own verdict;
    - `performance-report-*`: the k6 and Lighthouse reports;
    - the application log, printed in the job log by the step that shows the UPEX logs on failure.
 3. **Separate the failures.** Test jobs: `npm run qa:failures -- <reportDir>/artifacts/test-results-<job>/results.json --json` lists each failed and flaky test with its case ID, error, attempts and which attachments exist; a test that passed on a retry is flaky. Other jobs (quality, build, self-test): each failed step from step 1.

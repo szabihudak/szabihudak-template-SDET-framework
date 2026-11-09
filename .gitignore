@@ -3,6 +3,7 @@ node_modules
 /test-results/
 /playwright-report/
 /blob-report/
+/run-report/
 /playwright/.cache/
 /playwright/.auth/
 .playwright-mcp/

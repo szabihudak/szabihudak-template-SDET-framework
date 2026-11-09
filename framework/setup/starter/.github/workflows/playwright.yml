@@ -140,3 +140,67 @@ jobs:
           name: test-results-${{ matrix.project }}
           path: test-results/
           retention-days: 7
+
+      - name: Upload run report data
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-report-data-${{ matrix.project }}
+          path: run-report/data/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # One run report of every test job (ADR-020). It runs when tests failed
+  # too, and a problem here never fails the run.
+  run-report:
+    needs: [tests]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download run report data
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: run-report-data-*
+          path: run-report-data
+          merge-multiple: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pin npm version
+        run: npm install --global npm@11.19.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Draw the run report
+        continue-on-error: true
+        run: |
+          if [ ! -d run-report-data ]; then
+            echo "No test job wrote run report data."
+            exit 0
+          fi
+          npm run qa:run-report -- run-report-data run-report
+          cat run-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload run report
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-report
+          path: run-report/index.html
+          if-no-files-found: ignore
+          retention-days: 7

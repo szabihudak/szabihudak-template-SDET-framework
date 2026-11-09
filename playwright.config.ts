@@ -21,6 +21,7 @@ const reporter: ReporterDescription[] = [
   ["html", { outputFolder: "playwright-report", open: "never" }],
   ["json", { outputFile: "test-results/results.json" }],
   ["./framework/core/reporting/GitHubSummaryReporter.ts"],
+  ["./framework/core/reporting/RunReportReporter.ts"],
 ];
 
 export default defineConfig({

@@ -198,6 +198,7 @@ export default tseslint.config(
     ignores: [
       "playwright-report/**",
       "test-results/**",
+      "run-report/**",
       "framework/templates/**",
     ],
   },

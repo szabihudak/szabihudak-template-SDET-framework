@@ -87,6 +87,18 @@ export const frameworkConfigSchema = Type.Object(
       Type.String({ pattern: "^[a-z][a-zA-Z0-9]*$" }),
       roleSchema,
     ),
+    // The run report's heading (ADR-020); without it, the project's name.
+    report: Type.Optional(
+      Type.Object(
+        {
+          title: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
+          subtitle: Type.Optional(
+            Type.String({ minLength: 1, maxLength: 120 }),
+          ),
+        },
+        { additionalProperties: false },
+      ),
+    ),
   },
   { additionalProperties: false },
 );

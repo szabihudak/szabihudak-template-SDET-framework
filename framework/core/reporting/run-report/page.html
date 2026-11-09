@@ -1,0 +1,1448 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Run report</title>
+    <!-- The run report (ADR-020): one file, drawn from the data below, that
+         needs no server and no network. -->
+    <style>
+      :root {
+        --bg: #060b16;
+        --panel: rgba(17, 27, 48, 0.62);
+        --panel-strong: rgba(19, 31, 55, 0.94);
+        --inset: rgba(6, 11, 22, 0.55);
+        --line: rgba(120, 160, 255, 0.16);
+        --line-strong: rgba(120, 170, 255, 0.38);
+        --text: #f4f7ff;
+        --text-2: #b9c4da;
+        --muted: #7c8aa6;
+        --blue: #4f8cff;
+        --cyan: #3ee0d0;
+        --pass: #3ee0a0;
+        --fail: #ff5c7c;
+        --flaky: #fbbf24;
+        --skip: #6b7794;
+        --hex-pass: rgba(62, 224, 160, 0.5);
+        --hex-pass-line: rgba(120, 255, 200, 0.75);
+        --grad: linear-gradient(100deg, #6ea8ff 0%, #9b7bff 45%, #3ee0d0 100%);
+        --glow: 1;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
+        --sans:
+          Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          sans-serif;
+        color-scheme: dark;
+      }
+      :root[data-theme="light"] {
+        --bg: #f3f6fc;
+        --panel: rgba(255, 255, 255, 0.86);
+        --panel-strong: #ffffff;
+        --inset: #eef2fa;
+        --line: rgba(40, 70, 140, 0.14);
+        --line-strong: rgba(40, 80, 170, 0.3);
+        --text: #0d1630;
+        --text-2: #39476a;
+        --muted: #66738f;
+        --blue: #2f6bea;
+        --cyan: #0f9e93;
+        --pass: #0fa36b;
+        --fail: #e0294f;
+        --flaky: #c98a00;
+        --skip: #98a2b8;
+        --hex-pass: rgba(15, 163, 107, 0.42);
+        --hex-pass-line: rgba(15, 163, 107, 0.8);
+        --glow: 0;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: var(--cyan);
+      }
+      .aurora {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        overflow: hidden;
+        opacity: var(--glow);
+      }
+      .aurora::before,
+      .aurora::after {
+        content: "";
+        position: absolute;
+        width: 900px;
+        height: 900px;
+        border-radius: 50%;
+        filter: blur(120px);
+      }
+      .aurora::before {
+        background: radial-gradient(circle, #3b5bff 0%, transparent 65%);
+        top: -420px;
+        left: -200px;
+        opacity: 0.3;
+      }
+      .aurora::after {
+        background: radial-gradient(circle, #7c3aed 0%, transparent 65%);
+        bottom: -380px;
+        right: -380px;
+        opacity: 0.22;
+      }
+
+      /* sidebar */
+      aside {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+        border-right: 1px solid var(--line);
+        padding: 22px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        overflow-y: auto;
+      }
+      .brand {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+      }
+      .mark {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 13px;
+        background: var(--grad);
+        color: #0a0f1d;
+        box-shadow: 0 0 24px rgba(110, 140, 255, calc(0.45 * var(--glow)));
+      }
+      .brand b {
+        display: block;
+        font-size: 15px;
+        line-height: 1.25;
+      }
+      .brand span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      nav {
+        display: grid;
+        gap: 4px;
+      }
+      nav button {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        color: var(--text-2);
+        background: none;
+        border: 0;
+        cursor: pointer;
+        text-align: left;
+      }
+      nav button:hover {
+        color: var(--text);
+      }
+      nav button[aria-current="page"] {
+        background: rgba(79, 140, 255, 0.14);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+      }
+      nav .n {
+        font: 11px var(--mono);
+        color: var(--muted);
+      }
+      nav .n.f {
+        color: var(--fail);
+      }
+      .facts {
+        margin: 0;
+        font-size: 12px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+      .facts dt {
+        color: var(--muted);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-top: 12px;
+      }
+      .facts dd {
+        margin: 2px 0 0;
+        font-family: var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .facts a {
+        text-decoration: none;
+      }
+      .actions {
+        margin-top: auto;
+        display: grid;
+        gap: 8px;
+      }
+      .actions button {
+        background: var(--panel-strong);
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+      }
+      .actions button.primary {
+        background: var(--grad);
+        color: #0a0f1d;
+        border: 0;
+      }
+
+      /* layout */
+      main {
+        padding: 30px 38px 48px;
+        max-width: 1180px;
+        width: 100%;
+      }
+      section[hidden] {
+        display: none;
+      }
+      h2 {
+        font: 600 11.5px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--cyan);
+        margin: 34px 0 12px;
+      }
+      h2 em {
+        text-transform: none;
+        letter-spacing: 0;
+        font: 400 12.5px var(--sans);
+        color: var(--muted);
+        margin-left: 10px;
+      }
+      section > h2:first-child {
+        margin-top: 0;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 20px 22px;
+      }
+      .empty {
+        color: var(--text-2);
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .empty b {
+        display: block;
+        font-size: 22px;
+        margin-bottom: 6px;
+        color: var(--pass);
+      }
+
+      /* hero */
+      .hero {
+        position: relative;
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr) 290px;
+        gap: 28px;
+        align-items: center;
+        padding: 26px 30px;
+        border-radius: 24px;
+        background:
+          linear-gradient(var(--panel-strong), var(--panel-strong)) padding-box,
+          linear-gradient(
+              120deg,
+              rgba(110, 168, 255, 0.7),
+              rgba(155, 123, 255, 0.5),
+              rgba(62, 224, 208, 0.7)
+            )
+            border-box;
+        border: 1px solid transparent;
+        overflow: hidden;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, calc(0.45 * var(--glow)));
+      }
+      .hero::before,
+      .hero::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        opacity: var(--glow);
+      }
+      .hero::before {
+        width: 520px;
+        height: 520px;
+        left: -160px;
+        top: -240px;
+        background: radial-gradient(
+          circle,
+          rgba(79, 140, 255, 0.35),
+          transparent 65%
+        );
+      }
+      .hero.failed::after {
+        width: 420px;
+        height: 420px;
+        right: -120px;
+        bottom: -260px;
+        background: radial-gradient(
+          circle,
+          rgba(255, 92, 124, 0.25),
+          transparent 65%
+        );
+      }
+      .gauge {
+        position: relative;
+        width: 190px;
+        height: 190px;
+      }
+      .gauge svg {
+        filter: drop-shadow(
+          0 0 18px rgba(110, 140, 255, calc(0.55 * var(--glow)))
+        );
+      }
+      .gauge .c {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        text-align: center;
+      }
+      .gauge .c b {
+        font-size: 40px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        line-height: 1;
+      }
+      .gauge .c span {
+        font: 11px var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      .verdict {
+        position: relative;
+        z-index: 1;
+        min-width: 0;
+      }
+      .badge {
+        font: 600 12px var(--mono);
+        letter-spacing: 0.16em;
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 99px;
+        color: var(--pass);
+        background: color-mix(in srgb, var(--pass) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--pass) 45%, transparent);
+      }
+      .failed .badge {
+        color: var(--fail);
+        background: color-mix(in srgb, var(--fail) 12%, transparent);
+        border-color: color-mix(in srgb, var(--fail) 45%, transparent);
+      }
+      .verdict h1 {
+        font-size: 38px;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        margin: 14px 0 10px;
+      }
+      .verdict h1 em {
+        font-style: normal;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .verdict p {
+        color: var(--text-2);
+        margin: 0;
+        font-size: 14.5px;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .chips span {
+        font: 11.5px var(--mono);
+        color: var(--text-2);
+        border: 1px solid var(--line-strong);
+        background: var(--inset);
+        border-radius: 8px;
+        padding: 5px 9px;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+      }
+      .stat {
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: var(--inset);
+        border: 1px solid var(--line);
+      }
+      .stat b {
+        display: block;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: var(--c);
+        line-height: 1.1;
+        text-shadow: 0 0 calc(22px * var(--glow)) var(--c);
+      }
+      .stat span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .stat.hot {
+        border-color: color-mix(in srgb, var(--fail) 50%, transparent);
+        background: color-mix(in srgb, var(--fail) 8%, transparent);
+      }
+
+      /* test map */
+      .map {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px 34px;
+      }
+      .cluster {
+        min-width: 0;
+        max-width: 100%;
+      }
+      .cluster h3 {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        font-size: 13px;
+        margin: 0 0 8px;
+      }
+      .cluster h3 small {
+        font: 11px var(--mono);
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .cluster h3 small.f {
+        color: var(--fail);
+      }
+      .cluster svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      .hex {
+        fill: var(--hex-pass);
+        stroke: var(--hex-pass-line);
+        stroke-width: 0.6;
+        cursor: pointer;
+        transition: transform 0.12s;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .hex:hover {
+        transform: scale(1.35);
+        stroke: var(--text);
+        stroke-width: 1.4;
+      }
+      .hex.failed {
+        fill: var(--fail);
+        stroke: #ffb3c2;
+        filter: drop-shadow(0 0 calc(5px * var(--glow)) var(--fail));
+      }
+      .hex.flaky {
+        fill: var(--flaky);
+        stroke: #fde68a;
+        filter: drop-shadow(0 0 calc(4px * var(--glow)) var(--flaky));
+      }
+      .hex.skipped {
+        fill: color-mix(in srgb, var(--skip) 55%, transparent);
+        stroke: var(--skip);
+      }
+      .legend {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 16px;
+      }
+      .legend span::before {
+        content: "⬢";
+        color: var(--c);
+        margin-right: 6px;
+      }
+      #tip {
+        position: fixed;
+        z-index: 30;
+        pointer-events: none;
+        background: var(--panel-strong);
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        padding: 11px 13px;
+        width: 320px;
+        font-size: 12.5px;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      }
+      #tip.failed {
+        border-color: color-mix(in srgb, var(--fail) 55%, transparent);
+      }
+      #tip .p {
+        font: 11px var(--mono);
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      #tip b {
+        display: block;
+        margin: 4px 0;
+      }
+
+      /* failures */
+      .viz {
+        display: grid;
+        grid-template-columns: 310px minmax(0, 1fr);
+        gap: 18px;
+      }
+      .donut {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 16px;
+        align-items: center;
+      }
+      .donut svg {
+        filter: drop-shadow(
+          0 0 calc(12px * var(--glow)) rgba(255, 92, 124, 0.4)
+        );
+      }
+      .cats div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--text-2);
+        margin: 8px 0;
+      }
+      .cats div span::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--c);
+        margin-right: 8px;
+      }
+      .cats b {
+        font-family: var(--mono);
+        color: var(--c);
+      }
+      .bars h2 {
+        margin: 0 0 8px;
+      }
+      .bar {
+        display: grid;
+        grid-template-columns: minmax(0, 220px) 1fr 34px;
+        gap: 12px;
+        align-items: center;
+        font-size: 12.5px;
+        margin: 9px 0;
+        color: var(--text-2);
+      }
+      .bar span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .bar i {
+        display: block;
+        height: 12px;
+        border-radius: 99px;
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--fail) 35%, transparent),
+          var(--fail)
+        );
+        box-shadow: 0 0 calc(14px * var(--glow))
+          color-mix(in srgb, var(--fail) 50%, transparent);
+      }
+      .bar b {
+        font-family: var(--mono);
+        color: var(--fail);
+        text-align: right;
+      }
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        overflow: hidden;
+        font-size: 13.5px;
+      }
+      th {
+        text-align: left;
+        font: 600 10.5px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      td.num {
+        font-size: 26px;
+        font-weight: 800;
+        color: var(--fail);
+        width: 64px;
+        text-shadow: 0 0 calc(18px * var(--glow))
+          color-mix(in srgb, var(--fail) 50%, transparent);
+      }
+      pre {
+        margin: 8px 0 0;
+        font: 12px/1.5 var(--mono);
+        color: var(--text-2);
+        background: var(--inset);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .pill {
+        font: 11px var(--mono);
+        border-radius: 99px;
+        padding: 3px 9px;
+        border: 1px solid;
+        white-space: nowrap;
+      }
+      .pill.app {
+        color: var(--fail);
+        border-color: color-mix(in srgb, var(--fail) 50%, transparent);
+      }
+      .pill.test {
+        color: var(--flaky);
+        border-color: color-mix(in srgb, var(--flaky) 50%, transparent);
+      }
+      .pill.env {
+        color: var(--blue);
+        border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+      }
+      .pill.unknown {
+        color: var(--muted);
+        border-color: var(--line-strong);
+      }
+      .links {
+        margin-top: 10px;
+        font-size: 12.5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+      }
+      .linkish {
+        background: none;
+        border: 0;
+        padding: 0;
+        color: var(--cyan);
+        cursor: pointer;
+        text-align: left;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+
+      /* all tests */
+      .filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .filters input,
+      .filters select {
+        background: var(--panel);
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 13.5px;
+      }
+      .filters input {
+        flex: 1;
+        min-width: 220px;
+      }
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .seg button {
+        background: none;
+        border: 0;
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--text-2);
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: rgba(79, 140, 255, 0.18);
+        color: var(--text);
+      }
+      .rows tbody tr {
+        cursor: pointer;
+      }
+      .rows tbody tr:hover td {
+        background: rgba(79, 140, 255, 0.07);
+      }
+      .rows td {
+        padding: 10px 16px;
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--c);
+        margin-right: 8px;
+      }
+      .mono {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* timeline */
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        gap: 22px;
+      }
+      .lane {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin: 6px 0;
+        font: 12px var(--mono);
+        color: var(--text-2);
+      }
+      .lane span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .track {
+        position: relative;
+        height: 14px;
+      }
+      .track i {
+        position: absolute;
+        top: 2px;
+        height: 10px;
+        min-width: 2px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #4f8cff, #9b7bff);
+        opacity: 0.75;
+        cursor: pointer;
+      }
+      .track i.failed {
+        background: var(--fail);
+        opacity: 1;
+        box-shadow: 0 0 calc(10px * var(--glow)) var(--fail);
+      }
+      .track i.flaky {
+        background: var(--flaky);
+        opacity: 1;
+      }
+      .axis {
+        display: flex;
+        justify-content: space-between;
+        margin-left: 130px;
+        color: var(--muted);
+        font: 10.5px var(--mono);
+        margin-top: 8px;
+      }
+      ol.slow {
+        margin: 0;
+        padding: 14px 20px 14px 40px;
+        font-size: 13.5px;
+        line-height: 2.1;
+        color: var(--text-2);
+      }
+      ol.slow b {
+        font-family: var(--mono);
+        color: var(--text);
+      }
+      .md {
+        margin: 0;
+        background: var(--inset);
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        padding: 18px;
+        font: 12px/1.6 var(--mono);
+        color: var(--text-2);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      /* test details */
+      dialog {
+        width: min(720px, calc(100vw - 32px));
+        max-height: calc(100vh - 64px);
+        background: var(--panel-strong);
+        color: var(--text);
+        border: 1px solid var(--line-strong);
+        border-radius: 20px;
+        padding: 24px 26px;
+        box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+      }
+      dialog::backdrop {
+        background: rgba(3, 6, 14, 0.6);
+        backdrop-filter: blur(3px);
+      }
+      dialog h3 {
+        margin: 8px 0 4px;
+        font-size: 20px;
+      }
+      dialog .close {
+        float: right;
+        background: none;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 6px 14px;
+        font-size: 13px;
+        margin-top: 14px;
+      }
+      .kv dt {
+        color: var(--muted);
+      }
+      .kv dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--panel-strong);
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 13px;
+        z-index: 40;
+      }
+
+      @media (max-width: 1100px) {
+        .hero {
+          grid-template-columns: 170px minmax(0, 1fr);
+        }
+        .stats {
+          grid-column: 1 / -1;
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .gauge {
+          width: 170px;
+          height: 170px;
+        }
+        .viz,
+        .cols {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 760px) {
+        body {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        aside {
+          position: static;
+          height: auto;
+        }
+        main {
+          padding: 20px 16px 40px;
+        }
+        .hero {
+          grid-template-columns: minmax(0, 1fr);
+          justify-items: start;
+          padding: 22px;
+        }
+        .stats {
+          grid-template-columns: 1fr 1fr;
+          width: 100%;
+        }
+        .verdict h1 {
+          font-size: 30px;
+        }
+        .donut {
+          grid-template-columns: 1fr;
+        }
+        .rows .wide {
+          display: none;
+        }
+      }
+      @media print {
+        body {
+          display: block;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        aside,
+        .aurora,
+        .filters,
+        #tip {
+          display: none;
+        }
+        section[data-print] {
+          display: block !important;
+          break-inside: avoid-page;
+          margin-bottom: 28px;
+        }
+        section#tests {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+    <aside>
+      <div class="brand">
+        <div class="mark" id="mark" aria-hidden="true"></div>
+        <div><b id="title"></b><span id="subtitle"></span></div>
+      </div>
+      <nav id="nav" aria-label="Report sections"></nav>
+      <dl class="facts" id="facts"></dl>
+      <div class="actions">
+        <button type="button" class="primary" id="copy">
+          ⧉ Copy summary for the PR
+        </button>
+        <button type="button" id="print">⤓ Save as PDF</button>
+        <button type="button" id="theme">◑ Light theme</button>
+      </div>
+    </aside>
+    <main>
+      <section id="overview" data-print></section>
+      <section id="tests" hidden></section>
+      <section id="failures" data-print hidden></section>
+      <section id="timeline" data-print hidden></section>
+    </main>
+    <div id="tip" hidden></div>
+    <dialog id="details" aria-labelledby="details-title"></dialog>
+
+    <script>
+      const VIEW = /*__RUN_REPORT_DATA__*/ null;
+
+      const $ = (id) => document.getElementById(id);
+      const esc = (value) =>
+        String(value ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      const duration = (ms) => {
+        const s = Math.round(ms / 1000);
+        if (s < 60) return ms < 10000 ? `${(ms / 1000).toFixed(1)}s` : `${s}s`;
+        return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+      };
+      const time = (ms) =>
+        ms
+          ? new Date(ms).toLocaleString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "—";
+      const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+      const COLOR = {
+        passed: "var(--pass)",
+        failed: "var(--fail)",
+        flaky: "var(--flaky)",
+        skipped: "var(--skip)",
+      };
+      const CATEGORY = {
+        app: ["var(--fail)", "product defect"],
+        test: ["var(--flaky)", "fix the test"],
+        env: ["var(--blue)", "environment or data"],
+        unknown: ["var(--muted)", "needs a look"],
+      };
+      const tests = VIEW.tests;
+      const label = (t) =>
+        (t.caseId ? `${t.caseId} · ` : "") +
+        t.title.replace(/^[A-Z]\d{3,}_[A-Za-z0-9]+_[A-Za-z0-9]+:\s*/, "");
+
+      // Sidebar
+      const initials =
+        VIEW.meta.title
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((w) => w[0].toUpperCase())
+          .join("") || "QA";
+      $("mark").textContent = initials;
+      $("title").textContent = VIEW.meta.title;
+      $("subtitle").textContent = VIEW.meta.subtitle;
+      const facts = [
+        ["Environment", VIEW.environment && esc(VIEW.environment)],
+        [
+          "Commit",
+          [VIEW.meta.branch, VIEW.meta.commit]
+            .filter(Boolean)
+            .map(esc)
+            .join(" · "),
+        ],
+        ["Started", esc(time(VIEW.startedAt))],
+        [
+          "Duration",
+          `${esc(duration(VIEW.durationMs))}${VIEW.runs > 1 ? ` · ${VIEW.runs} jobs` : ""}`,
+        ],
+        [
+          "CI run",
+          VIEW.meta.runUrl &&
+            `<a href="${esc(VIEW.meta.runUrl)}" target="_blank" rel="noopener">open the run ↗</a>`,
+        ],
+      ].filter(([, value]) => value);
+      $("facts").innerHTML = facts
+        .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
+        .join("");
+
+      const SECTIONS = [
+        ["overview", "Overview", ""],
+        ["tests", "All tests", tests.length],
+        ["failures", "Failures", VIEW.counts.failed],
+        ["timeline", "Timeline", ""],
+      ];
+      $("nav").innerHTML = SECTIONS.map(
+        ([id, name, n]) =>
+          `<button type="button" data-section="${id}">${name}<span class="n ${id === "failures" && n ? "f" : ""}">${n}</span></button>`,
+      ).join("");
+      const show = (id) => {
+        for (const [section] of SECTIONS) $(section).hidden = section !== id;
+        for (const button of $("nav").children) {
+          if (button.dataset.section === id)
+            button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        }
+        history.replaceState(null, "", `#${id}`);
+        window.scrollTo(0, 0);
+      };
+      window.addEventListener("hashchange", () => {
+        const id = location.hash.slice(1);
+        if (SECTIONS.some(([section]) => section === id)) show(id);
+      });
+      $("nav").addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (button) show(button.dataset.section);
+      });
+
+      // Overview
+      const { counts } = VIEW;
+      const ran = tests.length - counts.skipped;
+      const failed = counts.failed > 0;
+      const percent = ran
+        ? (VIEW.passRate * 100).toFixed(VIEW.passRate === 1 ? 0 : 1)
+        : "—";
+      const appCauses = VIEW.causes.filter((c) => c.category === "app").length;
+
+      const gauge = () => {
+        const R = 80,
+          C = 2 * Math.PI * R;
+        const passShare = ran ? (counts.passed + counts.flaky) / ran : 0;
+        const failShare = ran ? counts.failed / ran : 0;
+        const gap = failShare > 0 && passShare > 0 ? 4 : 0;
+        return `<svg width="190" height="190" viewBox="0 0 190 190" role="img" aria-label="Pass rate ${percent}%">
+          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6ea8ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#3ee0d0"/></linearGradient></defs>
+          <circle cx="95" cy="95" r="${R}" fill="none" stroke="var(--line)" stroke-width="14"/>
+          ${passShare ? `<circle cx="95" cy="95" r="${R}" fill="none" stroke="url(#g)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${Math.max(C * passShare - gap, 0)} ${C}" transform="rotate(-90 95 95)"/>` : ""}
+          ${failShare ? `<circle cx="95" cy="95" r="${R}" fill="none" stroke="var(--fail)" stroke-width="14" stroke-dasharray="${Math.max(C * failShare - gap, 1.5)} ${C}" stroke-dashoffset="${-C * passShare}" transform="rotate(-90 95 95)"/>` : ""}
+          <circle cx="95" cy="95" r="61" fill="none" stroke="var(--line)" stroke-dasharray="2 6"/></svg>
+          <div class="c"><b>${percent}${ran ? "%" : ""}</b><span>PASS RATE</span></div>`;
+      };
+
+      const headline = failed
+        ? `${plural(counts.failed, "failure")},<br><em>${plural(VIEW.causes.length, "root cause")}.</em>`
+        : ran
+          ? `All ${ran} tests<br><em>passed.</em>`
+          : `No tests<br><em>ran.</em>`;
+      const sentence = failed
+        ? `${counts.passed + counts.flaky} of ${ran} tests passed across ${plural(VIEW.projects.length, "project")}.` +
+          (appCauses
+            ? ` ${appCauses === 1 ? "1 cause looks" : `${appCauses} causes look`} like a product defect.`
+            : "")
+        : `${plural(VIEW.projects.length, "project")} ran${counts.flaky ? `; ${plural(counts.flaky, "test")} passed only on a retry` : ""}.`;
+      const chips = [
+        VIEW.environment,
+        [VIEW.meta.branch, VIEW.meta.commit].filter(Boolean).join(" · "),
+        duration(VIEW.durationMs),
+        `${VIEW.runs > 1 ? `${VIEW.runs} jobs · ` : ""}${plural(VIEW.workers, "worker")}`,
+      ].filter(Boolean);
+
+      const hexPath = (cx, cy, r) => {
+        let d = "";
+        for (let k = 0; k < 6; k++) {
+          const a = (Math.PI / 180) * (60 * k - 30);
+          d += `${k ? "L" : "M"}${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+        }
+        return `${d}Z`;
+      };
+      const cluster = (name, indexes) => {
+        const n = indexes.length;
+        const rows = Math.min(16, Math.max(3, Math.ceil(Math.sqrt(n / 2.2))));
+        const r = 7.2,
+          w = Math.sqrt(3) * r,
+          h = 1.5 * r,
+          cols = Math.ceil(n / rows);
+        const paths = indexes
+          .map((index, k) => {
+            const col = Math.floor(k / rows),
+              row = k % rows;
+            const cx = w / 2 + col * w + (row % 2 ? w / 2 : 0) + 1,
+              cy = r + row * h + 1;
+            return `<path class="hex ${tests[index].outcome}" data-i="${index}" d="${hexPath(cx, cy, r - 1)}"/>`;
+          })
+          .join("");
+        const failedHere = indexes.filter(
+          (i) => tests[i].outcome === "failed",
+        ).length;
+        const width = cols * w + w / 2 + 2,
+          height = Math.min(rows, n) * h + r / 2 + 2;
+        return `<div class="cluster"><h3>${esc(name)}<small class="${failedHere ? "f" : ""}">${failedHere ? `${failedHere} failed` : "✓"} · ${n}</small></h3>
+          <svg width="${width.toFixed(0)}" height="${height.toFixed(0)}" viewBox="0 0 ${width.toFixed(1)} ${height.toFixed(1)}" role="img" aria-label="${esc(name)}: ${n} tests, ${failedHere} failed">${paths}</svg></div>`;
+      };
+
+      $("overview").innerHTML = `
+        <div class="hero ${failed ? "failed" : ""}">
+          <div class="gauge">${gauge()}</div>
+          <div class="verdict"><span class="badge">${failed ? "✕ RUN FAILED" : ran ? "✓ RUN PASSED" : "– NOTHING RAN"}</span>
+            <h1>${headline}</h1><p>${esc(sentence)}</p>
+            <div class="chips">${chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div></div>
+          <div class="stats">
+            <div class="stat" style="--c:var(--pass)"><b>${counts.passed}</b><span>passed</span></div>
+            <div class="stat ${failed ? "hot" : ""}" style="--c:var(--fail)"><b>${counts.failed}</b><span>failed</span></div>
+            <div class="stat" style="--c:var(--flaky)"><b>${counts.flaky}</b><span>flaky · passed on retry</span></div>
+            <div class="stat" style="--c:var(--skip)"><b>${counts.skipped}</b><span>skipped</span></div>
+          </div>
+        </div>
+        <h2>Test map<em>every hexagon is one test, grouped by project · hover for details, click to open</em></h2>
+        <div class="panel">${
+          tests.length
+            ? `<div class="map" id="map">${VIEW.projects.map((p) => cluster(p.name, p.tests)).join("")}</div>
+               <div class="legend"><span style="--c:var(--pass)">passed</span><span style="--c:var(--fail)">failed</span><span style="--c:var(--flaky)">flaky</span><span style="--c:var(--skip)">skipped</span></div>`
+            : `<div class="empty">No test results were recorded.</div>`
+        }</div>`;
+
+      // Tooltip and details, for every element with data-i
+      const tip = $("tip");
+      document.addEventListener("mouseover", (event) => {
+        const el = event.target.closest("[data-i]");
+        if (!el || el.tagName === "TR") return;
+        const t = tests[el.dataset.i];
+        tip.className = t.outcome;
+        tip.innerHTML = `<div class="p">${esc(t.project)} · ${esc(t.file)}</div><b>${esc(label(t))}</b>
+          <span style="color:${COLOR[t.outcome]}">${t.outcome}</span> · ${duration(t.durationMs)}${t.attempts > 1 ? ` · ${t.attempts} attempts` : ""}
+          ${t.error ? `<div class="p" style="margin-top:6px">${esc(t.error.split("\n")[0].slice(0, 140))}</div>` : ""}`;
+        tip.hidden = false;
+      });
+      document.addEventListener("mousemove", (event) => {
+        if (tip.hidden) return;
+        const x = Math.min(event.clientX + 16, window.innerWidth - 336);
+        const y =
+          event.clientY + 18 + tip.offsetHeight > window.innerHeight
+            ? event.clientY - tip.offsetHeight - 12
+            : event.clientY + 18;
+        tip.style.left = `${x}px`;
+        tip.style.top = `${y}px`;
+      });
+      document.addEventListener("mouseout", (event) => {
+        if (event.target.closest("[data-i]")) tip.hidden = true;
+      });
+
+      const evidence = (t) => {
+        if (!t.attachments.length) return "";
+        if (VIEW.meta.runUrl) {
+          return `<a href="${esc(VIEW.meta.runUrl)}#artifacts" target="_blank" rel="noopener">${t.attachments.map((a) => esc(a.name)).join(" · ")} ↗</a>`;
+        }
+        return t.attachments
+          .map((a) => `<a href="../${esc(a.path)}">${esc(a.name)}</a>`)
+          .join("");
+      };
+      const details = $("details");
+      const open = (index) => {
+        const t = tests[index];
+        const trace = t.attachments.find((a) => a.name === "trace");
+        details.innerHTML = `<button type="button" class="close" aria-label="Close">✕</button>
+          <span class="badge" style="color:${COLOR[t.outcome]};border-color:${COLOR[t.outcome]};background:none">${t.outcome.toUpperCase()}</span>
+          <h3 id="details-title">${esc(label(t))}</h3>
+          <dl class="kv"><dt>Project</dt><dd>${esc(t.project)}</dd><dt>File</dt><dd class="mono">${esc(t.file)}:${t.line}</dd>
+          <dt>Duration</dt><dd>${duration(t.durationMs)}</dd><dt>Attempts</dt><dd>${t.attempts}</dd>
+          ${t.attachments.length ? `<dt>Evidence</dt><dd class="links">${evidence(t)}</dd>` : ""}</dl>
+          ${t.error ? `<pre>${esc(t.error)}</pre>` : ""}
+          ${trace && !VIEW.meta.runUrl ? `<p class="note">Open the trace: <code>npx playwright show-trace ${esc(trace.path)}</code></p>` : ""}
+          ${t.attachments.length && VIEW.meta.runUrl ? `<p class="note">Traces, screenshots and videos are in the CI run's test-results artifacts.</p>` : ""}`;
+        tip.hidden = true;
+        details.showModal();
+      };
+      details.addEventListener("click", (event) => {
+        if (event.target === details || event.target.closest(".close"))
+          details.close();
+      });
+      document.addEventListener("click", (event) => {
+        const el = event.target.closest("[data-i]");
+        if (el && !details.contains(el)) open(Number(el.dataset.i));
+      });
+
+      // All tests
+      const state = { q: "", outcome: "all", project: "all" };
+      $("tests").innerHTML =
+        `<h2>All tests<em>${tests.length} tests · click a row for its details</em></h2>
+        <div class="filters"><input id="q" type="search" placeholder="Search title, case ID or file" aria-label="Search tests" />
+          <div class="seg" id="outcome">${["all", "failed", "flaky", "passed", "skipped"].map((o) => `<button type="button" data-o="${o}" aria-pressed="${o === "all"}">${o}</button>`).join("")}</div>
+          <select id="project" aria-label="Project"><option value="all">all projects</option>${VIEW.projects.map((p) => `<option>${esc(p.name)}</option>`).join("")}</select></div>
+        <table class="rows"><thead><tr><th>Test</th><th>Project</th><th class="wide">File</th><th>Time</th></tr></thead><tbody id="rows"></tbody></table>
+        <p class="note" id="shown"></p>`;
+      const ORDER = { failed: 0, flaky: 1, passed: 2, skipped: 3 };
+      const sorted = tests
+        .map((t, i) => i)
+        .sort(
+          (a, b) => ORDER[tests[a].outcome] - ORDER[tests[b].outcome] || a - b,
+        );
+      const renderRows = () => {
+        const q = state.q.toLowerCase();
+        const shown = sorted.filter((i) => {
+          const t = tests[i];
+          return (
+            (state.outcome === "all" || t.outcome === state.outcome) &&
+            (state.project === "all" || t.project === state.project) &&
+            (!q ||
+              `${t.title} ${t.caseId ?? ""} ${t.file}`
+                .toLowerCase()
+                .includes(q))
+          );
+        });
+        $("rows").innerHTML = shown
+          .map((i) => {
+            const t = tests[i];
+            return `<tr data-i="${i}"><td><span class="dot" style="--c:${COLOR[t.outcome]}"></span>${esc(label(t))}</td><td>${esc(t.project)}</td>
+              <td class="mono wide">${esc(t.file)}:${t.line}</td><td class="mono">${duration(t.durationMs)}</td></tr>`;
+          })
+          .join("");
+        $("shown").textContent =
+          shown.length === tests.length
+            ? ""
+            : `${shown.length} of ${tests.length} shown`;
+      };
+      $("q").addEventListener(
+        "input",
+        (event) => ((state.q = event.target.value), renderRows()),
+      );
+      $("project").addEventListener(
+        "change",
+        (event) => ((state.project = event.target.value), renderRows()),
+      );
+      $("outcome").addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        state.outcome = button.dataset.o;
+        for (const b of $("outcome").children)
+          b.setAttribute("aria-pressed", String(b === button));
+        renderRows();
+      });
+      renderRows();
+
+      // Failures
+      const donut = () => {
+        const R = 54,
+          C = 2 * Math.PI * R,
+          total = counts.failed;
+        let offset = 0;
+        const arcs = Object.entries(VIEW.categories)
+          .filter(([, n]) => n)
+          .map(([category, n]) => {
+            const length = (C * n) / total;
+            const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="${CATEGORY[category][0]}" stroke-width="16" stroke-dasharray="${Math.max(length - 3, 1.5)} ${C}" stroke-dashoffset="${-offset}" transform="rotate(-90 70 70)"/>`;
+            offset += length;
+            return arc;
+          })
+          .join("");
+        return `<svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="${total} failed tests by category">${arcs}
+          <text x="70" y="70" text-anchor="middle" fill="currentColor" font-size="28" font-weight="800">${total}</text>
+          <text x="70" y="90" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="monospace" letter-spacing="1.5">FAILED</text></svg>`;
+      };
+      const biggest = Math.max(1, ...VIEW.causes.map((c) => c.tests.length));
+      const causeName = (c) =>
+        `${c.file.split("/").pop()} · ${c.error.split("\n")[0]}`;
+      $("failures").innerHTML = failed
+        ? `<div class="viz">
+            <div class="panel donut">${donut()}<div class="cats">${Object.entries(
+              VIEW.categories,
+            )
+              .map(
+                ([k, n]) =>
+                  `<div style="--c:${CATEGORY[k][0]}" title="${CATEGORY[k][1]}"><span>${k}</span><b>${n}</b></div>`,
+              )
+              .join("")}</div></div>
+            <div class="panel bars"><h2>Root causes by impact</h2>${VIEW.causes
+              .slice(0, 6)
+              .map(
+                (c) =>
+                  `<div class="bar"><span title="${esc(causeName(c))}">${esc(causeName(c))}</span><i style="width:${(c.tests.length / biggest) * 100}%"></i><b>${c.tests.length}</b></div>`,
+              )
+              .join(
+                "",
+              )}${VIEW.causes.length > 6 ? `<p class="note">and ${VIEW.causes.length - 6} more below</p>` : ""}</div>
+          </div>
+          <h2>Root causes<em>${plural(counts.failed, "failed test")} in ${plural(VIEW.causes.length, "group")} · the same error in several browsers is one cause · the category is a first guess from the error</em></h2>
+          <table><thead><tr><th></th><th>Cause</th><th>Where</th><th>Likely</th></tr></thead><tbody>${VIEW.causes
+            .map(
+              (
+                c,
+              ) => `<tr><td class="num">${c.tests.length}</td><td><b>${esc(c.file)}</b><pre>${esc(c.error)}</pre>
+                <div class="links">${c.tests.map((i) => `<button type="button" class="linkish" data-i="${i}">${esc(tests[i].caseId ?? tests[i].title)} · ${esc(tests[i].project)}</button>`).join("")}</div></td>
+                <td style="color:var(--muted);font-size:12.5px;width:170px">${c.projects.map(esc).join(" · ")}</td>
+                <td style="width:96px"><span class="pill ${c.category}">${c.category}</span></td></tr>`,
+            )
+            .join("")}</tbody></table>`
+        : `<div class="panel empty"><b>No failures.</b>${ran ? `All ${ran} tests passed${counts.flaky ? `, ${plural(counts.flaky, "test")} only on a retry` : ""}.` : "No tests ran."}</div>`;
+
+      // Timeline
+      const span = Math.max(VIEW.durationMs, 1);
+      const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) =>
+        duration(span * f).replace(/ 00s$/, "m"),
+      );
+      $("timeline").innerHTML = `<div class="cols"><div>
+          <h2>Timeline<em>per ${VIEW.runs > 1 ? "CI job and " : ""}worker · ${duration(VIEW.durationMs)}</em></h2>
+          <div class="panel">${
+            VIEW.lanes.length
+              ? VIEW.lanes
+                  .map(
+                    (lane) =>
+                      `<div class="lane"><span title="${esc(lane.name)}">${esc(lane.name)}</span><div class="track">${lane.tests
+                        .filter((i) => tests[i].outcome !== "skipped")
+                        .map((i) => {
+                          const t = tests[i];
+                          const left =
+                            ((t.startedAt - VIEW.startedAt) / span) * 100;
+                          const width = Math.max(
+                            (t.durationMs / span) * 100 - 0.3,
+                            0.25,
+                          );
+                          return `<i class="${t.outcome}" data-i="${i}" style="left:${Math.max(0, left).toFixed(2)}%;width:${width.toFixed(2)}%"></i>`;
+                        })
+                        .join("")}</div></div>`,
+                  )
+                  .join("") +
+                `<div class="axis">${ticks.map((t) => `<span>${t}</span>`).join("")}</div>`
+              : `<div class="empty">No test ran.</div>`
+          }</div>
+          <h2>Slowest tests</h2>
+          <div class="panel" style="padding:0">${
+            VIEW.slowest.length
+              ? `<ol class="slow">${VIEW.slowest.map((i) => `<li><button type="button" class="linkish" style="color:inherit" data-i="${i}">${esc(label(tests[i]))} · ${esc(tests[i].project)}</button> — <b>${duration(tests[i].durationMs)}</b></li>`).join("")}</ol>`
+              : `<div class="empty">No test ran.</div>`
+          }</div></div>
+        <div><h2>Copy summary<em>Markdown for the pull request</em></h2><pre class="md">${esc(VIEW.summary)}</pre></div></div>`;
+
+      // Actions
+      const toast = (text) => {
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.textContent = text;
+        document.body.append(el);
+        setTimeout(() => el.remove(), 2200);
+      };
+      $("copy").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(VIEW.summary);
+          toast("Summary copied: paste it into the pull request.");
+        } catch {
+          show("timeline");
+          toast("Copying is blocked here: select the summary and copy it.");
+        }
+      });
+      $("print").addEventListener("click", () => window.print());
+      const setTheme = (theme) => {
+        document.documentElement.dataset.theme = theme;
+        $("theme").textContent =
+          theme === "dark" ? "◑ Light theme" : "◐ Dark theme";
+        try {
+          localStorage.setItem("run-report-theme", theme);
+        } catch {
+          // The theme is only remembered where the browser allows it.
+        }
+      };
+      $("theme").addEventListener("click", () =>
+        setTheme(
+          document.documentElement.dataset.theme === "dark" ? "light" : "dark",
+        ),
+      );
+      try {
+        const saved = localStorage.getItem("run-report-theme");
+        if (saved === "light" || saved === "dark") setTheme(saved);
+      } catch {
+        // No storage: the dark theme stays.
+      }
+
+      const first = location.hash.slice(1);
+      show(SECTIONS.some(([id]) => id === first) ? first : "overview");
+    </script>
+  </body>
+</html>

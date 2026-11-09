@@ -24,6 +24,7 @@
     "qa:handoff-check": "tsx framework/tools/agent-checks/handoff.ts",
     "qa:run-attempt": "tsx framework/tools/agent-checks/run-attempt.ts",
     "qa:failures": "tsx framework/tools/agent-checks/failures.ts",
+    "qa:run-report": "tsx framework/tools/run-report.ts",
     "qa:approve-examples": "tsx framework/tools/agent-checks/approve-examples.ts",
     "qa:review-stamp": "tsx framework/tools/agent-checks/review-stamp.ts",
     "qa:templates:check": "tsx framework/tools/templates.ts check",
