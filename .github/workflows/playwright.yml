@@ -133,7 +133,20 @@ jobs:
       - name: Push Playwright test image
         run: docker push "$TEST_IMAGE"
 
+      # The image is tagged with the UPEX commit, so an image of that commit
+      # is reused: the build downloads Google Fonts and depends on them.
+      - name: Check for an existing UPEX image
+        id: upex-existing
+        env:
+          UPEX_IMAGE: ${{ steps.upex.outputs.image }}
+        run: |
+          if docker manifest inspect "$UPEX_IMAGE" >/dev/null 2>&1; then
+            echo "Reusing $UPEX_IMAGE."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build UPEX application image
+        if: steps.upex-existing.outputs.exists != 'true'
         run: |
           docker build \
             -f Dockerfile.upex-local \
@@ -142,6 +155,7 @@ jobs:
             .
 
       - name: Push UPEX application image
+        if: steps.upex-existing.outputs.exists != 'true'
         run: docker push "${{ steps.upex.outputs.image }}"
 
   api:
